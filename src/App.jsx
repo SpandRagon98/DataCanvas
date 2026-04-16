@@ -1,9 +1,10 @@
 import { HashRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
-import { Database, BarChart3, Table2, Layers3, ArrowRight } from "lucide-react";
+import { Database, BarChart3, Table2, Layers3, ArrowRight, LayoutDashboard } from "lucide-react";
 import DataSource from "./pages/DataSource";
 import DataTable from "./pages/DataTable";
 import ReportBuilder from "./pages/ReportBuilder";
 import Hierarchies from "./pages/Hierarchies";
+import Dashboard from "./pages/Dashboard";
 import { T } from "./styles/theme";
 
 function TopNav() {
@@ -66,6 +67,11 @@ function TopNav() {
             Report Builder
           </NavLink>
 
+          <NavLink to="/dashboard" className={linkClass} style={activeStyle}>
+            <LayoutDashboard size={14} />
+            Dashboard
+          </NavLink>
+
           <NavLink to="/hierarchies" className={linkClass} style={activeStyle}>
             <Layers3 size={14} />
             Hierarchies
@@ -115,8 +121,7 @@ function HomePage() {
         </h1>
 
         <p className="mx-auto mt-5 max-w-2xl text-base md:text-lg" style={{ color: T.dim }}>
-          Import your data, edit it live, build interactive visuals, and define hierarchies in one
-          clean workspace.
+          Import your data, edit it live, build interactive visuals, organize dashboards, and define hierarchies in one clean workspace.
         </p>
 
         <div className="mt-10 flex items-center justify-center">
@@ -145,6 +150,7 @@ export default function App() {
             <Route path="/source" element={<DataSource />} />
             <Route path="/table" element={<DataTable />} />
             <Route path="/report" element={<ReportBuilder />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/hierarchies" element={<Hierarchies />} />
           </Routes>
         </div>
