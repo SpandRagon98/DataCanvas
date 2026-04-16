@@ -85,3 +85,6 @@ textarea {
   display: flex;
   align-items: center;
 }
+.dashboard-grid-wrap {
+  min-height: 520px;
+}
