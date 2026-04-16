@@ -16,11 +16,13 @@ import {
   CartesianGrid,
 } from "recharts";
 import { useMemo } from "react";
+import { Trash2 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { applyGlobalFilters } from "../../utils/filterEngine";
 import { buildVisualData, getLegendKeys } from "../../utils/chartEngine";
 import DropZone from "./DropZone";
 import VisualToolbar from "./VisualToolbar";
+import { CHART_COLORS, T } from "../../styles/theme";
 
 export default function VisualCard({ visual }) {
   const rawData = useStore((s) => s.rawData);
@@ -53,10 +55,32 @@ export default function VisualCard({ visual }) {
   const legendKeys = getLegendKeys(chartData);
   const isActive = activeVisualId === visual.id;
 
+  const tooltipStyle = {
+    contentStyle: {
+      background: T.s2,
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      color: T.text,
+      fontSize: 12,
+    },
+  };
+
+  const axisStyle = {
+    tick: { fill: T.dim, fontSize: 11 },
+    stroke: T.border,
+  };
+
   const renderChart = () => {
     if (!visual.xFields?.length || !visual.yFields?.length) {
       return (
-        <div className="flex h-[260px] items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-400">
+        <div
+          className="flex h-[260px] items-center justify-center rounded-2xl border border-dashed text-sm"
+          style={{
+            borderColor: T.border,
+            background: T.s2,
+            color: T.dim,
+          }}
+        >
           Assign X and Y fields to render the visual
         </div>
       );
@@ -64,15 +88,16 @@ export default function VisualCard({ visual }) {
 
     if (visual.chartType === "table") {
       return (
-        <div className="overflow-auto rounded-2xl border border-slate-200">
+        <div className="overflow-auto rounded-2xl border" style={{ borderColor: T.border }}>
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50">
+            <thead style={{ background: T.s2 }}>
               <tr>
                 {chartData[0] &&
                   Object.keys(chartData[0]).map((key) => (
                     <th
                       key={key}
-                      className="border-b border-slate-200 px-4 py-3 text-left font-semibold text-slate-700"
+                      className="border-b px-4 py-3 text-left font-semibold"
+                      style={{ borderColor: T.border, color: T.text }}
                     >
                       {key}
                     </th>
@@ -81,9 +106,13 @@ export default function VisualCard({ visual }) {
             </thead>
             <tbody>
               {chartData.map((row, idx) => (
-                <tr key={idx} className="border-b border-slate-100">
+                <tr key={idx} style={{ background: idx % 2 === 0 ? T.surface : T.s2 }}>
                   {Object.values(row).map((val, i) => (
-                    <td key={i} className="px-4 py-3 text-slate-700">
+                    <td
+                      key={i}
+                      className="border-b px-4 py-3"
+                      style={{ borderColor: T.border, color: T.dim }}
+                    >
                       {val}
                     </td>
                   ))}
@@ -106,14 +135,20 @@ export default function VisualCard({ visual }) {
       }, 0);
 
       return (
-        <div className="flex h-[260px] flex-col justify-center rounded-3xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-8">
-          <div className="text-sm text-slate-500">
+        <div
+          className="flex h-[260px] flex-col justify-center rounded-3xl border p-8"
+          style={{
+            background: T.s2,
+            borderColor: T.border,
+          }}
+        >
+          <div className="text-sm" style={{ color: T.dim }}>
             {visual.yFields?.join(", ")}
           </div>
-          <div className="mt-2 text-4xl font-bold tracking-tight text-slate-900">
+          <div className="mt-2 text-4xl font-bold tracking-tight" style={{ color: T.text }}>
             {total.toLocaleString()}
           </div>
-          <div className="mt-2 text-sm text-slate-500">
+          <div className="mt-2 text-sm" style={{ color: T.muted }}>
             Aggregation: {visual.aggregation}
           </div>
         </div>
@@ -131,8 +166,8 @@ export default function VisualCard({ visual }) {
         <div className="h-[320px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Tooltip />
-              <Legend />
+              <Tooltip {...tooltipStyle} />
+              <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
               <Pie
                 data={pieData}
                 dataKey="value"
@@ -141,7 +176,7 @@ export default function VisualCard({ visual }) {
                 innerRadius={visual.chartType === "donut" ? 60 : 0}
               >
                 {pieData.map((_, i) => (
-                  <Cell key={i} />
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
               </Pie>
             </PieChart>
@@ -155,13 +190,19 @@ export default function VisualCard({ visual }) {
         <div className="h-[320px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="x" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {legendKeys.map((k) => (
-                <Line key={k} type="monotone" dataKey={k} />
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+              <XAxis dataKey="x" {...axisStyle} />
+              <YAxis {...axisStyle} />
+              <Tooltip {...tooltipStyle} />
+              <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
+              {legendKeys.map((k, i) => (
+                <Line
+                  key={k}
+                  type="monotone"
+                  dataKey={k}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  strokeWidth={2}
+                />
               ))}
             </LineChart>
           </ResponsiveContainer>
@@ -174,13 +215,20 @@ export default function VisualCard({ visual }) {
         <div className="h-[320px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="x" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {legendKeys.map((k) => (
-                <Area key={k} type="monotone" dataKey={k} />
+              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+              <XAxis dataKey="x" {...axisStyle} />
+              <YAxis {...axisStyle} />
+              <Tooltip {...tooltipStyle} />
+              <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
+              {legendKeys.map((k, i) => (
+                <Area
+                  key={k}
+                  type="monotone"
+                  dataKey={k}
+                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                  fill={CHART_COLORS[i % CHART_COLORS.length]}
+                  fillOpacity={0.18}
+                />
               ))}
             </AreaChart>
           </ResponsiveContainer>
@@ -192,16 +240,18 @@ export default function VisualCard({ visual }) {
       <div className="h-[320px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="x" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            {legendKeys.map((k) => (
+            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            <XAxis dataKey="x" {...axisStyle} />
+            <YAxis {...axisStyle} />
+            <Tooltip {...tooltipStyle} />
+            <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
+            {legendKeys.map((k, i) => (
               <Bar
                 key={k}
                 dataKey={k}
+                fill={CHART_COLORS[i % CHART_COLORS.length]}
                 stackId={visual.chartType === "stackedBar" ? "a" : undefined}
+                radius={[4, 4, 0, 0]}
               />
             ))}
           </BarChart>
@@ -213,20 +263,26 @@ export default function VisualCard({ visual }) {
   return (
     <div
       onClick={() => setActiveVisual(visual.id)}
-      className={`rounded-3xl border bg-white p-5 shadow-sm transition ${
-        isActive
-          ? "border-slate-400 ring-2 ring-slate-200"
-          : "border-slate-200 hover:border-slate-300"
-      }`}
+      className="rounded-[20px] border p-5 shadow-sm transition"
+      style={{
+        background: T.surface,
+        borderColor: isActive ? T.accent : T.border,
+        boxShadow: isActive
+          ? "0 0 0 1px rgba(245,158,11,0.12), 0 12px 30px rgba(0,0,0,0.25)"
+          : "0 10px 24px rgba(0,0,0,0.18)",
+      }}
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <input
             value={visual.title}
             onChange={(e) => updateVisual(visual.id, { title: e.target.value })}
-            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-lg font-semibold text-slate-800 outline-none focus:border-slate-200 focus:bg-slate-50"
+            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-lg font-semibold outline-none"
+            style={{ color: T.text }}
           />
-          <p className="text-sm text-slate-500">Interactive report visual</p>
+          <p className="text-sm" style={{ color: T.dim }}>
+            Interactive report visual
+          </p>
         </div>
 
         <button
@@ -234,8 +290,10 @@ export default function VisualCard({ visual }) {
             e.stopPropagation();
             removeVisual(visual.id);
           }}
-          className="rounded-xl border border-slate-200 px-3 py-2 text-sm hover:bg-slate-50"
+          className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm"
+          style={{ borderColor: T.border, color: T.dim, background: T.s2 }}
         >
+          <Trash2 size={14} />
           Remove
         </button>
       </div>
