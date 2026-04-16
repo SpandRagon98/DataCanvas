@@ -1,3 +1,5 @@
+import { T } from "../../styles/theme";
+
 export default function DropZone({ label, value, onDropField, onRemoveField }) {
   const handleDrop = (e) => {
     e.preventDefault();
@@ -9,27 +11,37 @@ export default function DropZone({ label, value, onDropField, onRemoveField }) {
     <div
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleDrop}
-      className="min-h-[72px] rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-3 transition hover:border-slate-400"
+      className="min-h-[84px] rounded-2xl border-2 border-dashed p-3 transition"
+      style={{
+        borderColor: T.border,
+        background: T.s2,
+      }}
     >
-      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="text-xs font-semibold uppercase tracking-wide mono" style={{ color: T.muted }}>
         {label}
       </div>
 
-      <div className="mt-2 text-sm">
+      <div className="mt-3 text-sm">
         {Array.isArray(value) ? (
           value.length ? (
             <div className="flex flex-wrap gap-2">
               {value.map((v) => (
                 <span
                   key={v}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 shadow-sm"
+                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5"
+                  style={{
+                    background: T.surface,
+                    borderColor: T.border,
+                    color: T.text,
+                  }}
                 >
                   {v}
                   {onRemoveField && (
                     <button
                       type="button"
                       onClick={() => onRemoveField(v)}
-                      className="text-slate-400 hover:text-slate-700"
+                      className="text-sm"
+                      style={{ color: T.muted }}
                     >
                       ×
                     </button>
@@ -38,23 +50,31 @@ export default function DropZone({ label, value, onDropField, onRemoveField }) {
               ))}
             </div>
           ) : (
-            <span className="text-slate-400">Drop field here</span>
+            <span style={{ color: T.dim }}>Drop field here</span>
           )
         ) : value ? (
-          <span className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-slate-700 shadow-sm">
+          <span
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5"
+            style={{
+              background: T.surface,
+              borderColor: T.border,
+              color: T.text,
+            }}
+          >
             {value}
             {onRemoveField && (
               <button
                 type="button"
                 onClick={() => onRemoveField(value)}
-                className="text-slate-400 hover:text-slate-700"
+                className="text-sm"
+                style={{ color: T.muted }}
               >
                 ×
               </button>
             )}
           </span>
         ) : (
-          <span className="text-slate-400">Drop field here</span>
+          <span style={{ color: T.dim }}>Drop field here</span>
         )}
       </div>
     </div>
