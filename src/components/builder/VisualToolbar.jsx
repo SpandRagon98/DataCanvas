@@ -1,4 +1,9 @@
-export default function VisualToolbar({ chartType, aggregation, sortDirection, onChange }) {
+export default function VisualToolbar({
+  chartType,
+  aggregation,
+  sortDirection,
+  onChange,
+}) {
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <select
@@ -38,5 +43,5 @@ export default function VisualToolbar({ chartType, aggregation, sortDirection, o
         <option value="desc">Sort Desc</option>
       </select>
     </div>
-  )
+  );
 }
