@@ -1,48 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap');
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-html,
-body,
-#root {
-  margin: 0;
-  min-height: 100%;
-  background: #09090b;
-  color: #e4e4ec;
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+.ag-theme-quartz-dark {
+  --ag-background-color: #111113;
+  --ag-foreground-color: #e4e4ec;
+  --ag-border-color: #2a2a30;
+  --ag-header-background-color: #18181b;
+  --ag-header-foreground-color: #e4e4ec;
+  --ag-odd-row-background-color: #111113;
+  --ag-row-hover-color: rgba(245, 158, 11, 0.08);
+  --ag-selected-row-background-color: rgba(245, 158, 11, 0.12);
+  --ag-input-focus-border-color: #f59e0b;
+  --ag-range-selection-border-color: #f59e0b;
+  --ag-font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --ag-font-size: 14px;
+  --ag-cell-horizontal-border: 1px solid #2a2a30;
+  --ag-row-border-color: #2a2a30;
+  --ag-header-column-separator-color: #2a2a30;
+  --ag-wrapper-border-radius: 16px;
 }
 
-* {
-  box-sizing: border-box;
+.ag-theme-quartz-dark .ag-root-wrapper {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #2a2a30;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.ag-theme-quartz-dark .ag-header-cell-label {
+  font-weight: 600;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #2a2a30;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
-}
-
-input,
-select,
-textarea,
-button {
-  font-family: inherit;
-}
-
-.mono {
-  font-family: 'Fira Code', 'SF Mono', Consolas, monospace;
+.ag-theme-quartz-dark .ag-cell {
+  display: flex;
+  align-items: center;
 }
