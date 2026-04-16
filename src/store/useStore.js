@@ -98,7 +98,39 @@ const buildColumns = (rows) => {
   return { columns: cols, dataTypes };
 };
 
+const createId = (prefix) =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const createDefaultDashboard = () => ({
+  id: createId("dashboard"),
+  name: "Dashboard 1",
+  items: [],
+});
+
+const createDashboardItem = (visual, existingItems = []) => {
+  const nextY = existingItems.reduce(
+    (max, item) => Math.max(max, (item.layout?.y || 0) + (item.layout?.h || 340) + 16),
+    0
+  );
+
+  return {
+    id: createId("dash_item"),
+    visualConfig: JSON.parse(JSON.stringify(visual)),
+    layout: {
+      x: 16,
+      y: nextY + 16,
+      w: 520,
+      h: 340,
+      minW: 300,
+      minH: 240,
+    },
+  };
+};
+
 const { columns: demoColumns, dataTypes: demoTypes } = buildColumns(DEMO_DATA);
+const initialDashboard = createDefaultDashboard();
 
 export const useStore = create((set, get) => ({
   rawData: DEMO_DATA,
@@ -111,7 +143,11 @@ export const useStore = create((set, get) => ({
 
   hierarchies: [],
 
-  setData: (data, columns, types) =>
+  dashboards: [initialDashboard],
+  activeDashboardId: initialDashboard.id,
+
+  setData: (data, columns, types) => {
+    const resetDashboard = createDefaultDashboard();
     set({
       rawData: data,
       columns,
@@ -120,42 +156,42 @@ export const useStore = create((set, get) => ({
       visuals: [],
       activeVisualId: null,
       hierarchies: [],
+      dashboards: [resetDashboard],
+      activeDashboardId: resetDashboard.id,
+    });
+  },
+
+  updateCell: ({ rowIndex, field, value }) =>
+    set((state) => {
+      const fieldType = state.dataTypes[field];
+      let parsedValue = value;
+
+      if (fieldType === "number") {
+        parsedValue =
+          value === "" || value === null || value === undefined
+            ? ""
+            : Number(value);
+      } else if (fieldType === "boolean") {
+        if (String(value).toLowerCase() === "true") parsedValue = true;
+        else if (String(value).toLowerCase() === "false") parsedValue = false;
+      }
+
+      const nextRawData = [...state.rawData];
+      nextRawData[rowIndex] = {
+        ...nextRawData[rowIndex],
+        [field]: parsedValue,
+      };
+
+      return {
+        rawData: nextRawData,
+        visuals: [...state.visuals],
+        dashboards: [...state.dashboards],
+      };
     }),
-
-updateCell: ({ rowIndex, field, value }) =>
-  set((state) => {
-    const fieldType = state.dataTypes[field];
-
-    let parsedValue = value;
-
-    if (fieldType === "number") {
-      parsedValue =
-        value === "" || value === null || value === undefined
-          ? ""
-          : Number(value);
-    } else if (fieldType === "boolean") {
-      if (String(value).toLowerCase() === "true") parsedValue = true;
-      else if (String(value).toLowerCase() === "false") parsedValue = false;
-    }
-
-    const nextRawData = [...state.rawData];
-    nextRawData[rowIndex] = {
-      ...nextRawData[rowIndex],
-      [field]: parsedValue,
-    };
-
-    return {
-      rawData: nextRawData,
-      visuals: [...state.visuals],
-    };
-  }),
 
   addVisual: () =>
     set((state) => {
-      const id =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `visual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const id = createId("visual");
 
       const newVisual = {
         id,
@@ -227,9 +263,7 @@ updateCell: ({ rowIndex, field, value }) =>
           const exists = v.tooltipFields.includes(field);
           return {
             ...v,
-            tooltipFields: exists
-              ? v.tooltipFields
-              : [...v.tooltipFields, field],
+            tooltipFields: exists ? v.tooltipFields : [...v.tooltipFields, field],
           };
         }
 
@@ -283,6 +317,100 @@ updateCell: ({ rowIndex, field, value }) =>
   removeHierarchy: (hierarchyName) =>
     set((state) => ({
       hierarchies: state.hierarchies.filter((h) => h.name !== hierarchyName),
+    })),
+
+  createDashboard: () =>
+    set((state) => {
+      const dashboard = {
+        id: createId("dashboard"),
+        name: `Dashboard ${state.dashboards.length + 1}`,
+        items: [],
+      };
+
+      return {
+        dashboards: [...state.dashboards, dashboard],
+        activeDashboardId: dashboard.id,
+      };
+    }),
+
+  renameDashboard: (dashboardId, name) =>
+    set((state) => ({
+      dashboards: state.dashboards.map((dashboard) =>
+        dashboard.id === dashboardId
+          ? { ...dashboard, name: name || dashboard.name }
+          : dashboard
+      ),
+    })),
+
+  removeDashboard: (dashboardId) =>
+    set((state) => {
+      if (state.dashboards.length <= 1) return state;
+      const dashboards = state.dashboards.filter((d) => d.id !== dashboardId);
+      return {
+        dashboards,
+        activeDashboardId:
+          state.activeDashboardId === dashboardId
+            ? dashboards[0]?.id ?? null
+            : state.activeDashboardId,
+      };
+    }),
+
+  setActiveDashboard: (dashboardId) => set({ activeDashboardId: dashboardId }),
+
+  addVisualToDashboard: ({ visualId, dashboardId }) =>
+    set((state) => {
+      const visual = state.visuals.find((v) => v.id === visualId);
+      const targetDashboardId = dashboardId || state.activeDashboardId;
+
+      if (!visual || !targetDashboardId) return state;
+
+      return {
+        dashboards: state.dashboards.map((dashboard) => {
+          if (dashboard.id !== targetDashboardId) return dashboard;
+
+          const dashboardItem = createDashboardItem(visual, dashboard.items);
+
+          return {
+            ...dashboard,
+            items: [...dashboard.items, dashboardItem],
+          };
+        }),
+        activeDashboardId: targetDashboardId,
+      };
+    }),
+
+  updateDashboardItemLayout: ({ dashboardId, itemId, patch }) =>
+    set((state) => ({
+      dashboards: state.dashboards.map((dashboard) =>
+        dashboard.id === dashboardId
+          ? {
+              ...dashboard,
+              items: dashboard.items.map((item) =>
+                item.id === itemId
+                  ? {
+                      ...item,
+                      layout: {
+                        ...item.layout,
+                        ...patch,
+                      },
+                    }
+                  : item
+              ),
+            }
+          : dashboard
+      ),
+    })),
+
+  removeDashboardItem: ({ dashboardId, itemId }) =>
+    set((state) => ({
+      dashboards: state.dashboards.map((dashboard) =>
+        dashboard.id === dashboardId
+          ? {
+              ...dashboard,
+              items: dashboard.items.filter((item) => item.id !== itemId),
+            }
+          : dashboard
+      ),
     })),
 
   getActiveVisual: () => {
