@@ -8,16 +8,15 @@
     "build": "vite build",
     "preview": "vite preview"
   },
-  "dependencies": {
-    "ag-grid-community": "^32.3.3",
-    "ag-grid-react": "^32.3.3",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0",
-    "recharts": "^2.13.3",
-    "xlsx": "^0.18.5",
-    "zustand": "^5.0.0"
-  },
+"dependencies": {
+  "ag-grid-community": "^32.0.0",
+  "ag-grid-react": "^32.0.0",
+  "lucide-react": "^0.469.0",
+  "react-router-dom": "^6.20.0",
+  "recharts": "^2.8.0",
+  "xlsx": "^0.18.5",
+  "zustand": "^4.5.0"
+}
   "devDependencies": {
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
