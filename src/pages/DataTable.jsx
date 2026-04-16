@@ -1,8 +1,10 @@
 import { AgGridReact } from "ag-grid-react";
 import { useMemo } from "react";
+import { Database } from "lucide-react";
 import { useStore } from "../store/useStore";
+import { T } from "../styles/theme";
 import "ag-grid-community/styles/ag-grid.css";
-import "ag-grid-community/styles/ag-theme-alpine.css";
+import "ag-grid-community/styles/ag-theme-quartz.css";
 
 export default function DataTable() {
   const rawData = useStore((s) => s.rawData);
@@ -43,27 +45,48 @@ export default function DataTable() {
   );
 
   return (
-    <div className="h-[calc(100vh-32px)] rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-4">
-        <h1 className="text-xl font-semibold text-slate-800">Data Table</h1>
-        <p className="text-sm text-slate-500">
-          Edit raw data and visuals will update automatically
-        </p>
+    <div className="h-[calc(100vh-32px)]">
+      <div
+        className="mb-4 rounded-[20px] border p-6 shadow-sm"
+        style={{ background: T.surface, borderColor: T.border }}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl"
+            style={{ background: T.accentDim }}
+          >
+            <Database size={18} color={T.accent} />
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: T.text }}>
+              Data Table
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: T.dim }}>
+              Edit raw data and visuals will update automatically
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="ag-theme-alpine h-[calc(100%-56px)] w-full overflow-hidden rounded-xl">
-        <AgGridReact
-          rowData={rowData}
-          columnDefs={columnDefs}
-          getRowId={(params) => String(params.data.__rowIndex)}
-          onCellValueChanged={(params) => {
-            updateCell({
-              rowIndex: params.data.__rowIndex,
-              field: params.colDef.field,
-              value: params.newValue,
-            });
-          }}
-        />
+      <div
+        className="h-[calc(100%-110px)] rounded-[20px] border p-4 shadow-sm"
+        style={{ background: T.surface, borderColor: T.border }}
+      >
+        <div className="ag-theme-quartz-dark h-full w-full">
+          <AgGridReact
+            rowData={rowData}
+            columnDefs={columnDefs}
+            getRowId={(params) => String(params.data.__rowIndex)}
+            onCellValueChanged={(params) => {
+              updateCell({
+                rowIndex: params.data.__rowIndex,
+                field: params.colDef.field,
+                value: params.newValue,
+              });
+            }}
+          />
+        </div>
       </div>
     </div>
   );
