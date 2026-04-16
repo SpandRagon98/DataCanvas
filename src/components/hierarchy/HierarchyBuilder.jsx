@@ -117,10 +117,7 @@ export default function HierarchyBuilder() {
               style={{ background: T.s2, borderColor: T.border, color: T.text }}
             >
               {level}
-              <button
-                onClick={() => removeLevel(level)}
-                style={{ color: T.dim }}
-              >
+              <button onClick={() => removeLevel(level)} style={{ color: T.dim }}>
                 ×
               </button>
             </span>
