@@ -1,53 +1,111 @@
-import { useMemo, useState } from 'react'
-import { useStore } from '../../store/useStore'
-import FieldChip from './FieldChip'
+import { useStore } from "../../store/useStore";
 
-export default function FieldPane() {
-  const columns = useStore((s) => s.columns)
-  const dataTypes = useStore((s) => s.dataTypes)
-  const [search, setSearch] = useState('')
-
-  const filtered = useMemo(
-    () => columns.filter((c) => c.toLowerCase().includes(search.toLowerCase())),
-    [columns, search],
-  )
-
-  const dimensions = filtered.filter((f) => dataTypes[f] !== 'number')
-  const measures = filtered.filter((f) => dataTypes[f] === 'number')
+/**
+ * Individual draggable field chip
+ */
+function FieldChip({ field, type }) {
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData("fieldName", field);
+  };
 
   return (
-    <div className="h-full w-full rounded-3xl border border-slate-200 bg-white p-4 shadow-soft">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-slate-800">Fields</h2>
-        <p className="text-sm text-slate-500">Search and drag fields into builder zones</p>
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      className="cursor-grab rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm hover:bg-slate-50 active:cursor-grabbing"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-slate-700">{field}</span>
+        <span className="text-[10px] uppercase text-slate-400">{type}</span>
       </div>
+    </div>
+  );
+}
 
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search fields..."
-        className="mb-4 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-      />
+/**
+ * Main Field Pane
+ */
+export default function FieldPane() {
+  const columns = useStore((s) => s.columns);
+  const dataTypes = useStore((s) => s.dataTypes);
+  const hierarchies = useStore((s) => s.hierarchies);
 
-      <div className="max-h-[calc(100vh-220px)] space-y-6 overflow-y-auto pr-1">
-        <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Dimensions</h3>
+  // Split into dimensions vs measures
+  const dimensions = columns.filter(
+    (c) => dataTypes[c] !== "number"
+  );
+
+  const measures = columns.filter(
+    (c) => dataTypes[c] === "number"
+  );
+
+  // 🔥 Flatten hierarchy levels into usable fields
+  const hierarchyFields = hierarchies.flatMap((h) =>
+    h.levels.map((level, idx) => ({
+      id: `${h.name}_${idx}`,
+      label: `${h.name}: ${level}`,
+      field: level,
+    }))
+  );
+
+  return (
+    <div className="h-full overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 className="mb-4 text-lg font-semibold text-slate-800">
+        Fields
+      </h2>
+
+      {/* 🔷 Hierarchies Section */}
+      {hierarchies.length > 0 && (
+        <div className="mb-6">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Hierarchies
+          </h3>
+
           <div className="space-y-2">
-            {dimensions.map((field) => (
-              <FieldChip key={field} field={field} type={dataTypes[field]} />
+            {hierarchyFields.map((item) => (
+              <FieldChip
+                key={item.id}
+                field={item.field}
+                type="hierarchy"
+              />
             ))}
           </div>
         </div>
+      )}
 
-        <div>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Measures</h3>
-          <div className="space-y-2">
-            {measures.map((field) => (
-              <FieldChip key={field} field={field} type={dataTypes[field]} />
-            ))}
-          </div>
+      {/* 🔷 Dimensions */}
+      <div className="mb-6">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Dimensions
+        </h3>
+
+        <div className="space-y-2">
+          {dimensions.map((field) => (
+            <FieldChip
+              key={field}
+              field={field}
+              type={dataTypes[field]}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* 🔷 Measures */}
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Measures
+        </h3>
+
+        <div className="space-y-2">
+          {measures.map((field) => (
+            <FieldChip
+              key={field}
+              field={field}
+              type={dataTypes[field]}
+            />
+          ))}
         </div>
       </div>
     </div>
-  )
+  );
 }
