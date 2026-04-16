@@ -122,12 +122,33 @@ export const useStore = create((set, get) => ({
       hierarchies: [],
     }),
 
-  updateCell: ({ rowIndex, field, value }) =>
-    set((state) => {
-      const next = [...state.rawData];
-      next[rowIndex] = { ...next[rowIndex], [field]: value };
-      return { rawData: next };
-    }),
+updateCell: ({ rowIndex, field, value }) =>
+  set((state) => {
+    const fieldType = state.dataTypes[field];
+
+    let parsedValue = value;
+
+    if (fieldType === "number") {
+      parsedValue =
+        value === "" || value === null || value === undefined
+          ? ""
+          : Number(value);
+    } else if (fieldType === "boolean") {
+      if (String(value).toLowerCase() === "true") parsedValue = true;
+      else if (String(value).toLowerCase() === "false") parsedValue = false;
+    }
+
+    const nextRawData = [...state.rawData];
+    nextRawData[rowIndex] = {
+      ...nextRawData[rowIndex],
+      [field]: parsedValue,
+    };
+
+    return {
+      rawData: nextRawData,
+      visuals: [...state.visuals],
+    };
+  }),
 
   addVisual: () =>
     set((state) => {
