@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { T } from "../../styles/theme";
+import { T } from "../styles/theme";
 
 const selectStyle = {
   borderColor: T.border,
