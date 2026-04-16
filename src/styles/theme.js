@@ -1,0 +1,33 @@
+export const T = {
+  bg: "#09090b",
+  surface: "#111113",
+  s2: "#18181b",
+  s3: "#1f1f23",
+  border: "#2a2a30",
+  borderHover: "#3f3f46",
+  accent: "#f59e0b",
+  accentHover: "#fbbf24",
+  accentDim: "rgba(245,158,11,0.12)",
+  text: "#e4e4ec",
+  muted: "#52525e",
+  dim: "#a1a1aa",
+  success: "#10b981",
+  error: "#ef4444",
+  blue: "#60a5fa",
+  purple: "#a78bfa",
+  radius: "10px",
+  radiusLg: "14px",
+  mono: "'Fira Code','SF Mono','Consolas',monospace",
+  sans: "'DM Sans',system-ui,-apple-system,sans-serif",
+};
+
+export const CHART_COLORS = [
+  "#f59e0b",
+  "#60a5fa",
+  "#10b981",
+  "#ef4444",
+  "#a78bfa",
+  "#ec4899",
+  "#06b6d4",
+  "#84cc16",
+];
