@@ -1,263 +1,39 @@
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  XAxis,
-  YAxis,
-  Legend,
-  CartesianGrid,
-} from "recharts";
-import { useMemo } from "react";
-import { Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, LayoutDashboard, Trash2 } from "lucide-react";
 import { useStore } from "../../store/useStore";
-import { applyGlobalFilters } from "../../utils/filterEngine";
-import { buildVisualData, getLegendKeys } from "../../utils/chartEngine";
 import DropZone from "./DropZone";
 import VisualToolbar from "./VisualToolbar";
-import { CHART_COLORS, T } from "../../styles/theme";
+import VisualRenderer from "./VisualRenderer";
+import { T } from "../../styles/theme";
 
 export default function VisualCard({ visual }) {
   const rawData = useStore((s) => s.rawData);
   const filters = useStore((s) => s.filters);
+  const dashboards = useStore((s) => s.dashboards);
+  const activeDashboardId = useStore((s) => s.activeDashboardId);
   const assignFieldToVisual = useStore((s) => s.assignFieldToVisual);
   const removeFieldFromVisual = useStore((s) => s.removeFieldFromVisual);
   const updateVisual = useStore((s) => s.updateVisual);
   const removeVisual = useStore((s) => s.removeVisual);
   const setActiveVisual = useStore((s) => s.setActiveVisual);
   const activeVisualId = useStore((s) => s.activeVisualId);
+  const addVisualToDashboard = useStore((s) => s.addVisualToDashboard);
 
-  const filteredRows = useMemo(
-    () => applyGlobalFilters(rawData, filters),
-    [rawData, filters]
-  );
+  const [targetDashboardId, setTargetDashboardId] = useState(activeDashboardId || dashboards[0]?.id || "");
+  const [addedState, setAddedState] = useState(false);
 
-  const chartData = useMemo(
-    () =>
-      buildVisualData({
-        rows: filteredRows,
-        xFields: visual.xFields,
-        yFields: visual.yFields,
-        legendField: visual.legendField,
-        aggregation: visual.aggregation,
-        sortDirection: visual.sortDirection,
-      }),
-    [filteredRows, visual]
-  );
-
-  const legendKeys = getLegendKeys(chartData);
   const isActive = activeVisualId === visual.id;
 
-  const tooltipStyle = {
-    contentStyle: {
-      background: T.s2,
-      border: `1px solid ${T.border}`,
-      borderRadius: 8,
-      color: T.text,
-      fontSize: 12,
-    },
-  };
+  const dashboardOptions = useMemo(() => dashboards, [dashboards]);
 
-  const axisStyle = {
-    tick: { fill: T.dim, fontSize: 11 },
-    stroke: T.border,
-  };
+  const handleAddToDashboard = (e) => {
+    e.stopPropagation();
+    const dashboardId = targetDashboardId || dashboards[0]?.id;
+    if (!dashboardId) return;
 
-  const renderChart = () => {
-    if (!visual.xFields?.length || !visual.yFields?.length) {
-      return (
-        <div
-          className="flex h-[260px] items-center justify-center rounded-2xl border border-dashed text-sm"
-          style={{
-            borderColor: T.border,
-            background: T.s2,
-            color: T.dim,
-          }}
-        >
-          Assign X and Y fields to render the visual
-        </div>
-      );
-    }
-
-    if (visual.chartType === "table") {
-      return (
-        <div className="overflow-auto rounded-2xl border" style={{ borderColor: T.border }}>
-          <table className="min-w-full text-sm">
-            <thead style={{ background: T.s2 }}>
-              <tr>
-                {chartData[0] &&
-                  Object.keys(chartData[0]).map((key) => (
-                    <th
-                      key={key}
-                      className="border-b px-4 py-3 text-left font-semibold"
-                      style={{ borderColor: T.border, color: T.text }}
-                    >
-                      {key}
-                    </th>
-                  ))}
-              </tr>
-            </thead>
-            <tbody>
-              {chartData.map((row, idx) => (
-                <tr key={idx} style={{ background: idx % 2 === 0 ? T.surface : T.s2 }}>
-                  {Object.values(row).map((val, i) => (
-                    <td
-                      key={i}
-                      className="border-b px-4 py-3"
-                      style={{ borderColor: T.border, color: T.dim }}
-                    >
-                      {val}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-    }
-
-    if (visual.chartType === "kpi") {
-      const total = chartData.reduce((sum, item) => {
-        return (
-          sum +
-          Object.keys(item)
-            .filter((k) => k !== "x")
-            .reduce((s, k) => s + Number(item[k] || 0), 0)
-        );
-      }, 0);
-
-      return (
-        <div
-          className="flex h-[260px] flex-col justify-center rounded-3xl border p-8"
-          style={{
-            background: T.s2,
-            borderColor: T.border,
-          }}
-        >
-          <div className="text-sm" style={{ color: T.dim }}>
-            {visual.yFields?.join(", ")}
-          </div>
-          <div className="mt-2 text-4xl font-bold tracking-tight" style={{ color: T.text }}>
-            {total.toLocaleString()}
-          </div>
-          <div className="mt-2 text-sm" style={{ color: T.muted }}>
-            Aggregation: {visual.aggregation}
-          </div>
-        </div>
-      );
-    }
-
-    if (visual.chartType === "pie" || visual.chartType === "donut") {
-      const pieKey = legendKeys[0] || visual.yFields?.[0];
-      const pieData = chartData.map((d) => ({
-        name: d.x,
-        value: Number(d[pieKey] || 0),
-      }));
-
-      return (
-        <div className="h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip {...tooltipStyle} />
-              <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-              <Pie
-                data={pieData}
-                dataKey="value"
-                nameKey="name"
-                outerRadius={110}
-                innerRadius={visual.chartType === "donut" ? 60 : 0}
-              >
-                {pieData.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      );
-    }
-
-    if (visual.chartType === "line") {
-      return (
-        <div className="h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-              <XAxis dataKey="x" {...axisStyle} />
-              <YAxis {...axisStyle} />
-              <Tooltip {...tooltipStyle} />
-              <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-              {legendKeys.map((k, i) => (
-                <Line
-                  key={k}
-                  type="monotone"
-                  dataKey={k}
-                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                  strokeWidth={2}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      );
-    }
-
-    if (visual.chartType === "area") {
-      return (
-        <div className="h-[320px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-              <XAxis dataKey="x" {...axisStyle} />
-              <YAxis {...axisStyle} />
-              <Tooltip {...tooltipStyle} />
-              <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-              {legendKeys.map((k, i) => (
-                <Area
-                  key={k}
-                  type="monotone"
-                  dataKey={k}
-                  stroke={CHART_COLORS[i % CHART_COLORS.length]}
-                  fill={CHART_COLORS[i % CHART_COLORS.length]}
-                  fillOpacity={0.18}
-                />
-              ))}
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      );
-    }
-
-    return (
-      <div className="h-[320px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="x" {...axisStyle} />
-            <YAxis {...axisStyle} />
-            <Tooltip {...tooltipStyle} />
-            <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-            {legendKeys.map((k, i) => (
-              <Bar
-                key={k}
-                dataKey={k}
-                fill={CHART_COLORS[i % CHART_COLORS.length]}
-                stackId={visual.chartType === "stackedBar" ? "a" : undefined}
-                radius={[4, 4, 0, 0]}
-              />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    );
+    addVisualToDashboard({ visualId: visual.id, dashboardId });
+    setAddedState(true);
+    window.setTimeout(() => setAddedState(false), 1200);
   };
 
   return (
@@ -376,7 +152,7 @@ export default function VisualCard({ visual }) {
         />
       </div>
 
-      <div className="mb-5">
+      <div className="mb-4">
         <VisualToolbar
           chartType={visual.chartType}
           aggregation={visual.aggregation}
@@ -385,7 +161,41 @@ export default function VisualCard({ visual }) {
         />
       </div>
 
-      {renderChart()}
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-center lg:justify-between" style={{ background: T.s2, borderColor: T.border }}>
+        <div>
+          <div className="text-sm font-semibold" style={{ color: T.text }}>Add to Dashboard</div>
+          <div className="text-xs" style={{ color: T.dim }}>
+            Choose the dashboard where this visual should be placed.
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <select
+            value={targetDashboardId}
+            onChange={(e) => setTargetDashboardId(e.target.value)}
+            className="rounded-xl border px-3 py-2.5 text-sm outline-none"
+            style={{ background: T.surface, borderColor: T.border, color: T.text, minWidth: 180 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {dashboardOptions.map((dashboard) => (
+              <option key={dashboard.id} value={dashboard.id}>
+                {dashboard.name}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={handleAddToDashboard}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
+            style={{ background: addedState ? T.success : T.accent, color: addedState ? "#04120d" : "#000" }}
+          >
+            {addedState ? <Check size={15} /> : <LayoutDashboard size={15} />}
+            {addedState ? "Added" : "Add to Dashboard"}
+          </button>
+        </div>
+      </div>
+
+      <VisualRenderer visual={visual} rawData={rawData} filters={filters} />
     </div>
   );
 }
