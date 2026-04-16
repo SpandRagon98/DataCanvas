@@ -1,11 +1,13 @@
-import FieldPane from '../components/fields/FieldPane'
-import FilterPanel from '../components/filters/FilterPanel'
-import VisualCard from '../components/builder/VisualCard'
-import { useStore } from '../store/useStore'
+import { Plus, BarChart3 } from "lucide-react";
+import { useStore } from "../store/useStore";
+import FieldPane from "../components/fields/FieldPane";
+import FilterPanel from "../components/filters/FilterPanel";
+import VisualCard from "../components/builder/VisualCard";
+import { T } from "../styles/theme";
 
 export default function ReportBuilder() {
-  const visuals = useStore((s) => s.visuals)
-  const addVisual = useStore((s) => s.addVisual)
+  const visuals = useStore((s) => s.visuals);
+  const addVisual = useStore((s) => s.addVisual);
 
   return (
     <div className="h-[calc(100vh-32px)]">
@@ -15,27 +17,47 @@ export default function ReportBuilder() {
         </div>
 
         <div className="col-span-12 xl:col-span-8">
-          <div className="mb-4 flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-soft">
+          <div
+            className="mb-4 flex items-center justify-between rounded-[20px] border px-5 py-4 shadow-sm"
+            style={{ background: T.surface, borderColor: T.border }}
+          >
             <div>
-              <h1 className="text-xl font-semibold text-slate-800">Report Builder</h1>
-              <p className="text-sm text-slate-500">Create visuals by dragging fields into zones</p>
+              <h1 className="text-xl font-semibold" style={{ color: T.text }}>
+                Report Builder
+              </h1>
+              <p className="text-sm" style={{ color: T.dim }}>
+                Create interactive visuals by dragging fields into zones
+              </p>
             </div>
 
             <button
               onClick={addVisual}
-              className="rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+              className="inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold"
+              style={{ background: T.accent, color: "#000" }}
             >
+              <Plus size={14} />
               Add Visual
             </button>
           </div>
 
-          <div className="max-h-[calc(100vh-140px)] space-y-4 overflow-y-auto pr-1">
+          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-140px)] pr-1">
             {visuals.length === 0 ? (
-              <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white text-slate-400 shadow-soft">
-                Click <span className="mx-1 font-semibold">Add Visual</span> to start building
+              <div
+                className="flex min-h-[420px] flex-col items-center justify-center gap-3 rounded-[24px] border border-dashed shadow-sm"
+                style={{
+                  background: T.surface,
+                  borderColor: T.border,
+                }}
+              >
+                <BarChart3 size={36} color={T.muted} />
+                <div className="text-sm" style={{ color: T.dim }}>
+                  Click <span style={{ color: T.accent, fontWeight: 600 }}>Add Visual</span> to start building
+                </div>
               </div>
             ) : (
-              visuals.map((visual) => <VisualCard key={visual.id} visual={visual} />)
+              visuals.map((visual) => (
+                <VisualCard key={visual.id} visual={visual} />
+              ))
             )}
           </div>
         </div>
@@ -45,5 +67,5 @@ export default function ReportBuilder() {
         </div>
       </div>
     </div>
-  )
+  );
 }
