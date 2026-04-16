@@ -40,6 +40,8 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
   );
 
   const legendKeys = getLegendKeys(chartData);
+  const chartHeight = compact ? "100%" : 320;
+  const minChartHeight = compact ? 240 : 320;
 
   const tooltipStyle = {
     contentStyle: {
@@ -58,11 +60,13 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
 
   const emptyState = (
     <div
-      className="flex h-full min-h-[220px] items-center justify-center rounded-2xl border border-dashed text-sm"
+      className="flex items-center justify-center rounded-2xl border border-dashed text-sm"
       style={{
         borderColor: T.border,
         background: T.s2,
         color: T.dim,
+        height: compact ? "100%" : 260,
+        minHeight: compact ? 220 : 260,
       }}
     >
       Assign X and Y fields to render the visual
@@ -73,9 +77,33 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
     return emptyState;
   }
 
+  if (!chartData.length && visual.chartType !== "kpi" && visual.chartType !== "table") {
+    return (
+      <div
+        className="flex items-center justify-center rounded-2xl border border-dashed text-sm"
+        style={{
+          borderColor: T.border,
+          background: T.s2,
+          color: T.dim,
+          height: compact ? "100%" : 260,
+          minHeight: compact ? 220 : 260,
+        }}
+      >
+        No chart data available for this selection
+      </div>
+    );
+  }
+
   if (visual.chartType === "table") {
     return (
-      <div className="h-full overflow-auto rounded-2xl border" style={{ borderColor: T.border }}>
+      <div
+        className="overflow-auto rounded-2xl border"
+        style={{
+          borderColor: T.border,
+          height: compact ? "100%" : 320,
+          minHeight: compact ? 220 : 320,
+        }}
+      >
         <table className="min-w-full text-sm">
           <thead style={{ background: T.s2 }}>
             <tr>
@@ -123,10 +151,12 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
 
     return (
       <div
-        className="flex h-full min-h-[220px] flex-col justify-center rounded-3xl border p-8"
+        className="flex flex-col justify-center rounded-3xl border p-8"
         style={{
           background: T.s2,
           borderColor: T.border,
+          height: compact ? "100%" : 260,
+          minHeight: compact ? 220 : 260,
         }}
       >
         <div className="text-sm" style={{ color: T.dim }}>
@@ -150,7 +180,7 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
     }));
 
     return (
-      <div className="h-full min-h-[240px]">
+      <div style={{ height: chartHeight, minHeight: minChartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Tooltip {...tooltipStyle} />
@@ -174,7 +204,7 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
 
   if (visual.chartType === "line") {
     return (
-      <div className="h-full min-h-[240px]">
+      <div style={{ height: chartHeight, minHeight: minChartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -199,7 +229,7 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
 
   if (visual.chartType === "area") {
     return (
-      <div className="h-full min-h-[240px]">
+      <div style={{ height: chartHeight, minHeight: minChartHeight }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -224,7 +254,7 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
   }
 
   return (
-    <div className="h-full min-h-[240px]">
+    <div style={{ height: chartHeight, minHeight: minChartHeight }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
