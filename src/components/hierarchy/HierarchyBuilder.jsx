@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { ChevronDown, Layers3 } from "lucide-react";
 import { useStore } from "../../store/useStore";
+import { useEffectiveData } from "../../hooks/useEffectiveData";
 import { validateHierarchy } from "../../utils/hierarchyUtils";
-import { T } from "../../styles/theme";
+import { useTheme } from "../../styles/theme";
 
 export default function HierarchyBuilder() {
-  const columns = useStore((s) => s.columns);
+  const T = useTheme();
+  const { columns } = useEffectiveData({ applyScenario: false });
   const addHierarchy = useStore((s) => s.addHierarchy);
 
   const [name, setName] = useState("");
@@ -27,10 +29,12 @@ export default function HierarchyBuilder() {
 
   const saveHierarchy = () => {
     const result = validateHierarchy(levels);
+
     if (!name.trim()) {
       setError("Please enter a hierarchy name.");
       return;
     }
+
     if (!result.valid) {
       setError(result.message);
       return;
@@ -93,6 +97,7 @@ export default function HierarchyBuilder() {
                 </option>
               ))}
             </select>
+
             <ChevronDown
               size={16}
               className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
@@ -124,7 +129,11 @@ export default function HierarchyBuilder() {
           ))}
         </div>
 
-        {error && <div className="text-sm" style={{ color: T.error }}>{error}</div>}
+        {error && (
+          <div className="text-sm" style={{ color: T.error }}>
+            {error}
+          </div>
+        )}
 
         <button
           onClick={saveHierarchy}
