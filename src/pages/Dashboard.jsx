@@ -1,11 +1,13 @@
 import { Plus, Pencil, Trash2, LayoutDashboard } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useStore } from "../store/useStore";
+import { useEffectiveData } from "../hooks/useEffectiveData";
 import VisualRenderer from "../components/builder/VisualRenderer";
-import { T } from "../styles/theme";
+import { useTheme } from "../styles/theme";
 
 export default function Dashboard() {
-  const rawData = useStore((s) => s.rawData);
+  const T = useTheme();
+  const { rows: effectiveRows } = useEffectiveData();
   const filters = useStore((s) => s.filters);
   const dashboards = useStore((s) => s.dashboards);
   const activeDashboardId = useStore((s) => s.activeDashboardId);
@@ -202,7 +204,7 @@ export default function Dashboard() {
                 <div className="h-[calc(100%-57px)] p-3">
                   <VisualRenderer
                     visual={item.visualConfig}
-                    rawData={rawData}
+                    rawData={effectiveRows}
                     filters={filters}
                     compact
                   />
