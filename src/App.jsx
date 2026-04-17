@@ -1,36 +1,51 @@
+import { useEffect, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
-import { Database, BarChart3, Table2, Layers3, ArrowRight, LayoutDashboard } from "lucide-react";
+import {
+  Database, BarChart3, Table2, Layers3, ArrowRight, LayoutDashboard,
+  Sun, Moon, Sparkles,
+} from "lucide-react";
 import DataSource from "./pages/DataSource";
 import DataTable from "./pages/DataTable";
 import ReportBuilder from "./pages/ReportBuilder";
 import Hierarchies from "./pages/Hierarchies";
 import Dashboard from "./pages/Dashboard";
-import { T } from "./styles/theme";
+import ScenarioPanel from "./components/scenario/ScenarioPanel";
+import { useStore } from "./store/useStore";
+import { useTheme, applyThemeToDocument } from "./styles/theme";
 
-function TopNav() {
+function TopNav({ onOpenScenario }) {
+  const T = useTheme();
+  const themeMode = useStore((s) => s.themeMode);
+  const toggleThemeMode = useStore((s) => s.toggleThemeMode);
+  const scenarios = useStore((s) => s.scenarios);
+  const activeScenarioId = useStore((s) => s.activeScenarioId);
+
+  const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || null;
+
   const linkClass = ({ isActive }) =>
     `inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
-      isActive ? "text-black" : "text-zinc-400 hover:text-zinc-100"
+      isActive ? "text-black" : "hover:opacity-90"
     }`;
 
   const activeStyle = ({ isActive }) =>
     isActive
       ? {
           background: T.accent,
+          color: "#000",
           boxShadow: "0 0 0 1px rgba(245,158,11,0.18) inset",
         }
-      : {};
+      : { color: T.dim };
 
   return (
     <div
       className="sticky top-0 z-20 border-b"
       style={{
-        background: "rgba(17,17,19,0.92)",
+        background: T.navBg,
         backdropFilter: "blur(10px)",
         borderColor: T.border,
       }}
     >
-      <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-3">
+      <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-6 py-3">
         <div className="flex items-center gap-3">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-xl"
@@ -53,29 +68,47 @@ function TopNav() {
           style={{ background: T.s2, borderColor: T.border }}
         >
           <NavLink to="/source" className={linkClass} style={activeStyle}>
-            <Database size={14} />
-            Data Source
+            <Database size={14} /> Data Source
           </NavLink>
-
           <NavLink to="/table" className={linkClass} style={activeStyle}>
-            <Table2 size={14} />
-            Data Table
+            <Table2 size={14} /> Data Table
           </NavLink>
-
           <NavLink to="/report" className={linkClass} style={activeStyle}>
-            <BarChart3 size={14} />
-            Report Builder
+            <BarChart3 size={14} /> Report Builder
           </NavLink>
-
           <NavLink to="/dashboard" className={linkClass} style={activeStyle}>
-            <LayoutDashboard size={14} />
-            Dashboard
+            <LayoutDashboard size={14} /> Dashboard
           </NavLink>
-
           <NavLink to="/hierarchies" className={linkClass} style={activeStyle}>
-            <Layers3 size={14} />
-            Hierarchies
+            <Layers3 size={14} /> Hierarchies
           </NavLink>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenScenario}
+            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium"
+            style={{
+              background: activeScenario ? T.accentDim : T.s2,
+              borderColor: activeScenario ? T.accent : T.border,
+              color: activeScenario ? T.accent : T.text,
+            }}
+            title="What-If scenarios"
+          >
+            <Sparkles size={14} />
+            <span className="hidden sm:inline">
+              {activeScenario ? activeScenario.name : "Scenarios"}
+            </span>
+          </button>
+
+          <button
+            onClick={toggleThemeMode}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border"
+            style={{ background: T.s2, borderColor: T.border, color: T.text }}
+            title={themeMode === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          >
+            {themeMode === "light" ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
         </div>
       </div>
     </div>
@@ -83,17 +116,20 @@ function TopNav() {
 }
 
 function HomePage() {
+  const T = useTheme();
   const navigate = useNavigate();
+  const themeMode = useStore((s) => s.themeMode);
+
+  const heroGradient =
+    themeMode === "light"
+      ? "radial-gradient(circle at top, rgba(245,158,11,0.18), rgba(255,255,255,0) 45%), #ffffff"
+      : "radial-gradient(circle at top, rgba(245,158,11,0.12), rgba(9,9,11,0) 38%), #111113";
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-112px)] max-w-6xl items-center justify-center px-4 py-10">
       <div
         className="w-full rounded-[32px] border px-8 py-14 text-center shadow-sm md:px-14"
-        style={{
-          background:
-            "radial-gradient(circle at top, rgba(245,158,11,0.12), rgba(9,9,11,0) 38%), #111113",
-          borderColor: T.border,
-        }}
+        style={{ background: heroGradient, borderColor: T.border }}
       >
         <div
           className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl"
@@ -140,10 +176,18 @@ function HomePage() {
 }
 
 export default function App() {
+  const T = useTheme();
+  const themeMode = useStore((s) => s.themeMode);
+  const [scenarioOpen, setScenarioOpen] = useState(false);
+
+  useEffect(() => {
+    applyThemeToDocument(themeMode);
+  }, [themeMode]);
+
   return (
     <HashRouter>
       <div className="min-h-screen" style={{ background: T.bg }}>
-        <TopNav />
+        <TopNav onOpenScenario={() => setScenarioOpen(true)} />
         <div className="mx-auto max-w-[1600px] p-4">
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -154,6 +198,8 @@ export default function App() {
             <Route path="/hierarchies" element={<Hierarchies />} />
           </Routes>
         </div>
+
+        <ScenarioPanel open={scenarioOpen} onClose={() => setScenarioOpen(false)} />
       </div>
     </HashRouter>
   );
