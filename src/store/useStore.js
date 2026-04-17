@@ -215,4 +215,205 @@ export const useStore = create((set, get) => ({
       visuals: state.visuals.map((v) => {
         if (v.id !== visualId) return v;
         if (zone === "xFields") return { ...v, xFields: v.xFields.filter((f) => f !== field) };
-        if (zone === "yFields") return { ...v, yFields: v.yFiel
+        if (zone === "yFields") return { ...v, yFields: v.yFields.filter((f) => f !== field) };
+        if (zone === "tooltipFields") return { ...v, tooltipFields: v.tooltipFields.filter((f) => f !== field) };
+        if (zone === "legendField") return { ...v, legendField: "" };
+        return v;
+      }),
+    })),
+
+  setGlobalFilter: (field, value) =>
+    set((state) => ({ filters: { ...state.filters, [field]: value } })),
+
+  clearGlobalFilters: () => set({ filters: {} }),
+
+  addHierarchy: (hierarchy) =>
+    set((state) => ({ hierarchies: [...state.hierarchies, hierarchy] })),
+
+  removeHierarchy: (hierarchyName) =>
+    set((state) => ({ hierarchies: state.hierarchies.filter((h) => h.name !== hierarchyName) })),
+
+  createDashboard: () =>
+    set((state) => {
+      const dashboard = {
+        id: createId("dashboard"),
+        name: `Dashboard ${state.dashboards.length + 1}`,
+        items: [],
+      };
+      return { dashboards: [...state.dashboards, dashboard], activeDashboardId: dashboard.id };
+    }),
+
+  renameDashboard: (dashboardId, name) =>
+    set((state) => ({
+      dashboards: state.dashboards.map((dashboard) =>
+        dashboard.id === dashboardId ? { ...dashboard, name: name || dashboard.name } : dashboard
+      ),
+    })),
+
+  removeDashboard: (dashboardId) =>
+    set((state) => {
+      if (state.dashboards.length <= 1) return state;
+      const dashboards = state.dashboards.filter((d) => d.id !== dashboardId);
+      return {
+        dashboards,
+        activeDashboardId:
+          state.activeDashboardId === dashboardId ? dashboards[0]?.id ?? null : state.activeDashboardId,
+      };
+    }),
+
+  setActiveDashboard: (dashboardId) => set({ activeDashboardId: dashboardId }),
+
+  addVisualToDashboard: ({ visualId, dashboardId }) =>
+    set((state) => {
+      const visual = state.visuals.find((v) => v.id === visualId);
+      const targetDashboardId = dashboardId || state.activeDashboardId;
+      if (!visual || !targetDashboardId) return state;
+
+      return {
+        dashboards: state.dashboards.map((dashboard) => {
+          if (dashboard.id !== targetDashboardId) return dashboard;
+          const dashboardItem = createDashboardItem(visual, dashboard.items);
+          return { ...dashboard, items: [...dashboard.items, dashboardItem] };
+        }),
+        activeDashboardId: targetDashboardId,
+      };
+    }),
+
+  updateDashboardItemLayout: ({ dashboardId, itemId, patch }) =>
+    set((state) => ({
+      dashboards: state.dashboards.map((dashboard) =>
+        dashboard.id === dashboardId
+          ? {
+              ...dashboard,
+              items: dashboard.items.map((item) =>
+                item.id === itemId ? { ...item, layout: { ...item.layout, ...patch } } : item
+              ),
+            }
+          : dashboard
+      ),
+    })),
+
+  removeDashboardItem: ({ dashboardId, itemId }) =>
+    set((state) => ({
+      dashboards: state.dashboards.map((dashboard) =>
+        dashboard.id === dashboardId
+          ? { ...dashboard, items: dashboard.items.filter((item) => item.id !== itemId) }
+          : dashboard
+      ),
+    })),
+
+  getActiveVisual: () => {
+    const state = get();
+    return state.visuals.find((v) => v.id === state.activeVisualId) || null;
+  },
+
+  // --- Theme ---
+  setThemeMode: (mode) => {
+    const next = mode === "light" ? "light" : "dark";
+    persistThemeMode(next);
+    set({ themeMode: next });
+  },
+
+  toggleThemeMode: () => {
+    const next = get().themeMode === "light" ? "dark" : "light";
+    persistThemeMode(next);
+    set({ themeMode: next });
+  },
+
+  // --- Calculated Fields ---
+  addCalculatedField: ({ name, formula, type = "number" }) =>
+    set((state) => {
+      if (!name || !formula) return state;
+      if (state.calculatedFields.some((cf) => cf.name === name)) return state;
+      if (state.columns.includes(name)) return state;
+      return {
+        calculatedFields: [
+          ...state.calculatedFields,
+          { id: createId("calc"), name, formula, type },
+        ],
+      };
+    }),
+
+  removeCalculatedField: (id) =>
+    set((state) => ({
+      calculatedFields: state.calculatedFields.filter((cf) => cf.id !== id),
+    })),
+
+  updateCalculatedField: (id, patch) =>
+    set((state) => ({
+      calculatedFields: state.calculatedFields.map((cf) =>
+        cf.id === id ? { ...cf, ...patch } : cf
+      ),
+    })),
+
+  // --- Scenarios ---
+  addScenario: (name) =>
+    set((state) => {
+      const scenario = createEmptyScenario(name || `Scenario ${state.scenarios.length + 1}`);
+      return {
+        scenarios: [...state.scenarios, scenario],
+        activeScenarioId: state.activeScenarioId || scenario.id,
+      };
+    }),
+
+  removeScenario: (id) =>
+    set((state) => ({
+      scenarios: state.scenarios.filter((s) => s.id !== id),
+      activeScenarioId: state.activeScenarioId === id ? null : state.activeScenarioId,
+    })),
+
+  renameScenario: (id, name) =>
+    set((state) => ({
+      scenarios: state.scenarios.map((s) =>
+        s.id === id ? { ...s, name: name || s.name } : s
+      ),
+    })),
+
+  setActiveScenario: (id) => set({ activeScenarioId: id }),
+
+  addScenarioAdjustment: (scenarioId, adjustment) =>
+    set((state) => ({
+      scenarios: state.scenarios.map((s) =>
+        s.id === scenarioId
+          ? {
+              ...s,
+              adjustments: [
+                ...s.adjustments,
+                {
+                  id: createId("adj"),
+                  field: adjustment?.field || "",
+                  operation: adjustment?.operation || "multiply",
+                  value:
+                    adjustment?.value === undefined || adjustment?.value === null
+                      ? 1
+                      : adjustment.value,
+                },
+              ],
+            }
+          : s
+      ),
+    })),
+
+  updateScenarioAdjustment: (scenarioId, adjustmentId, patch) =>
+    set((state) => ({
+      scenarios: state.scenarios.map((s) =>
+        s.id === scenarioId
+          ? {
+              ...s,
+              adjustments: s.adjustments.map((a) =>
+                a.id === adjustmentId ? { ...a, ...patch } : a
+              ),
+            }
+          : s
+      ),
+    })),
+
+  removeScenarioAdjustment: (scenarioId, adjustmentId) =>
+    set((state) => ({
+      scenarios: state.scenarios.map((s) =>
+        s.id === scenarioId
+          ? { ...s, adjustments: s.adjustments.filter((a) => a.id !== adjustmentId) }
+          : s
+      ),
+    })),
+}));
