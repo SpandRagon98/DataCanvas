@@ -1,15 +1,7 @@
 import { ChevronDown } from "lucide-react";
-import { T } from "../../styles/theme";
+import { useTheme } from "../../styles/theme";
 
-const selectStyle = {
-  borderColor: T.border,
-  background: T.s2,
-  color: T.text,
-  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.01)",
-  backgroundImage: "none",
-};
-
-function StyledSelect({ value, onChange, children, ariaLabel }) {
+function StyledSelect({ value, onChange, children, ariaLabel, T }) {
   return (
     <div className="relative">
       <select
@@ -17,7 +9,13 @@ function StyledSelect({ value, onChange, children, ariaLabel }) {
         value={value}
         onChange={onChange}
         className="w-full appearance-none rounded-xl border px-3 py-2.5 pr-10 text-sm outline-none"
-        style={selectStyle}
+        style={{
+          borderColor: T.border,
+          background: T.s2,
+          color: T.text,
+          boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.01)",
+          backgroundImage: "none",
+        }}
       >
         {children}
       </select>
@@ -36,9 +34,12 @@ export default function VisualToolbar({
   sortDirection,
   onChange,
 }) {
+  const T = useTheme();
+
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <StyledSelect
+        T={T}
         ariaLabel="Select chart type"
         value={chartType}
         onChange={(e) => onChange({ chartType: e.target.value })}
@@ -54,6 +55,7 @@ export default function VisualToolbar({
       </StyledSelect>
 
       <StyledSelect
+        T={T}
         ariaLabel="Select aggregation"
         value={aggregation}
         onChange={(e) => onChange({ aggregation: e.target.value })}
@@ -67,6 +69,7 @@ export default function VisualToolbar({
       </StyledSelect>
 
       <StyledSelect
+        T={T}
         ariaLabel="Select sort direction"
         value={sortDirection}
         onChange={(e) => onChange({ sortDirection: e.target.value })}
