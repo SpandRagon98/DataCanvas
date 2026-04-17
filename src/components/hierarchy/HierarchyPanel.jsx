@@ -1,8 +1,9 @@
 import { Layers3 } from "lucide-react";
 import { useStore } from "../../store/useStore";
-import { T } from "../../styles/theme";
+import { useTheme } from "../../styles/theme";
 
 export default function HierarchyPanel() {
+  const T = useTheme();
   const hierarchies = useStore((s) => s.hierarchies);
   const removeHierarchy = useStore((s) => s.removeHierarchy);
 
@@ -18,7 +19,6 @@ export default function HierarchyPanel() {
         >
           <Layers3 size={18} color={T.accent} />
         </div>
-
         <div>
           <h2 className="text-2xl font-bold" style={{ color: T.text }}>
             Saved Hierarchies
