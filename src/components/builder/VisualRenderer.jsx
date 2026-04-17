@@ -18,9 +18,11 @@ import {
 import { useMemo } from "react";
 import { applyGlobalFilters } from "../../utils/filterEngine";
 import { buildVisualData, getLegendKeys } from "../../utils/chartEngine";
-import { CHART_COLORS, T } from "../../styles/theme";
+import { CHART_COLORS, useTheme } from "../../styles/theme";
 
 export default function VisualRenderer({ visual, rawData, filters, compact = false }) {
+  const T = useTheme();
+
   const filteredRows = useMemo(
     () => applyGlobalFilters(rawData, filters),
     [rawData, filters]
@@ -73,9 +75,7 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
     </div>
   );
 
-  if (!visual.xFields?.length || !visual.yFields?.length) {
-    return emptyState;
-  }
+  if (!visual.xFields?.length || !visual.yFields?.length) return emptyState;
 
   if (!chartData.length && visual.chartType !== "kpi" && visual.chartType !== "table") {
     return (
