@@ -1,13 +1,16 @@
 import { useMemo, useState } from "react";
 import { Check, LayoutDashboard, Trash2 } from "lucide-react";
 import { useStore } from "../../store/useStore";
+import { useEffectiveData } from "../../hooks/useEffectiveData";
 import DropZone from "./DropZone";
 import VisualToolbar from "./VisualToolbar";
 import VisualRenderer from "./VisualRenderer";
-import { T } from "../../styles/theme";
+import { useTheme } from "../../styles/theme";
 
 export default function VisualCard({ visual }) {
-  const rawData = useStore((s) => s.rawData);
+  const T = useTheme();
+  const { rows: effectiveRows } = useEffectiveData();
+
   const filters = useStore((s) => s.filters);
   const dashboards = useStore((s) => s.dashboards);
   const activeDashboardId = useStore((s) => s.activeDashboardId);
@@ -19,11 +22,12 @@ export default function VisualCard({ visual }) {
   const activeVisualId = useStore((s) => s.activeVisualId);
   const addVisualToDashboard = useStore((s) => s.addVisualToDashboard);
 
-  const [targetDashboardId, setTargetDashboardId] = useState(activeDashboardId || dashboards[0]?.id || "");
+  const [targetDashboardId, setTargetDashboardId] = useState(
+    activeDashboardId || dashboards[0]?.id || ""
+  );
   const [addedState, setAddedState] = useState(false);
 
   const isActive = activeVisualId === visual.id;
-
   const dashboardOptions = useMemo(() => dashboards, [dashboards]);
 
   const handleAddToDashboard = (e) => {
@@ -161,9 +165,14 @@ export default function VisualCard({ visual }) {
         />
       </div>
 
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-center lg:justify-between" style={{ background: T.s2, borderColor: T.border }}>
+      <div
+        className="mb-5 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-center lg:justify-between"
+        style={{ background: T.s2, borderColor: T.border }}
+      >
         <div>
-          <div className="text-sm font-semibold" style={{ color: T.text }}>Add to Dashboard</div>
+          <div className="text-sm font-semibold" style={{ color: T.text }}>
+            Add to Dashboard
+          </div>
           <div className="text-xs" style={{ color: T.dim }}>
             Choose the dashboard where this visual should be placed.
           </div>
@@ -174,7 +183,12 @@ export default function VisualCard({ visual }) {
             value={targetDashboardId}
             onChange={(e) => setTargetDashboardId(e.target.value)}
             className="rounded-xl border px-3 py-2.5 text-sm outline-none"
-            style={{ background: T.surface, borderColor: T.border, color: T.text, minWidth: 180 }}
+            style={{
+              background: T.surface,
+              borderColor: T.border,
+              color: T.text,
+              minWidth: 180,
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             {dashboardOptions.map((dashboard) => (
@@ -187,7 +201,10 @@ export default function VisualCard({ visual }) {
           <button
             onClick={handleAddToDashboard}
             className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
-            style={{ background: addedState ? T.success : T.accent, color: addedState ? "#04120d" : "#000" }}
+            style={{
+              background: addedState ? T.success : T.accent,
+              color: addedState ? "#04120d" : "#000",
+            }}
           >
             {addedState ? <Check size={15} /> : <LayoutDashboard size={15} />}
             {addedState ? "Added" : "Add to Dashboard"}
@@ -195,7 +212,7 @@ export default function VisualCard({ visual }) {
         </div>
       </div>
 
-      <VisualRenderer visual={visual} rawData={rawData} filters={filters} />
+      <VisualRenderer visual={visual} rawData={effectiveRows} filters={filters} />
     </div>
   );
 }
