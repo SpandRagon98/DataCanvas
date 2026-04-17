@@ -3,9 +3,10 @@ import { useStore } from "../store/useStore";
 import FieldPane from "../components/fields/FieldPane";
 import FilterPanel from "../components/filters/FilterPanel";
 import VisualCard from "../components/builder/VisualCard";
-import { T } from "../styles/theme";
+import { useTheme } from "../styles/theme";
 
 export default function ReportBuilder() {
+  const T = useTheme();
   const visuals = useStore((s) => s.visuals);
   const addVisual = useStore((s) => s.addVisual);
 
@@ -40,7 +41,7 @@ export default function ReportBuilder() {
             </button>
           </div>
 
-          <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-140px)] pr-1">
+          <div className="max-h-[calc(100vh-140px)] space-y-4 overflow-y-auto pr-1">
             {visuals.length === 0 ? (
               <div
                 className="flex min-h-[420px] flex-col items-center justify-center gap-3 rounded-[24px] border border-dashed shadow-sm"
@@ -55,9 +56,7 @@ export default function ReportBuilder() {
                 </div>
               </div>
             ) : (
-              visuals.map((visual) => (
-                <VisualCard key={visual.id} visual={visual} />
-              ))
+              visuals.map((visual) => <VisualCard key={visual.id} visual={visual} />)
             )}
           </div>
         </div>
