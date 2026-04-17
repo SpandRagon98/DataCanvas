@@ -1,6 +1,8 @@
-import { T } from "../../styles/theme";
+import { useTheme } from "../../styles/theme";
 
 export default function DropZone({ label, value, onDropField, onRemoveField }) {
+  const T = useTheme();
+
   const handleDrop = (e) => {
     e.preventDefault();
     const field = e.dataTransfer.getData("fieldName");
@@ -17,7 +19,10 @@ export default function DropZone({ label, value, onDropField, onRemoveField }) {
         background: T.s2,
       }}
     >
-      <div className="text-xs font-semibold uppercase tracking-wide mono" style={{ color: T.muted }}>
+      <div
+        className="mono text-xs font-semibold uppercase tracking-wide"
+        style={{ color: T.muted }}
+      >
         {label}
       </div>
 
