@@ -1,11 +1,11 @@
+import { useEffectiveData } from "../../hooks/useEffectiveData";
 import { useStore } from "../../store/useStore";
 import { getUniqueValues } from "../../utils/filterEngine";
-import { T } from "../../styles/theme";
+import { useTheme } from "../../styles/theme";
 
 export default function FilterPanel() {
-  const rawData = useStore((s) => s.rawData);
-  const columns = useStore((s) => s.columns);
-  const dataTypes = useStore((s) => s.dataTypes);
+  const T = useTheme();
+  const { rows, columns, dataTypes } = useEffectiveData();
   const filters = useStore((s) => s.filters);
   const setGlobalFilter = useStore((s) => s.setGlobalFilter);
   const clearGlobalFilters = useStore((s) => s.clearGlobalFilters);
@@ -40,9 +40,9 @@ export default function FilterPanel() {
         </button>
       </div>
 
-      <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-220px)] pr-1">
+      <div className="max-h-[calc(100vh-220px)] space-y-4 overflow-y-auto pr-1">
         {filterableFields.map((field) => {
-          const values = getUniqueValues(rawData, field);
+          const values = getUniqueValues(rows, field);
 
           return (
             <div key={field}>
