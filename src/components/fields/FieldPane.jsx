@@ -1,16 +1,17 @@
-import { Search, Hash, Type, Calendar, ToggleLeft, Layers3 } from "lucide-react";
+import { Search, Hash, Type, Calendar, ToggleLeft, Layers3, Sigma } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore } from "../../store/useStore";
-import { T } from "../../styles/theme";
+import { useEffectiveData } from "../../hooks/useEffectiveData";
+import { useTheme } from "../../styles/theme";
 
-function TypeIcon({ type }) {
+function TypeIcon({ type, T }) {
   if (type === "number") return <Hash size={12} color={T.blue} />;
   if (type === "date") return <Calendar size={12} color={T.success} />;
   if (type === "boolean") return <ToggleLeft size={12} color={T.accent} />;
   return <Type size={12} color={T.dim} />;
 }
 
-function FieldChip({ field, type, label }) {
+function FieldChip({ field, type, label, isCalculated = false, T }) {
   const handleDragStart = (e) => {
     e.dataTransfer.setData("fieldName", field);
   };
@@ -28,16 +29,30 @@ function FieldChip({ field, type, label }) {
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="truncate">{label || field}</div>
+          <div className="flex items-center gap-2">
+            <div className="truncate">{label || field}</div>
+            {isCalculated && (
+              <span
+                className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                style={{ background: T.accentDim, color: T.accent }}
+              >
+                Calc
+              </span>
+            )}
+          </div>
+
           {label && label !== field && (
-            <div className="mt-0.5 truncate text-[11px] mono" style={{ color: T.muted }}>
+            <div className="mono mt-0.5 truncate text-[11px]" style={{ color: T.muted }}>
               {field}
             </div>
           )}
         </div>
 
-        <div className="inline-flex items-center gap-1 rounded-md px-2 py-1 mono text-[10px]" style={{ background: T.s3 }}>
-          <TypeIcon type={type} />
+        <div
+          className="mono inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px]"
+          style={{ background: T.s3 }}
+        >
+          <TypeIcon type={type} T={T} />
           <span style={{ color: T.dim }}>{type}</span>
         </div>
       </div>
@@ -45,10 +60,16 @@ function FieldChip({ field, type, label }) {
   );
 }
 
-function Section({ title, icon, children }) {
+function Section({ title, icon, children, T }) {
   return (
-    <div className="mb-5 rounded-2xl border p-3" style={{ background: T.surface, borderColor: T.border }}>
-      <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+    <div
+      className="mb-5 rounded-2xl border p-3"
+      style={{ background: T.surface, borderColor: T.border }}
+    >
+      <div
+        className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide"
+        style={{ color: T.muted }}
+      >
         {icon}
         {title}
       </div>
@@ -58,8 +79,8 @@ function Section({ title, icon, children }) {
 }
 
 export default function FieldPane() {
-  const columns = useStore((s) => s.columns);
-  const dataTypes = useStore((s) => s.dataTypes);
+  const T = useTheme();
+  const { columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
   const hierarchies = useStore((s) => s.hierarchies);
   const [search, setSearch] = useState("");
 
@@ -109,22 +130,29 @@ export default function FieldPane() {
 
       <div className="max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
         {hierarchyFields.length > 0 && (
-          <Section title="Hierarchies" icon={<Layers3 size={12} color={T.accent} />}>
+          <Section title="Hierarchies" icon={<Layers3 size={12} color={T.accent} />} T={T}>
             {hierarchyFields.map((item) => (
               <FieldChip
                 key={item.id}
                 field={item.field}
                 type={item.type}
                 label={item.label}
+                T={T}
               />
             ))}
           </Section>
         )}
 
-        <Section title="Dimensions" icon={<Type size={12} color={T.dim} />}>
+        <Section title="Dimensions" icon={<Type size={12} color={T.dim} />} T={T}>
           {dimensions.length ? (
             dimensions.map((field) => (
-              <FieldChip key={field} field={field} type={dataTypes[field]} />
+              <FieldChip
+                key={field}
+                field={field}
+                type={dataTypes[field]}
+                isCalculated={calcFieldNames.has(field)}
+                T={T}
+              />
             ))
           ) : (
             <div className="text-sm" style={{ color: T.muted }}>
@@ -133,10 +161,16 @@ export default function FieldPane() {
           )}
         </Section>
 
-        <Section title="Measures" icon={<Hash size={12} color={T.blue} />}>
+        <Section title="Measures" icon={<Hash size={12} color={T.blue} />} T={T}>
           {measures.length ? (
             measures.map((field) => (
-              <FieldChip key={field} field={field} type={dataTypes[field]} />
+              <FieldChip
+                key={field}
+                field={field}
+                type={dataTypes[field]}
+                isCalculated={calcFieldNames.has(field)}
+                T={T}
+              />
             ))
           ) : (
             <div className="text-sm" style={{ color: T.muted }}>
@@ -144,6 +178,22 @@ export default function FieldPane() {
             </div>
           )}
         </Section>
+
+        {[...calcFieldNames].length > 0 && (
+          <Section title="Calculated" icon={<Sigma size={12} color={T.accent} />} T={T}>
+            {[...calcFieldNames]
+              .filter((field) => field.toLowerCase().includes(search.toLowerCase()))
+              .map((field) => (
+                <FieldChip
+                  key={field}
+                  field={field}
+                  type={dataTypes[field]}
+                  isCalculated
+                  T={T}
+                />
+              ))}
+          </Section>
+        )}
       </div>
     </div>
   );
