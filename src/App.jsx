@@ -4,9 +4,9 @@ import {
 } from "react-router-dom";
 import {
   Database, BarChart3, Table2, Layers3, LayoutDashboard,
-  Sun, Moon, Sparkles, Save, FolderOpen, GitMerge,
+  Sun, Moon, Sparkles, Save, FolderOpen,
   Share2, History, MessageSquare, Building2, CalendarClock,
-  Cloud, CloudOff, LogIn,
+  Cloud, ClipboardList,
 } from "lucide-react";
 import DataSource    from "./pages/DataSource";
 import DataTable     from "./pages/DataTable";
@@ -23,6 +23,7 @@ import WorkbookHistory   from "./components/cloud/WorkbookHistory";
 import WorkspaceManager  from "./components/cloud/WorkspaceManager";
 import ScheduledReports  from "./components/cloud/ScheduledReports";
 import AuthGate          from "./components/cloud/AuthGate";
+import AuditLog          from "./components/cloud/AuditLog";
 import { useStore }      from "./store/useStore";
 import { useTheme, applyThemeToDocument } from "./styles/theme";
 import { useAuth }       from "./hooks/useAuth";
@@ -47,6 +48,7 @@ function Sidebar({
   onOpenComments,
   onOpenWorkspace,
   onOpenScheduled,
+  onOpenAuditLog,
   onSignIn,
   user,
   isSaving,
@@ -280,6 +282,11 @@ function Sidebar({
               <CalendarClock size={14} strokeWidth={1.8} />
               <span>Scheduled Reports</span>
             </button>
+
+            <button onClick={onOpenAuditLog} className="nav-link w-full text-left">
+              <ClipboardList size={14} strokeWidth={1.8} />
+              <span>Audit Log</span>
+            </button>
           </>
         )}
 
@@ -318,7 +325,7 @@ function Sidebar({
 
         {/* Version */}
         <div className="px-2 pb-1 pt-2 text-[10px] font-medium" style={{ color: T.muted }}>
-          DataCanvas · v5.0
+          DataCanvas · v6.0
         </div>
       </div>
     </aside>
@@ -361,6 +368,7 @@ export default function App() {
   const [commentsOpen,   setCommentsOpen]   = useState(false);
   const [workspaceOpen,  setWorkspaceOpen]  = useState(false);
   const [scheduledOpen,  setScheduledOpen]  = useState(false);
+  const [auditOpen,      setAuditOpen]      = useState(false);
   const [authOpen,       setAuthOpen]       = useState(false);
 
   useEffect(() => {
@@ -403,6 +411,7 @@ export default function App() {
                 onOpenComments={() => setCommentsOpen(true)}
                 onOpenWorkspace={() => setWorkspaceOpen(true)}
                 onOpenScheduled={() => setScheduledOpen(true)}
+                onOpenAuditLog={() => setAuditOpen(true)}
                 onSignIn={() => { window.location.hash = "/auth"; }}
                 user={user}
                 isSaving={isSaving}
@@ -445,6 +454,10 @@ export default function App() {
                 open={scheduledOpen}
                 onClose={() => setScheduledOpen(false)}
                 user={user}
+              />
+              <AuditLog
+                open={auditOpen}
+                onClose={() => setAuditOpen(false)}
               />
             </div>
           }

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createEmptyScenario } from "../utils/scenarioEngine";
+import { log, A } from "../lib/auditLog";
 
 const DEMO_DATA = [
   { Date: "2026-01-01", Region: "North", Product: "Laptop", Category: "Electronics", Revenue: 120000, Cost: 90000, Profit: 30000, Units: 12, Salesperson: "Aman" },
@@ -121,6 +122,10 @@ export const useStore = create(
       cloudWorkbookName: null,
       cloudWorkspaceId:  null,
 
+      // ── Incremental calc field tracking — transient ──
+      // Set to the edited row index by updateCell; reset to -1 on any bulk change.
+      lastEditRowIndex: -1,
+
       // ── Undo / Redo — intentionally excluded from persist (see partialize) ──
       undoStack: [],
       redoStack: [],
@@ -139,6 +144,9 @@ export const useStore = create(
           sourceType: "file",
           sourceConfig: {},
         };
+        log({ action: A.DATA_IMPORTED, target: name || "Imported Dataset",
+              detail: `${data.length.toLocaleString()} rows, ${columns.length} columns`,
+              workbook_id: useStore.getState().cloudWorkbookId });
         set({
           rawData: data,
           columns,
@@ -156,6 +164,7 @@ export const useStore = create(
           activeScenarioId: null,
           filterBookmarks: [],
           crossFilter: {},
+          lastEditRowIndex: -1,
           undoStack: [],
           redoStack: [],
         });
@@ -331,11 +340,20 @@ export const useStore = create(
             d.id === state.activeDatasetId ? { ...d, rows: nextRawData } : d
           );
 
+          // Audit — non-blocking
+          log({
+            action:      A.CELL_EDIT,
+            target:      field,
+            detail:      `Row ${rowIndex}: ${oldValue} → ${parsedValue}`,
+            workbook_id: state.cloudWorkbookId,
+          });
+
           return {
             rawData: nextRawData,
             datasets,
-            visuals: [...state.visuals],
-            dashboards: [...state.dashboards],
+            visuals:          [...state.visuals],
+            dashboards:       [...state.dashboards],
+            lastEditRowIndex: rowIndex, // Phase 6.4 incremental calc
             undoStack: [...state.undoStack, { rowIndex, field, oldValue, newValue: parsedValue }].slice(-50),
             redoStack: [],
           };
@@ -378,6 +396,8 @@ export const useStore = create(
       addVisual: () =>
         set((state) => {
           const id = createId("visual");
+          log({ action: A.VISUAL_ADDED, target: `Visual ${state.visuals.length + 1}`,
+                workbook_id: state.cloudWorkbookId });
           const newVisual = {
             id,
             title: `Visual ${state.visuals.length + 1}`,
@@ -415,6 +435,9 @@ export const useStore = create(
 
       removeVisual: (id) =>
         set((state) => {
+          const v = state.visuals.find((v) => v.id === id);
+          log({ action: A.VISUAL_REMOVED, target: v?.title ?? id,
+                workbook_id: state.cloudWorkbookId });
           const next = state.visuals.filter((v) => v.id !== id);
           return {
             visuals: next,
@@ -454,9 +477,18 @@ export const useStore = create(
         })),
 
       setGlobalFilter: (field, value) =>
-        set((state) => ({ filters: { ...state.filters, [field]: value } })),
+        set((state) => {
+          log({ action: A.FILTER_CHANGED, target: field,
+                detail: Array.isArray(value) ? value.join(", ") : String(value ?? ""),
+                workbook_id: state.cloudWorkbookId });
+          return { filters: { ...state.filters, [field]: value } };
+        }),
 
-      clearGlobalFilters: () => set({ filters: {} }),
+      clearGlobalFilters: () => {
+        log({ action: A.FILTER_CLEARED,
+              workbook_id: useStore.getState().cloudWorkbookId });
+        set({ filters: {} });
+      },
 
       addHierarchy: (hierarchy) =>
         set((state) => ({ hierarchies: [...state.hierarchies, hierarchy] })),
@@ -466,7 +498,10 @@ export const useStore = create(
 
       createDashboard: () =>
         set((state) => {
-          const dashboard = { id: createId("dashboard"), name: `Dashboard ${state.dashboards.length + 1}`, items: [], annotations: [] };
+          const name = `Dashboard ${state.dashboards.length + 1}`;
+          const dashboard = { id: createId("dashboard"), name, items: [], annotations: [] };
+          log({ action: A.DASHBOARD_CREATED, target: name,
+                workbook_id: state.cloudWorkbookId });
           return { dashboards: [...state.dashboards, dashboard], activeDashboardId: dashboard.id };
         }),
 
@@ -492,9 +527,13 @@ export const useStore = create(
 
       addVisualToDashboard: ({ visualId, dashboardId }) =>
         set((state) => {
-          const visual = state.visuals.find((v) => v.id === visualId);
+          const visual   = state.visuals.find((v) => v.id === visualId);
           const targetId = dashboardId || state.activeDashboardId;
           if (!visual || !targetId) return state;
+          const dash = state.dashboards.find((d) => d.id === targetId);
+          log({ action: A.DASH_ITEM_ADDED, target: visual.title,
+                detail: `Added to ${dash?.name ?? "dashboard"}`,
+                workbook_id: state.cloudWorkbookId });
           return {
             dashboards: state.dashboards.map((d) =>
               d.id !== targetId ? d : { ...d, items: [...d.items, createDashboardItem(visual, d.items)] }

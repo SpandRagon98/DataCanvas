@@ -7,6 +7,7 @@ import html2canvas from "html2canvas";
 import { useStore } from "../store/useStore";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import VisualRenderer from "../components/builder/VisualRenderer";
+import VirtualDashboardItem from "../components/dashboard/VirtualDashboardItem";
 import { useTheme } from "../styles/theme";
 
 const GRID_SIZE = 40;
@@ -311,29 +312,39 @@ export default function Dashboard() {
           </div>
         ) : (
           <div ref={canvasContentRef} className="relative" style={{ minHeight: canvasMinHeight }}>
-            {/* Dashboard visuals */}
+            {/* Dashboard visuals — wrapped in VirtualDashboardItem for viewport culling */}
             {activeDashboard.items.map((item) => (
-              <div key={item.id} className="absolute rounded-2xl border shadow-sm"
-                style={{ left: item.layout.x, top: item.layout.y, width: item.layout.w, height: item.layout.h, background: T.s2, borderColor: T.border }}>
-                <div className="flex cursor-move items-center justify-between gap-3 border-b px-4 py-3"
-                  style={{ borderColor: T.border }} onMouseDown={(e) => beginMove(e, item)}>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold" style={{ color: T.text }}>{item.visualConfig.title}</div>
-                    <div className="text-xs" style={{ color: T.dim }}>Drag this header to move</div>
+              <VirtualDashboardItem
+                key={item.id}
+                title={item.visualConfig.title}
+                className="absolute rounded-2xl border shadow-sm"
+                style={{
+                  left: item.layout.x, top: item.layout.y,
+                  width: item.layout.w, height: item.layout.h,
+                  background: T.s2, borderColor: T.border,
+                }}
+              >
+                <div className="flex h-full flex-col">
+                  <div className="flex shrink-0 cursor-move items-center justify-between gap-3 border-b px-4 py-3"
+                    style={{ borderColor: T.border }} onMouseDown={(e) => beginMove(e, item)}>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold" style={{ color: T.text }}>{item.visualConfig.title}</div>
+                      <div className="text-xs" style={{ color: T.dim }}>Drag to move</div>
+                    </div>
+                    <button onClick={() => removeDashboardItem({ dashboardId: activeDashboard.id, itemId: item.id })}
+                      className="rounded-lg border px-2.5 py-1.5 text-xs"
+                      style={{ background: T.surface, borderColor: T.border, color: T.dim }}>
+                      Remove
+                    </button>
                   </div>
-                  <button onClick={() => removeDashboardItem({ dashboardId: activeDashboard.id, itemId: item.id })}
-                    className="rounded-lg border px-2.5 py-1.5 text-xs"
-                    style={{ background: T.surface, borderColor: T.border, color: T.dim }}>
-                    Remove
-                  </button>
+                  <div className="flex-1 min-h-0 p-3">
+                    <VisualRenderer visual={item.visualConfig} rawData={effectiveRows} filters={filters} compact />
+                  </div>
+                  <button className="absolute bottom-2 right-2 h-5 w-5 cursor-se-resize rounded-sm"
+                    style={{ borderRight: `2px solid ${T.accent}`, borderBottom: `2px solid ${T.accent}` }}
+                    onMouseDown={(e) => beginResize(e, item)} title="Resize visual" />
                 </div>
-                <div className="h-[calc(100%-57px)] p-3">
-                  <VisualRenderer visual={item.visualConfig} rawData={effectiveRows} filters={filters} compact />
-                </div>
-                <button className="absolute bottom-2 right-2 h-5 w-5 cursor-se-resize rounded-sm"
-                  style={{ borderRight: `2px solid ${T.accent}`, borderBottom: `2px solid ${T.accent}` }}
-                  onMouseDown={(e) => beginResize(e, item)} title="Resize visual" />
-              </div>
+              </VirtualDashboardItem>
             ))}
 
             {/* Annotations */}
