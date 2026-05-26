@@ -53,41 +53,41 @@ export default function HierarchyBuilder() {
 
   return (
     <div
-      className="rounded-[24px] border p-6 shadow-sm"
+      className="rounded-[18px] border p-5 shadow-sm"
       style={{ background: T.surface, borderColor: T.border }}
     >
-      <div className="mb-5 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl"
+          className="flex h-9 w-9 items-center justify-center rounded-xl"
           style={{ background: T.accentDim }}
         >
-          <Layers3 size={18} color={T.accent} />
+          <Layers3 size={16} color={T.accent} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: T.text }}>
+          <h2 className="text-[14px] font-bold leading-none" style={{ color: T.text }}>
             Create Hierarchy
           </h2>
-          <p className="mt-1 text-sm" style={{ color: T.dim }}>
+          <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>
             Example: Brand → Product → SKU
           </p>
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Hierarchy name"
-          className="w-full rounded-xl border px-3 py-2.5 outline-none"
+          className="w-full rounded-xl border px-3 py-2 text-sm outline-none"
           style={{ background: T.s2, borderColor: T.border, color: T.text }}
         />
 
-        <div className="flex flex-col gap-3 md:flex-row">
+        <div className="flex flex-col gap-2 md:flex-row">
           <div className="relative flex-1">
             <select
               value={selectedLevel}
               onChange={(e) => setSelectedLevel(e.target.value)}
-              className="w-full appearance-none rounded-xl border px-3 py-2.5 pr-10 outline-none"
+              className="w-full appearance-none rounded-xl border px-3 py-2 pr-10 text-sm outline-none"
               style={{ background: T.s2, borderColor: T.border, color: T.text }}
             >
               <option value="">Select field</option>
@@ -107,7 +107,7 @@ export default function HierarchyBuilder() {
 
           <button
             onClick={addLevel}
-            className="rounded-xl px-4 py-2.5 text-sm font-semibold"
+            className="rounded-xl px-3 py-2 text-sm font-semibold"
             style={{ background: T.accent, color: "#000" }}
           >
             Add Level
@@ -137,8 +137,8 @@ export default function HierarchyBuilder() {
 
         <button
           onClick={saveHierarchy}
-          className="rounded-xl px-4 py-2.5 text-sm font-semibold"
-          style={{ background: T.accent, color: "#000" }}
+          className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold btn-primary"
+          style={{ background: T.accent, color: "#000", boxShadow: "0 2px 8px rgba(245,158,11,0.20)" }}
         >
           Save Hierarchy
         </button>

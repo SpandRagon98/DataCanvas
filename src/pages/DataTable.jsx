@@ -279,7 +279,7 @@ export default function DataTable() {
   const gridThemeClass = themeMode === "light" ? "ag-theme-quartz" : "ag-theme-quartz-dark";
 
   return (
-    <div className="h-[calc(100vh-32px)]">
+    <div className="flex h-full flex-col overflow-hidden p-4 gap-3">
       <FindReplaceModal
         open={findReplaceOpen}
         onClose={() => setFindReplaceOpen(false)}
@@ -290,31 +290,32 @@ export default function DataTable() {
         T={T}
       />
 
+      {/* ── Header toolbar ── */}
       <div
-        className="mb-4 rounded-[20px] border p-5 shadow-sm"
+        className="shrink-0 rounded-[18px] border px-5 py-3 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
       >
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl"
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
               style={{ background: T.accentDim }}
             >
-              <Database size={18} color={T.accent} />
+              <Database size={16} color={T.accent} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: T.text }}>Data Table</h1>
-              <p className="mt-1 text-sm" style={{ color: T.dim }}>
-                Edit raw data and visuals update automatically. Calculated fields are read-only.
+              <h1 className="text-[15px] font-bold leading-none" style={{ color: T.text }}>Data Table</h1>
+              <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>
+                Edit cells directly · Calculated fields are read-only
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <button
               onClick={undoEdit}
               disabled={!undoStack.length}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition"
               style={{
                 borderColor: T.border,
                 background: T.s2,
@@ -323,13 +324,13 @@ export default function DataTable() {
               }}
               title="Undo last cell edit (Ctrl+Z)"
             >
-              <Undo2 size={14} /> Undo
+              <Undo2 size={12} /> Undo
             </button>
 
             <button
               onClick={redoEdit}
               disabled={!redoStack.length}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition"
               style={{
                 borderColor: T.border,
                 background: T.s2,
@@ -338,41 +339,44 @@ export default function DataTable() {
               }}
               title="Redo (Ctrl+Y)"
             >
-              <Redo2 size={14} /> Redo
+              <Redo2 size={12} /> Redo
             </button>
+
+            <div className="mx-1 h-4 w-px" style={{ background: T.border }} />
 
             <button
               onClick={() => setFindReplaceOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
               style={{ borderColor: T.border, background: T.s2, color: T.text }}
-              title="Find & Replace (Ctrl+H)"
+              title="Find & Replace"
             >
-              <Search size={14} /> Find & Replace
+              <Search size={12} /> Find & Replace
             </button>
 
             <button
               onClick={exportCSV}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
               style={{ borderColor: T.border, background: T.s2, color: T.text }}
               title="Export as CSV"
             >
-              <Download size={14} /> CSV
+              <Download size={12} /> CSV
             </button>
 
             <button
               onClick={exportExcel}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
               style={{ borderColor: T.border, background: T.s2, color: T.text }}
               title="Export as Excel"
             >
-              <Download size={14} /> Excel
+              <Download size={12} /> Excel
             </button>
           </div>
         </div>
       </div>
 
+      {/* ── AG Grid ── */}
       <div
-        className="h-[calc(100%-120px)] rounded-[20px] border p-4 shadow-sm"
+        className="flex-1 min-h-0 rounded-[18px] border p-3 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
       >
         <div className={`${gridThemeClass} h-full w-full`}>

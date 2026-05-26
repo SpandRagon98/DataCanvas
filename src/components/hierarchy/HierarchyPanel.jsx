@@ -9,51 +9,54 @@ export default function HierarchyPanel() {
 
   return (
     <div
-      className="rounded-[24px] border p-6 shadow-sm"
+      className="rounded-[18px] border p-5 shadow-sm"
       style={{ background: T.surface, borderColor: T.border }}
     >
-      <div className="mb-5 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-3">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl"
+          className="flex h-9 w-9 items-center justify-center rounded-xl"
           style={{ background: T.accentDim }}
         >
-          <Layers3 size={18} color={T.accent} />
+          <Layers3 size={16} color={T.accent} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold" style={{ color: T.text }}>
+          <h2 className="text-[14px] font-bold leading-none" style={{ color: T.text }}>
             Saved Hierarchies
           </h2>
-          <p className="mt-1 text-sm" style={{ color: T.dim }}>
+          <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>
             Manage your hierarchy definitions
           </p>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {hierarchies.length === 0 ? (
-          <div className="text-sm" style={{ color: T.dim }}>
+          <div
+            className="rounded-xl border border-dashed px-4 py-6 text-center text-sm"
+            style={{ borderColor: T.border, background: T.s2, color: T.dim }}
+          >
             No hierarchies created yet
           </div>
         ) : (
           hierarchies.map((hierarchy) => (
             <div
               key={hierarchy.name}
-              className="rounded-2xl border p-4"
+              className="rounded-xl border px-3 py-2.5"
               style={{ background: T.s2, borderColor: T.border }}
             >
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-semibold" style={{ color: T.text }}>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold" style={{ color: T.text }}>
                     {hierarchy.name}
                   </div>
-                  <div className="mt-1 text-sm" style={{ color: T.dim }}>
+                  <div className="mt-0.5 truncate text-xs mono" style={{ color: T.dim }}>
                     {hierarchy.levels.join(" → ")}
                   </div>
                 </div>
 
                 <button
                   onClick={() => removeHierarchy(hierarchy.name)}
-                  className="rounded-xl border px-3 py-2 text-sm transition"
+                  className="shrink-0 rounded-xl border px-2.5 py-1.5 text-xs transition"
                   style={{
                     borderColor: T.border,
                     background: T.surface,

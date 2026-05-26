@@ -54,38 +54,39 @@ export default function ScenarioPanel({ open, onClose }) {
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.74)", backdropFilter: "blur(8px)" }}
+      style={{ background: "rgba(0,0,0,0.74)", backdropFilter: "blur(10px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-4xl overflow-hidden rounded-2xl border shadow-2xl"
-        style={{ background: T.surface, borderColor: T.border }}
+        className="anim-scale-in w-full max-w-4xl overflow-hidden rounded-[22px] border"
+        style={{ background: T.surface, borderColor: T.border, boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}
       >
         <div
-          className="flex items-center justify-between border-b px-6 py-4"
+          className="flex items-center justify-between border-b px-5 py-3.5"
           style={{ borderColor: T.border }}
         >
           <div className="flex items-center gap-3">
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl"
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
               style={{ background: T.accentDim }}
             >
-              <Sparkles size={18} color={T.accent} />
+              <Sparkles size={16} color={T.accent} />
             </div>
             <div>
-              <h2 className="text-lg font-bold" style={{ color: T.text }}>
+              <h2 className="text-[15px] font-bold leading-none" style={{ color: T.text }}>
                 What-If Scenarios
               </h2>
-              <p className="mt-0.5 text-sm" style={{ color: T.dim }}>
-                Adjust numeric fields to see their downstream impact on visuals
+              <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>
+                Adjust numeric fields to model downstream impact on visuals
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-2"
-            style={{ color: T.muted, background: "transparent" }}
+            className="rounded-xl border p-1.5"
+            style={{ color: T.muted, background: T.s2, borderColor: T.border }}
           >
-            <X size={16} />
+            <X size={14} />
           </button>
         </div>
 

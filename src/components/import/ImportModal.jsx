@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Upload, X, Link2, AlertCircle } from "lucide-react";
 import * as XLSX from "xlsx";
-import { T } from "../../styles/theme";
+import { useTheme } from "../../styles/theme";
 
 const detectType = (values) => {
   let numberCount = 0;
@@ -107,6 +107,7 @@ function parseCSV(raw) {
 }
 
 export default function ImportModal({ open, onClose, onImport }) {
+  const T = useTheme();
   const [tab, setTab] = useState("file");
   const [paste, setPaste] = useState("");
   const [url, setUrl] = useState("");
@@ -202,19 +203,20 @@ export default function ImportModal({ open, onClose, onImport }) {
     }
   };
 
-  const panelStyle = {
-    background: T.surface,
-    border: `1px solid ${T.border}`,
-    borderRadius: T.radiusLg,
-    boxShadow: "0 25px 60px rgba(0,0,0,0.45)",
-  };
-
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.74)", backdropFilter: "blur(8px)" }}
+      style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-xl p-6" style={panelStyle}>
+      <div
+        className="anim-scale-in w-full max-w-xl rounded-[22px] border p-6"
+        style={{
+          background: T.surface,
+          borderColor: T.border,
+          boxShadow: T.shadowXl,
+        }}
+      >
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-bold" style={{ color: T.text }}>

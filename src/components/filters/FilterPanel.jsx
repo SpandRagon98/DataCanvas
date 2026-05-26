@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { Bookmark, Plus, Trash2, ChevronDown, ChevronUp, Calendar, X } from "lucide-react";
+import { Bookmark, Plus, Trash2, ChevronDown, ChevronUp, Calendar, X, Filter } from "lucide-react";
 import { useEffectiveData } from "../../hooks/useEffectiveData";
 import { useStore } from "../../store/useStore";
 import { getUniqueValues, RELATIVE_DATE_LABELS, isRelativeDateFilter } from "../../utils/filterEngine";
 import { useTheme } from "../../styles/theme";
 
-// ── Multi-select checkbox filter for string/boolean columns ──
+// ── Multi-select checkbox filter ───────────────────────────────────────────
 function StringFilter({ field, values, filterValue, onSet, T }) {
   const [open, setOpen] = useState(false);
   const [valSearch, setValSearch] = useState("");
 
-  // Normalise to array
   const selected = Array.isArray(filterValue)
     ? filterValue.map(String)
     : filterValue && filterValue !== ""
@@ -18,15 +17,10 @@ function StringFilter({ field, values, filterValue, onSet, T }) {
     : [];
 
   const toggle = (v) => {
-    const sv = String(v);
-    const next = selected.includes(sv)
-      ? selected.filter((x) => x !== sv)
-      : [...selected, sv];
+    const sv   = String(v);
+    const next = selected.includes(sv) ? selected.filter((x) => x !== sv) : [...selected, sv];
     onSet(next.length === 0 ? "" : next);
   };
-
-  const selectAll = () => onSet(values.map(String));
-  const clearAll  = () => onSet("");
 
   const displayed = values.filter((v) =>
     String(v).toLowerCase().includes(valSearch.toLowerCase())
@@ -34,77 +28,63 @@ function StringFilter({ field, values, filterValue, onSet, T }) {
 
   return (
     <div>
-      {/* Summary chip / toggle */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-sm"
-        style={{ background: T.s2, borderColor: selected.length ? T.accent : T.border, color: T.text }}
+        className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs"
+        style={{
+          background: T.s2,
+          borderColor: selected.length ? T.accent : T.border,
+          color: T.text,
+          transition: "border-color 150ms ease",
+        }}
       >
-        <span className="truncate" style={{ color: selected.length ? T.accent : T.dim }}>
-          {selected.length === 0
-            ? "All"
-            : selected.length === 1
-            ? selected[0]
-            : `${selected.length} selected`}
+        <span style={{ color: selected.length ? T.accent : T.dim }}>
+          {selected.length === 0 ? "All values" : selected.length === 1 ? selected[0] : `${selected.length} selected`}
         </span>
-        {open ? <ChevronUp size={13} style={{ color: T.dim }} /> : <ChevronDown size={13} style={{ color: T.dim }} />}
+        {open ? <ChevronUp size={11} style={{ color: T.muted }} /> : <ChevronDown size={11} style={{ color: T.muted }} />}
       </button>
 
       {open && (
         <div
-          className="mt-1 rounded-xl border p-2"
+          className="mt-1 rounded-xl border p-2 anim-slide-down"
           style={{ background: T.s2, borderColor: T.border }}
         >
-          {/* Actions */}
-          <div className="mb-2 flex items-center gap-2">
+          <div className="mb-2 flex items-center gap-1.5">
             <input
               value={valSearch}
               onChange={(e) => setValSearch(e.target.value)}
               placeholder="Search…"
-              className="flex-1 rounded-lg border px-2 py-1 text-xs outline-none"
+              className="flex-1 rounded-lg border px-2 py-1 text-[11px] outline-none"
               style={{ background: T.surface, borderColor: T.border, color: T.text }}
             />
             <button
-              onClick={selectAll}
-              className="rounded-lg border px-2 py-1 text-xs"
+              onClick={() => onSet(values.map(String))}
+              className="rounded-lg border px-2 py-1 text-[11px]"
               style={{ background: T.surface, borderColor: T.border, color: T.dim }}
-            >
-              All
-            </button>
+            >All</button>
             <button
-              onClick={clearAll}
-              className="rounded-lg border px-2 py-1 text-xs"
+              onClick={() => onSet("")}
+              className="rounded-lg border px-2 py-1 text-[11px]"
               style={{ background: T.surface, borderColor: T.border, color: T.dim }}
-            >
-              None
-            </button>
+            >None</button>
           </div>
-
-          {/* Checkbox list */}
-          <div className="max-h-36 space-y-0.5 overflow-y-auto">
+          <div className="max-h-32 space-y-0.5 overflow-y-auto">
             {displayed.map((v) => {
-              const sv = String(v);
+              const sv      = String(v);
               const checked = selected.includes(sv);
               return (
                 <label
                   key={sv}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm transition hover:opacity-80"
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12px] transition-colors"
                   style={{ color: T.text, background: checked ? T.accentDim : "transparent" }}
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggle(v)}
-                    className="accent-amber-500"
-                  />
+                  <input type="checkbox" checked={checked} onChange={() => toggle(v)} className="accent-amber-500" />
                   <span className="truncate">{sv || "(blank)"}</span>
                 </label>
               );
             })}
-            {displayed.length === 0 && (
-              <div className="py-1 text-center text-xs" style={{ color: T.muted }}>
-                No values match
-              </div>
+            {!displayed.length && (
+              <p className="py-1 text-center text-[11px]" style={{ color: T.muted }}>No values match</p>
             )}
           </div>
         </div>
@@ -113,29 +93,17 @@ function StringFilter({ field, values, filterValue, onSet, T }) {
   );
 }
 
-// ── Date filter: relative shortcuts + custom from/to range ──
-function DateFilter({ field, values, filterValue, onSet, T }) {
-  // Detect current mode
-  const isRange = typeof filterValue === "object" && filterValue !== null;
+// ── Date filter ────────────────────────────────────────────────────────────
+function DateFilter({ filterValue, onSet, T }) {
+  const isRange    = typeof filterValue === "object" && filterValue !== null;
   const isRelative = typeof filterValue === "string" && isRelativeDateFilter(filterValue);
-  const isExact = typeof filterValue === "string" && filterValue !== "" && !isRelative;
-
   const [tab, setTab] = useState(isRange ? "range" : "relative");
+  const rangeVal   = isRange ? filterValue : { from: "", to: "" };
 
-  const rangeVal = isRange ? filterValue : { from: "", to: "" };
-
-  const setFrom = (v) => onSet({ ...rangeVal, from: v });
-  const setTo   = (v) => onSet({ ...rangeVal, to: v });
-
-  const inputStyle = {
-    background: T.surface,
-    borderColor: T.border,
-    color: T.text,
-  };
+  const inputStyle = { background: T.s2, borderColor: T.border, color: T.text };
 
   return (
     <div className="space-y-2">
-      {/* Tab toggle */}
       <div
         className="inline-flex rounded-xl border p-0.5"
         style={{ background: T.s2, borderColor: T.border }}
@@ -143,15 +111,13 @@ function DateFilter({ field, values, filterValue, onSet, T }) {
         {["relative", "range"].map((t) => (
           <button
             key={t}
-            onClick={() => {
-              setTab(t);
-              onSet(""); // reset when switching
-            }}
-            className="rounded-[10px] px-3 py-1 text-xs font-medium capitalize transition"
+            onClick={() => { setTab(t); onSet(""); }}
+            className="rounded-[9px] px-3 py-1 text-[11px] font-medium capitalize"
             style={{
               background: tab === t ? T.surface : "transparent",
-              color: tab === t ? T.accent : T.dim,
-              boxShadow: tab === t ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
+              color:      tab === t ? T.accent  : T.dim,
+              boxShadow:  tab === t ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
+              transition: "all 150ms ease",
             }}
           >
             {t === "relative" ? "Relative" : "Range"}
@@ -163,7 +129,7 @@ function DateFilter({ field, values, filterValue, onSet, T }) {
         <select
           value={isRelative ? filterValue : ""}
           onChange={(e) => onSet(e.target.value)}
-          className="w-full rounded-xl border px-3 py-2 text-sm outline-none"
+          className="w-full rounded-xl border px-3 py-2 text-xs outline-none"
           style={inputStyle}
         >
           <option value="">All dates</option>
@@ -175,35 +141,26 @@ function DateFilter({ field, values, filterValue, onSet, T }) {
 
       {tab === "range" && (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <Calendar size={12} style={{ color: T.muted, flexShrink: 0 }} />
-            <input
-              type="date"
-              value={rangeVal.from || ""}
-              onChange={(e) => setFrom(e.target.value)}
-              className="flex-1 rounded-xl border px-2 py-1.5 text-sm outline-none"
-              style={inputStyle}
-              placeholder="From"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Calendar size={12} style={{ color: T.muted, flexShrink: 0 }} />
-            <input
-              type="date"
-              value={rangeVal.to || ""}
-              onChange={(e) => setTo(e.target.value)}
-              className="flex-1 rounded-xl border px-2 py-1.5 text-sm outline-none"
-              style={inputStyle}
-              placeholder="To"
-            />
-          </div>
+          {[["from", "From"], ["to", "To"]].map(([key, ph]) => (
+            <div key={key} className="flex items-center gap-2">
+              <Calendar size={11} style={{ color: T.muted, flexShrink: 0 }} />
+              <input
+                type="date"
+                value={rangeVal[key] || ""}
+                onChange={(e) => onSet({ ...rangeVal, [key]: e.target.value })}
+                className="flex-1 rounded-xl border px-2 py-1.5 text-xs outline-none"
+                style={inputStyle}
+                placeholder={ph}
+              />
+            </div>
+          ))}
           {(rangeVal.from || rangeVal.to) && (
             <button
               onClick={() => onSet("")}
-              className="flex items-center gap-1 text-xs"
+              className="flex items-center gap-1 text-[11px]"
               style={{ color: T.muted }}
             >
-              <X size={11} /> Clear range
+              <X size={10} /> Clear range
             </button>
           )}
         </div>
@@ -212,26 +169,25 @@ function DateFilter({ field, values, filterValue, onSet, T }) {
   );
 }
 
-// ── Active filter badge ──
+// ── Active badge ───────────────────────────────────────────────────────────
 function ActiveBadge({ filterValue, T }) {
   if (!filterValue || filterValue === "") return null;
-  if (Array.isArray(filterValue) && filterValue.length === 0) return null;
+  if (Array.isArray(filterValue) && !filterValue.length) return null;
 
   let label = "";
-  if (Array.isArray(filterValue)) {
-    label = `${filterValue.length} value${filterValue.length !== 1 ? "s" : ""}`;
-  } else if (typeof filterValue === "object") {
+  if (Array.isArray(filterValue)) label = `${filterValue.length}`;
+  else if (typeof filterValue === "object") {
     const parts = [];
-    if (filterValue.from) parts.push(`from ${filterValue.from}`);
-    if (filterValue.to) parts.push(`to ${filterValue.to}`);
-    label = parts.join(" ") || "range";
+    if (filterValue.from) parts.push(`≥${filterValue.from}`);
+    if (filterValue.to)   parts.push(`≤${filterValue.to}`);
+    label = parts.join(" ") || "•";
   } else {
-    label = String(filterValue);
+    label = "•";
   }
 
   return (
     <span
-      className="ml-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+      className="ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
       style={{ background: T.accentDim, color: T.accent }}
     >
       {label}
@@ -239,143 +195,132 @@ function ActiveBadge({ filterValue, T }) {
   );
 }
 
+// ── Main panel ─────────────────────────────────────────────────────────────
 export default function FilterPanel() {
   const T = useTheme();
   const { rows, columns, dataTypes } = useEffectiveData();
-  const filters = useStore((s) => s.filters);
-  const setGlobalFilter = useStore((s) => s.setGlobalFilter);
-  const clearGlobalFilters = useStore((s) => s.clearGlobalFilters);
-  const filterBookmarks = useStore((s) => s.filterBookmarks);
-  const saveFilterBookmark = useStore((s) => s.saveFilterBookmark);
-  const applyFilterBookmark = useStore((s) => s.applyFilterBookmark);
+  const filters              = useStore((s) => s.filters);
+  const setGlobalFilter      = useStore((s) => s.setGlobalFilter);
+  const clearGlobalFilters   = useStore((s) => s.clearGlobalFilters);
+  const filterBookmarks      = useStore((s) => s.filterBookmarks);
+  const saveFilterBookmark   = useStore((s) => s.saveFilterBookmark);
+  const applyFilterBookmark  = useStore((s) => s.applyFilterBookmark);
   const deleteFilterBookmark = useStore((s) => s.deleteFilterBookmark);
 
   const [bookmarkName, setBookmarkName] = useState("");
 
   const filterableFields = columns.filter((c) => dataTypes[c] !== "number");
   const activeCount = Object.values(filters).filter(
-    (v) => v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0)
+    (v) => v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && !v.length)
   ).length;
 
-  const handleSaveBookmark = () => {
-    if (!bookmarkName.trim()) return;
-    saveFilterBookmark(bookmarkName.trim());
-    setBookmarkName("");
-  };
-
   return (
-    <div
-      className="h-full rounded-[20px] border p-4 shadow-sm"
-      style={{ background: T.surface, borderColor: T.border }}
-    >
-      <div className="mb-4 flex items-center justify-between">
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between px-4 pt-4 pb-3">
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: T.text }}>
+          <h2 className="flex items-center gap-1.5 text-[13px] font-semibold leading-none" style={{ color: T.text }}>
+            <Filter size={11} style={{ color: T.accent }} />
             Filters
             {activeCount > 0 && (
               <span
-                className="ml-2 rounded-full px-2 py-0.5 text-xs font-bold"
+                className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                 style={{ background: T.accent, color: "#000" }}
               >
                 {activeCount}
               </span>
             )}
           </h2>
-          <p className="text-sm" style={{ color: T.dim }}>Global report filters</p>
+          <p className="mt-1 text-[11px]" style={{ color: T.muted }}>Global report filters</p>
         </div>
-        <button
-          onClick={clearGlobalFilters}
-          className="rounded-xl border px-3 py-2 text-sm transition"
-          style={{ borderColor: T.border, background: T.s2, color: T.dim }}
-        >
-          Clear all
-        </button>
+        {activeCount > 0 && (
+          <button
+            onClick={clearGlobalFilters}
+            className="rounded-xl border px-2.5 py-1.5 text-[11px]"
+            style={{ borderColor: T.border, background: T.s2, color: T.dim }}
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      <div className="max-h-[calc(100vh-280px)] space-y-4 overflow-y-auto pr-1">
+      {/* Scrollable list */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 space-y-3">
         {filterableFields.map((field) => {
-          const values = getUniqueValues(rows, field);
-          const isDate = dataTypes[field] === "date";
+          const values      = getUniqueValues(rows, field);
+          const isDate      = dataTypes[field] === "date";
           const filterValue = filters[field] ?? "";
 
           return (
             <div key={field}>
-              <label className="mb-1.5 flex items-center text-sm font-medium" style={{ color: T.text }}>
+              <label className="mb-1 flex items-center text-[11.5px] font-medium" style={{ color: T.dim }}>
                 {field}
                 <ActiveBadge filterValue={filterValue} T={T} />
               </label>
 
               {isDate ? (
-                <DateFilter
-                  field={field}
-                  values={values}
-                  filterValue={filterValue}
-                  onSet={(v) => setGlobalFilter(field, v)}
-                  T={T}
-                />
+                <DateFilter filterValue={filterValue} onSet={(v) => setGlobalFilter(field, v)} T={T} />
               ) : (
                 <StringFilter
-                  field={field}
-                  values={values}
-                  filterValue={filterValue}
-                  onSet={(v) => setGlobalFilter(field, v)}
-                  T={T}
+                  field={field} values={values} filterValue={filterValue}
+                  onSet={(v) => setGlobalFilter(field, v)} T={T}
                 />
               )}
             </div>
           );
         })}
 
-        {/* Filter Bookmarks */}
-        <div className="border-t pt-4" style={{ borderColor: T.border }}>
-          <div className="mb-3 flex items-center gap-2">
-            <Bookmark size={13} style={{ color: T.accent }} />
-            <span className="text-sm font-semibold" style={{ color: T.text }}>Saved Filters</span>
+        {/* Saved Filters */}
+        <div className="border-t pt-3" style={{ borderColor: T.border }}>
+          <div className="mb-2 flex items-center gap-1.5">
+            <Bookmark size={11} style={{ color: T.accent }} />
+            <span className="text-[11px] font-semibold" style={{ color: T.dim }}>Saved Filters</span>
           </div>
 
-          <div className="mb-3 flex gap-2">
+          <div className="mb-2.5 flex gap-1.5">
             <input
               value={bookmarkName}
               onChange={(e) => setBookmarkName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSaveBookmark(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && bookmarkName.trim()) {
+                  saveFilterBookmark(bookmarkName.trim());
+                  setBookmarkName("");
+                }
+              }}
               placeholder="Bookmark name…"
-              className="flex-1 rounded-xl border px-3 py-2 text-sm outline-none"
+              className="flex-1 rounded-xl border px-2.5 py-1.5 text-[11.5px] outline-none"
               style={{ background: T.s2, borderColor: T.border, color: T.text }}
             />
             <button
-              onClick={handleSaveBookmark}
-              className="rounded-xl border px-3 py-2"
-              style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}
-              title="Save current filters as bookmark"
+              onClick={() => {
+                if (bookmarkName.trim()) { saveFilterBookmark(bookmarkName.trim()); setBookmarkName(""); }
+              }}
+              className="rounded-xl border px-2.5 py-1.5"
+              style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.2)", color: T.accent }}
             >
-              <Plus size={14} />
+              <Plus size={12} />
             </button>
           </div>
 
           {filterBookmarks.length === 0 ? (
-            <p className="text-xs" style={{ color: T.muted }}>No saved filters yet</p>
+            <p className="text-[11px]" style={{ color: T.muted }}>No saved filters yet</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {filterBookmarks.map((bm) => (
                 <div
                   key={bm.id}
-                  className="flex items-center gap-2 rounded-xl border px-3 py-2"
+                  className="flex items-center gap-2 rounded-xl border px-2.5 py-1.5"
                   style={{ background: T.s2, borderColor: T.border }}
                 >
                   <button
                     onClick={() => applyFilterBookmark(bm.id)}
-                    className="flex-1 text-left text-sm truncate"
+                    className="flex-1 truncate text-left text-[11.5px]"
                     style={{ color: T.text }}
-                    title={`Apply: ${bm.name}`}
                   >
                     {bm.name}
                   </button>
-                  <button
-                    onClick={() => deleteFilterBookmark(bm.id)}
-                    title="Delete bookmark"
-                    style={{ color: T.muted }}
-                  >
-                    <Trash2 size={12} />
+                  <button onClick={() => deleteFilterBookmark(bm.id)} style={{ color: T.muted }}>
+                    <Trash2 size={11} />
                   </button>
                 </div>
               ))}

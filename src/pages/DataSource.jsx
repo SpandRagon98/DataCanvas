@@ -139,7 +139,8 @@ export default function DataSource() {
   const toggleExpand = (col) => setExpandedCol((prev) => (prev === col ? null : col));
 
   return (
-    <div className="mx-auto max-w-7xl p-2 space-y-5">
+    <div className="h-full overflow-y-auto">
+    <div className="mx-auto max-w-7xl p-4 space-y-4">
       {/* Full-reset import modal (replaces active dataset) */}
       <ImportModal
         open={importOpen}
@@ -149,22 +150,27 @@ export default function DataSource() {
 
       {/* ── Page header ───────────────────────────────────────────────── */}
       <div
-        className="rounded-[20px] border p-6 shadow-sm"
+        className="rounded-[18px] border px-5 py-4 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
       >
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold" style={{ color: T.text }}>Data Source</h1>
-            <p className="mt-1 text-sm" style={{ color: T.dim }}>
-              Manage datasets, build joins, connect REST APIs, and inspect column profiles
-            </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: T.accentDim }}>
+              <Database size={16} color={T.accent} />
+            </div>
+            <div>
+              <h1 className="text-[15px] font-bold leading-none" style={{ color: T.text }}>Data Source</h1>
+              <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>
+                Manage datasets · Join · REST API · Column profiler
+              </p>
+            </div>
           </div>
           <button
             onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
-            style={{ background: T.accent, color: "#000" }}
+            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold btn-primary"
+            style={{ background: T.accent, color: "#000", boxShadow: "0 2px 8px rgba(245,158,11,0.22)" }}
           >
-            <Upload size={15} /> Replace Dataset
+            <Upload size={13} /> Replace Dataset
           </button>
         </div>
       </div>
@@ -175,24 +181,24 @@ export default function DataSource() {
       {/* ── Main 2-column grid ─────────────────────────────────────────── */}
       <div className="grid gap-5 xl:grid-cols-[1.1fr_1.9fr]">
         {/* ── Left column: summary + calc fields ──────────────────────── */}
-        <div className="space-y-5">
+        <div className="space-y-4">
           {/* Active dataset summary */}
           <div
-            className="rounded-[20px] border p-5 shadow-sm"
+            className="rounded-[18px] border p-4 shadow-sm"
             style={{ background: T.surface, borderColor: T.border }}
           >
-            <div className="mb-4 flex items-center gap-3">
+            <div className="mb-3 flex items-center gap-2.5">
               <div
-                className="flex h-10 w-10 items-center justify-center rounded-xl"
+                className="flex h-8 w-8 items-center justify-center rounded-xl"
                 style={{ background: T.accentDim }}
               >
-                <Database size={18} color={T.accent} />
+                <Database size={15} color={T.accent} />
               </div>
               <div>
-                <h2 className="text-lg font-semibold" style={{ color: T.text }}>
+                <h2 className="text-[13px] font-semibold leading-none" style={{ color: T.text }}>
                   Active Dataset
                 </h2>
-                <p className="text-sm" style={{ color: T.dim }}>Auto-detected columns and types</p>
+                <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>Auto-detected columns & types</p>
               </div>
             </div>
 
@@ -402,6 +408,7 @@ export default function DataSource() {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

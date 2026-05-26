@@ -8,7 +8,7 @@ function StyledSelect({ value, onChange, children, ariaLabel, T }) {
         aria-label={ariaLabel}
         value={value}
         onChange={onChange}
-        className="w-full appearance-none rounded-xl border px-3 py-2.5 pr-10 text-sm outline-none"
+        className="w-full appearance-none rounded-xl border px-3 py-2 pr-10 text-sm outline-none"
         style={{
           borderColor: T.border,
           background: T.s2,

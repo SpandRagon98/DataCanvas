@@ -1,79 +1,56 @@
 import { Search, Hash, Type, Calendar, ToggleLeft, Layers3, Sigma } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useStore } from "../../store/useStore";
-import { useEffectiveData } from "../../hooks/useEffectiveData";
-import { useTheme } from "../../styles/theme";
+import { useStore }          from "../../store/useStore";
+import { useEffectiveData }  from "../../hooks/useEffectiveData";
+import { useTheme }          from "../../styles/theme";
 
 function TypeIcon({ type, T }) {
-  if (type === "number") return <Hash size={12} color={T.blue} />;
-  if (type === "date") return <Calendar size={12} color={T.success} />;
-  if (type === "boolean") return <ToggleLeft size={12} color={T.accent} />;
-  return <Type size={12} color={T.dim} />;
+  if (type === "number")  return <Hash      size={10} strokeWidth={2.2} color={T.blue}    />;
+  if (type === "date")    return <Calendar  size={10} strokeWidth={2.2} color={T.success} />;
+  if (type === "boolean") return <ToggleLeft size={10} strokeWidth={2.2} color={T.accent}  />;
+  return <Type size={10} strokeWidth={2.2} color={T.dim} />;
 }
 
 function FieldChip({ field, type, label, isCalculated = false, T }) {
-  const handleDragStart = (e) => {
-    e.dataTransfer.setData("fieldName", field);
-  };
+  const handleDragStart = (e) => e.dataTransfer.setData("fieldName", field);
 
   return (
     <div
       draggable
       onDragStart={handleDragStart}
-      className="cursor-grab rounded-xl border px-3 py-2 text-sm transition active:cursor-grabbing"
+      className="drag-chip rounded-xl border px-2.5 py-1.5"
       style={{
         background: T.s2,
         borderColor: T.border,
         color: T.text,
       }}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="truncate">{label || field}</div>
-            {isCalculated && (
-              <span
-                className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                style={{ background: T.accentDim, color: T.accent }}
-              >
-                Calc
-              </span>
-            )}
-          </div>
-
-          {label && label !== field && (
-            <div className="mono mt-0.5 truncate text-[11px]" style={{ color: T.muted }}>
-              {field}
-            </div>
-          )}
-        </div>
-
-        <div
-          className="mono inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px]"
-          style={{ background: T.s3 }}
-        >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-1.5">
           <TypeIcon type={type} T={T} />
-          <span style={{ color: T.dim }}>{type}</span>
+          <span className="truncate text-[12.5px]">{label || field}</span>
+          {isCalculated && (
+            <span
+              className="shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase"
+              style={{ background: T.accentDim, color: T.accent }}
+            >
+              fx
+            </span>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function Section({ title, icon, children, T }) {
+function SectionLabel({ title, icon, T }) {
   return (
     <div
-      className="mb-5 rounded-2xl border p-3"
-      style={{ background: T.surface, borderColor: T.border }}
+      className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest"
+      style={{ color: T.muted }}
     >
-      <div
-        className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide"
-        style={{ color: T.muted }}
-      >
-        {icon}
-        {title}
-      </div>
-      <div className="space-y-2">{children}</div>
+      {icon}
+      {title}
     </div>
   );
 }
@@ -84,12 +61,13 @@ export default function FieldPane() {
   const hierarchies = useStore((s) => s.hierarchies);
   const [search, setSearch] = useState("");
 
-  const filtered = useMemo(() => {
-    return columns.filter((c) => c.toLowerCase().includes(search.toLowerCase()));
-  }, [columns, search]);
+  const filtered = useMemo(
+    () => columns.filter((c) => c.toLowerCase().includes(search.toLowerCase())),
+    [columns, search]
+  );
 
   const dimensions = filtered.filter((c) => dataTypes[c] !== "number");
-  const measures = filtered.filter((c) => dataTypes[c] === "number");
+  const measures   = filtered.filter((c) => dataTypes[c] === "number");
 
   const hierarchyFields = hierarchies.flatMap((h) =>
     h.levels.map((level, idx) => ({
@@ -101,98 +79,86 @@ export default function FieldPane() {
   );
 
   return (
-    <div
-      className="h-full rounded-[20px] border p-4 shadow-sm"
-      style={{ background: T.surface, borderColor: T.border }}
-    >
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold" style={{ color: T.text }}>
-          Fields
-        </h2>
-        <p className="text-sm" style={{ color: T.dim }}>
-          Search and drag into visual zones
-        </p>
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="shrink-0 px-4 pt-4 pb-3">
+        <h2 className="text-[13px] font-semibold leading-none" style={{ color: T.text }}>Fields</h2>
+        <p className="mt-1 text-[11px]" style={{ color: T.muted }}>Drag into visual zones</p>
       </div>
 
-      <div
-        className="mb-5 flex items-center gap-2 rounded-xl border px-3 py-2"
-        style={{ background: T.s2, borderColor: T.border }}
-      >
-        <Search size={14} color={T.muted} />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search fields..."
-          className="w-full bg-transparent text-sm outline-none"
-          style={{ color: T.text }}
-        />
+      {/* Search */}
+      <div className="shrink-0 mx-3 mb-3">
+        <div
+          className="flex items-center gap-2 rounded-xl border px-3 py-2"
+          style={{ background: T.s2, borderColor: T.border }}
+        >
+          <Search size={12} strokeWidth={2} color={T.muted} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            className="w-full bg-transparent text-[12.5px] outline-none"
+            style={{ color: T.text }}
+          />
+          {search && (
+            <button onClick={() => setSearch("")} style={{ color: T.muted, display: "flex" }}>
+              <Search size={10} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
+      {/* Scrollable list */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 space-y-4">
+
         {hierarchyFields.length > 0 && (
-          <Section title="Hierarchies" icon={<Layers3 size={12} color={T.accent} />} T={T}>
-            {hierarchyFields.map((item) => (
-              <FieldChip
-                key={item.id}
-                field={item.field}
-                type={item.type}
-                label={item.label}
-                T={T}
-              />
-            ))}
-          </Section>
+          <div>
+            <SectionLabel title="Hierarchies" icon={<Layers3 size={10} color={T.accent} />} T={T} />
+            <div className="space-y-1">
+              {hierarchyFields.map((item) => (
+                <FieldChip key={item.id} field={item.field} type={item.type} label={item.label} T={T} />
+              ))}
+            </div>
+          </div>
         )}
 
-        <Section title="Dimensions" icon={<Type size={12} color={T.dim} />} T={T}>
-          {dimensions.length ? (
-            dimensions.map((field) => (
-              <FieldChip
-                key={field}
-                field={field}
-                type={dataTypes[field]}
-                isCalculated={calcFieldNames.has(field)}
-                T={T}
-              />
-            ))
-          ) : (
-            <div className="text-sm" style={{ color: T.muted }}>
-              No matching dimensions
-            </div>
-          )}
-        </Section>
+        <div>
+          <SectionLabel title="Dimensions" icon={<Type size={10} color={T.dim} />} T={T} />
+          <div className="space-y-1">
+            {dimensions.length ? (
+              dimensions.map((f) => (
+                <FieldChip key={f} field={f} type={dataTypes[f]} isCalculated={calcFieldNames.has(f)} T={T} />
+              ))
+            ) : (
+              <p className="text-[11px] px-1" style={{ color: T.muted }}>No matches</p>
+            )}
+          </div>
+        </div>
 
-        <Section title="Measures" icon={<Hash size={12} color={T.blue} />} T={T}>
-          {measures.length ? (
-            measures.map((field) => (
-              <FieldChip
-                key={field}
-                field={field}
-                type={dataTypes[field]}
-                isCalculated={calcFieldNames.has(field)}
-                T={T}
-              />
-            ))
-          ) : (
-            <div className="text-sm" style={{ color: T.muted }}>
-              No matching measures
-            </div>
-          )}
-        </Section>
+        <div>
+          <SectionLabel title="Measures" icon={<Hash size={10} color={T.blue} />} T={T} />
+          <div className="space-y-1">
+            {measures.length ? (
+              measures.map((f) => (
+                <FieldChip key={f} field={f} type={dataTypes[f]} isCalculated={calcFieldNames.has(f)} T={T} />
+              ))
+            ) : (
+              <p className="text-[11px] px-1" style={{ color: T.muted }}>No matches</p>
+            )}
+          </div>
+        </div>
 
         {[...calcFieldNames].length > 0 && (
-          <Section title="Calculated" icon={<Sigma size={12} color={T.accent} />} T={T}>
-            {[...calcFieldNames]
-              .filter((field) => field.toLowerCase().includes(search.toLowerCase()))
-              .map((field) => (
-                <FieldChip
-                  key={field}
-                  field={field}
-                  type={dataTypes[field]}
-                  isCalculated
-                  T={T}
-                />
-              ))}
-          </Section>
+          <div>
+            <SectionLabel title="Calculated" icon={<Sigma size={10} color={T.accent} />} T={T} />
+            <div className="space-y-1">
+              {[...calcFieldNames]
+                .filter((f) => f.toLowerCase().includes(search.toLowerCase()))
+                .map((f) => (
+                  <FieldChip key={f} field={f} type={dataTypes[f]} isCalculated T={T} />
+                ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

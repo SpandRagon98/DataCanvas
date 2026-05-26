@@ -1,39 +1,47 @@
+import { useState } from "react";
 import { useTheme } from "../../styles/theme";
 
 export default function DropZone({ label, value, onDropField, onRemoveField }) {
   const T = useTheme();
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const handleDrop = (e) => {
     e.preventDefault();
+    setIsDragOver(false);
     const field = e.dataTransfer.getData("fieldName");
     if (field) onDropField(field);
   };
 
+  const hasValue = Array.isArray(value) ? value.length > 0 : Boolean(value);
+
   return (
     <div
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+      onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
-      className="min-h-[84px] rounded-2xl border-2 border-dashed p-3 transition"
+      className={`min-h-[68px] rounded-xl border-2 border-dashed p-2.5 transition ${isDragOver ? "drop-active" : ""}`}
       style={{
-        borderColor: T.border,
-        background: T.s2,
+        borderColor: isDragOver ? undefined : hasValue ? T.accent : T.border,
+        background: isDragOver ? undefined : hasValue ? "rgba(245,158,11,0.04)" : T.s2,
       }}
     >
+      {/* Label */}
       <div
-        className="mono text-xs font-semibold uppercase tracking-wide"
-        style={{ color: T.muted }}
+        className="mb-1.5 text-[10px] font-bold uppercase tracking-wider"
+        style={{ color: isDragOver ? "#f59e0b" : hasValue ? T.accent : T.muted }}
       >
         {label}
       </div>
 
-      <div className="mt-3 text-sm">
+      {/* Value chips */}
+      <div className="text-sm">
         {Array.isArray(value) ? (
           value.length ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {value.map((v) => (
                 <span
                   key={v}
-                  className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5"
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[12px] font-medium"
                   style={{
                     background: T.surface,
                     borderColor: T.border,
@@ -45,8 +53,8 @@ export default function DropZone({ label, value, onDropField, onRemoveField }) {
                     <button
                       type="button"
                       onClick={() => onRemoveField(v)}
-                      className="text-sm"
-                      style={{ color: T.muted }}
+                      className="opacity-50 hover:opacity-100 transition-opacity"
+                      style={{ color: T.muted, lineHeight: 1 }}
                     >
                       ×
                     </button>
@@ -55,11 +63,13 @@ export default function DropZone({ label, value, onDropField, onRemoveField }) {
               ))}
             </div>
           ) : (
-            <span style={{ color: T.dim }}>Drop field here</span>
+            <span className="text-[11px]" style={{ color: T.dim }}>
+              {isDragOver ? "Release to drop" : "Drop field here"}
+            </span>
           )
         ) : value ? (
           <span
-            className="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5"
+            className="inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[12px] font-medium"
             style={{
               background: T.surface,
               borderColor: T.border,
@@ -71,15 +81,17 @@ export default function DropZone({ label, value, onDropField, onRemoveField }) {
               <button
                 type="button"
                 onClick={() => onRemoveField(value)}
-                className="text-sm"
-                style={{ color: T.muted }}
+                className="opacity-50 hover:opacity-100 transition-opacity"
+                style={{ color: T.muted, lineHeight: 1 }}
               >
                 ×
               </button>
             )}
           </span>
         ) : (
-          <span style={{ color: T.dim }}>Drop field here</span>
+          <span className="text-[11px]" style={{ color: T.dim }}>
+            {isDragOver ? "Release to drop" : "Drop field here"}
+          </span>
         )}
       </div>
     </div>

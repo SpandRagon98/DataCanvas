@@ -157,42 +157,44 @@ export default function VisualCard({ visual }) {
   return (
     <div
       onClick={() => setActiveVisual(visual.id)}
-      className="rounded-[20px] border p-5 shadow-sm transition"
+      className="rounded-[18px] border p-4 transition"
       style={{
         background: T.surface,
         borderColor: isActive ? T.accent : T.border,
         boxShadow: isActive
-          ? "0 0 0 1px rgba(245,158,11,0.12), 0 12px 30px rgba(0,0,0,0.25)"
-          : "0 10px 24px rgba(0,0,0,0.18)",
+          ? "0 0 0 2px rgba(245,158,11,0.14), 0 8px 24px rgba(0,0,0,0.20)"
+          : "0 4px 16px rgba(0,0,0,0.12)",
+        transition: "box-shadow 200ms ease, border-color 200ms ease",
       }}
     >
       {/* Header */}
-      <div className="mb-3 flex items-start justify-between gap-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <input
             value={visual.title}
             onChange={(e) => updateVisual(visual.id, { title: e.target.value })}
-            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-lg font-semibold outline-none"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[15px] font-semibold outline-none transition hover:border-current focus:border-current"
             style={{ color: T.text }}
+            placeholder="Visual title…"
           />
-          <p className="text-sm" style={{ color: T.dim }}>Interactive report visual</p>
         </div>
 
-        <div className="flex flex-shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button onClick={handleExportPNG}
-            className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
-            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Export chart as PNG">
-            <Download size={13} />
+            className="inline-flex items-center rounded-xl border px-2.5 py-1.5"
+            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Export as PNG">
+            <Download size={12} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); duplicateVisual(visual.id); }}
-            className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
-            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Duplicate visual">
-            <Copy size={13} />
+            className="inline-flex items-center rounded-xl border px-2.5 py-1.5"
+            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Duplicate">
+            <Copy size={12} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); removeVisual(visual.id); }}
-            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm"
+            className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
             style={{ borderColor: T.border, color: T.dim, background: T.s2 }}>
-            <Trash2 size={14} /> Remove
+            <Trash2 size={12} /> Remove
           </button>
         </div>
       </div>
@@ -210,7 +212,7 @@ export default function VisualCard({ visual }) {
       )}
 
       {/* Drop zones */}
-      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
         <DropZone label="X Axis" value={visual.xFields}
           onDropField={(field) => assignFieldToVisual({ visualId: visual.id, zone: "xFields", field })}
           onRemoveField={(field) => removeFieldFromVisual({ visualId: visual.id, zone: "xFields", field })} />
@@ -226,7 +228,7 @@ export default function VisualCard({ visual }) {
       </div>
 
       {/* Toolbar */}
-      <div className="mb-4">
+      <div className="mb-3">
         <VisualToolbar
           chartType={visual.chartType}
           aggregation={visual.aggregation}
@@ -237,20 +239,20 @@ export default function VisualCard({ visual }) {
 
       {/* ── Advanced Settings ── */}
       <div
-        className="mb-4 rounded-2xl border"
+        className="mb-3 rounded-xl border"
         style={{ background: T.s2, borderColor: T.border }}
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={() => setAdvancedOpen((o) => !o)}
-          className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold"
+          className="flex w-full items-center justify-between px-3.5 py-2.5 text-xs font-semibold"
           style={{ color: T.text }}
         >
           <span className="flex items-center gap-2">
-            <Settings2 size={14} style={{ color: T.accent }} />
+            <Settings2 size={12} style={{ color: T.accent }} />
             Advanced Settings
           </span>
-          {advancedOpen ? <ChevronUp size={14} style={{ color: T.dim }} /> : <ChevronDown size={14} style={{ color: T.dim }} />}
+          {advancedOpen ? <ChevronUp size={12} style={{ color: T.dim }} /> : <ChevronDown size={12} style={{ color: T.dim }} />}
         </button>
 
         {advancedOpen && (
@@ -258,7 +260,7 @@ export default function VisualCard({ visual }) {
 
             {/* ─ Color Palette ─ */}
             <div>
-              <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Color Palette</div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>Color Palette</div>
               <div className="flex flex-wrap gap-2">
                 {PALETTE_LABELS.map(({ id, label }) => {
                   const pal = COLOR_PALETTES[id];
@@ -279,7 +281,7 @@ export default function VisualCard({ visual }) {
                           <span key={ci} className="h-3 w-3 rounded-full" style={{ background: c }} />
                         ))}
                       </div>
-                      <span className="text-[10px]" style={{ color: isActive ? T.accent : T.muted }}>{label}</span>
+                      <span className="text-[9px] font-medium" style={{ color: isActive ? T.accent : T.muted }}>{label}</span>
                     </button>
                   );
                 })}
@@ -289,7 +291,7 @@ export default function VisualCard({ visual }) {
             {/* ─ Running Total + Trendline ─ */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
-                <span className="text-sm" style={{ color: T.text }}>Running Total</span>
+                <span className="text-xs" style={{ color: T.text }}>Running Total</span>
                 <button
                   onClick={() => updateVisual(visual.id, { showRunningTotal: !visual.showRunningTotal })}
                   className="relative inline-flex h-5 w-9 items-center rounded-full transition"
@@ -301,7 +303,7 @@ export default function VisualCard({ visual }) {
               </div>
 
               <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
-                <span className="text-sm" style={{ color: T.text }}>Trendline</span>
+                <span className="text-xs" style={{ color: T.text }}>Trendline</span>
                 <button
                   onClick={() => updateVisual(visual.id, { showTrendline: !visual.showTrendline })}
                   className="relative inline-flex h-5 w-9 items-center rounded-full transition"
@@ -315,10 +317,10 @@ export default function VisualCard({ visual }) {
 
             {/* ─ Visual-Level Filters ─ */}
             <div>
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium" style={{ color: T.text }}>
-                <Filter size={13} style={{ color: T.accent }} />
-                Visual Filters
-                <span className="text-xs" style={{ color: T.muted }}>(override per-visual)</span>
+              <div className="mb-2 flex items-center gap-1.5">
+                <Filter size={11} style={{ color: T.accent }} />
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>Visual Filters</span>
+                <span className="text-[10px]" style={{ color: T.muted }}>(per-visual override)</span>
               </div>
               <div className="flex flex-wrap gap-2 mb-2">
                 <select value={vfField} onChange={(e) => { setVfField(e.target.value); setVfValue(""); }}
@@ -355,7 +357,7 @@ export default function VisualCard({ visual }) {
 
             {/* ─ Reference Lines ─ */}
             <div>
-              <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Reference Lines</div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>Reference Lines</div>
               <div className="flex flex-wrap gap-2 mb-3">
                 <input value={rlValue} onChange={(e) => setRlValue(e.target.value)} placeholder="Y value"
                   type="number" className="w-24 rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
@@ -389,7 +391,7 @@ export default function VisualCard({ visual }) {
 
             {/* ─ Conditional Formatting ─ */}
             <div>
-              <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Conditional Formatting</div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>Conditional Formatting</div>
               <div className="flex flex-wrap gap-2 mb-3">
                 <select value={crField} onChange={(e) => setCrField(e.target.value)}
                   className="rounded-xl border px-2 py-1.5 text-sm outline-none" style={selectStyle}>
@@ -431,26 +433,21 @@ export default function VisualCard({ visual }) {
       </div>
 
       {/* Add to Dashboard */}
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-center lg:justify-between"
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2.5"
         style={{ background: T.s2, borderColor: T.border }}>
-        <div>
-          <div className="text-sm font-semibold" style={{ color: T.text }}>Add to Dashboard</div>
-          <div className="text-xs" style={{ color: T.dim }}>Choose the dashboard for this visual.</div>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <select value={targetDashboardId} onChange={(e) => setTargetDashboardId(e.target.value)}
-            className="rounded-xl border px-3 py-2.5 text-sm outline-none"
-            style={{ background: T.surface, borderColor: T.border, color: T.text, minWidth: 180 }}
-            onClick={(e) => e.stopPropagation()}>
-            {dashboards.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-          <button onClick={handleAddToDashboard}
-            className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
-            style={{ background: addedState ? T.success : T.accent, color: addedState ? "#04120d" : "#000" }}>
-            {addedState ? <Check size={15} /> : <LayoutDashboard size={15} />}
-            {addedState ? "Added" : "Add to Dashboard"}
-          </button>
-        </div>
+        <span className="text-xs font-semibold shrink-0" style={{ color: T.text }}>Add to Dashboard:</span>
+        <select value={targetDashboardId} onChange={(e) => setTargetDashboardId(e.target.value)}
+          className="flex-1 min-w-[140px] rounded-xl border px-2.5 py-1.5 text-xs outline-none"
+          style={{ background: T.surface, borderColor: T.border, color: T.text }}
+          onClick={(e) => e.stopPropagation()}>
+          {dashboards.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        <button onClick={handleAddToDashboard}
+          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold btn-primary"
+          style={{ background: addedState ? T.success : T.accent, color: addedState ? "#04120d" : "#000" }}>
+          {addedState ? <Check size={12} /> : <LayoutDashboard size={12} />}
+          {addedState ? "Added!" : "Add"}
+        </button>
       </div>
 
       {/* Chart area */}

@@ -284,14 +284,14 @@ export default function Dashboard() {
     : 560;
 
   return (
-    <div className="flex h-[calc(100vh-120px)] flex-col gap-4">
+    <div className="flex h-full flex-col gap-3 overflow-hidden p-3">
       <div
         ref={canvasRef}
-        className="relative flex-1 overflow-auto rounded-[24px] border"
+        className="relative flex-1 overflow-auto rounded-[18px] border"
         style={{
           background: T.surface,
           borderColor: T.border,
-          minHeight: 520,
+          minHeight: 400,
           backgroundImage: snapEnabled
             ? `radial-gradient(circle, ${T.border} 1px, transparent 1px)`
             : "none",
@@ -350,36 +350,52 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Tab bar */}
-      <div className="rounded-[20px] border p-3" style={{ background: T.surface, borderColor: T.border }}>
-        <div className="flex flex-wrap items-center gap-3">
+      {/* ── Tab bar ── */}
+      <div
+        className="shrink-0 rounded-[16px] border px-3 py-2"
+        style={{ background: T.surface, borderColor: T.border }}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+
+          {/* Dashboard tabs */}
           {dashboards.map((dashboard) => {
             const isActive = dashboard.id === activeDashboard?.id;
             return (
               <div key={dashboard.id}
-                className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2"
-                style={{ background: isActive ? T.accentDim : T.s2, borderColor: isActive ? "rgba(245,158,11,0.25)" : T.border }}>
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
+                style={{
+                  background: isActive ? T.accentDim : T.s2,
+                  borderColor: isActive ? "rgba(245,158,11,0.28)" : T.border,
+                  transition: "all 150ms ease",
+                }}>
                 {editingTabId === dashboard.id ? (
                   <input autoFocus value={draftTabName}
                     onChange={(e) => setDraftTabName(e.target.value)}
                     onBlur={handleCommitRename}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleCommitRename(); if (e.key === "Escape") { setEditingTabId(null); setDraftTabName(""); } }}
-                    className="rounded-lg border px-2 py-1 text-sm outline-none"
-                    style={{ background: T.surface, borderColor: T.border, color: T.text }} />
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCommitRename();
+                      if (e.key === "Escape") { setEditingTabId(null); setDraftTabName(""); }
+                    }}
+                    className="rounded-lg border px-2 py-0.5 text-xs outline-none"
+                    style={{ background: T.surface, borderColor: T.border, color: T.text, width: 100 }} />
                 ) : (
                   <button onClick={() => setActiveDashboard(dashboard.id)}
-                    className="text-sm font-semibold" style={{ color: isActive ? T.accent : T.text }}>
+                    className="text-xs font-semibold" style={{ color: isActive ? T.accent : T.text }}>
                     {dashboard.name}
                   </button>
                 )}
-                <button onClick={() => { setEditingTabId(dashboard.id); setDraftTabName(dashboard.name); }}
-                  className="rounded-lg p-1" style={{ color: T.dim }} title="Rename">
-                  <Pencil size={14} />
+                <button
+                  onClick={() => { setEditingTabId(dashboard.id); setDraftTabName(dashboard.name); }}
+                  className="rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                  style={{ color: T.dim }} title="Rename">
+                  <Pencil size={11} />
                 </button>
                 {dashboards.length > 1 && (
-                  <button onClick={() => removeDashboard(dashboard.id)}
-                    className="rounded-lg p-1" style={{ color: T.dim }} title="Delete">
-                    <Trash2 size={14} />
+                  <button
+                    onClick={() => removeDashboard(dashboard.id)}
+                    className="rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                    style={{ color: T.dim }} title="Delete">
+                    <Trash2 size={11} />
                   </button>
                 )}
               </div>
@@ -387,46 +403,49 @@ export default function Dashboard() {
           })}
 
           <button onClick={createDashboard}
-            className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold"
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold btn-primary"
             style={{ background: T.accent, color: "#000" }}>
-            <Plus size={14} /> New Dashboard
+            <Plus size={12} /> New
           </button>
 
-          <div className="mx-1 h-6 w-px" style={{ background: T.border }} />
+          <div className="mx-0.5 h-5 w-px" style={{ background: T.border }} />
 
-          {/* Add sticky note */}
+          {/* Utility buttons */}
           <button
             onClick={() => activeDashboard && addDashboardAnnotation({ dashboardId: activeDashboard.id })}
-            className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium"
+            className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
             style={{ background: T.s2, borderColor: T.border, color: T.dim }}
-            title="Add sticky note annotation"
-          >
-            <StickyNote size={14} /> Note
+            title="Add sticky note">
+            <StickyNote size={12} /> Note
           </button>
 
-          {/* Snap-to-grid toggle */}
           <button onClick={() => setSnapEnabled((s) => !s)}
-            className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium"
-            style={{ background: snapEnabled ? T.accentDim : T.s2, borderColor: snapEnabled ? "rgba(245,158,11,0.25)" : T.border, color: snapEnabled ? T.accent : T.dim }}
+            className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
+            style={{
+              background: snapEnabled ? T.accentDim : T.s2,
+              borderColor: snapEnabled ? "rgba(245,158,11,0.28)" : T.border,
+              color: snapEnabled ? T.accent : T.dim,
+            }}
             title="Toggle snap-to-grid">
-            <Grid3x3 size={14} /> Snap
+            <Grid3x3 size={12} /> Snap
           </button>
 
-          {/* Export as PNG */}
           <button onClick={handleExportPNG}
-            className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium"
+            className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
             style={{ background: T.s2, borderColor: T.border, color: T.dim }}
-            title="Export dashboard as PNG">
-            <Download size={14} /> Export
+            title="Export as PNG">
+            <Download size={12} /> Export
           </button>
 
-          {/* Presentation mode */}
           <button
-            onClick={() => { setPresentIndex(dashboards.findIndex((d) => d.id === activeDashboard?.id) || 0); setPresentMode(true); }}
-            className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium"
+            onClick={() => {
+              setPresentIndex(dashboards.findIndex((d) => d.id === activeDashboard?.id) || 0);
+              setPresentMode(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
             style={{ background: T.s2, borderColor: T.border, color: T.dim }}
-            title="Present dashboards (fullscreen slideshow)">
-            <Maximize2 size={14} /> Present
+            title="Present dashboards">
+            <Maximize2 size={12} /> Present
           </button>
         </div>
       </div>
