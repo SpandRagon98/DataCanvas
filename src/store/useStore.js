@@ -116,6 +116,11 @@ export const useStore = create(
       // ── Cross-filter — transient, not persisted ──
       crossFilter: {},
 
+      // ── Cloud meta — transient, not persisted to localStorage ──
+      cloudWorkbookId:   null,
+      cloudWorkbookName: null,
+      cloudWorkspaceId:  null,
+
       // ── Undo / Redo — intentionally excluded from persist (see partialize) ──
       undoStack: [],
       redoStack: [],
@@ -658,6 +663,14 @@ export const useStore = create(
         }),
 
       clearCrossFilter: () => set({ crossFilter: {} }),
+
+      // ── Cloud meta ──
+      setCloudMeta: (patch) =>
+        set((state) => ({
+          cloudWorkbookId:   patch.cloudWorkbookId   ?? state.cloudWorkbookId,
+          cloudWorkbookName: patch.cloudWorkbookName ?? state.cloudWorkbookName,
+          cloudWorkspaceId:  patch.cloudWorkspaceId  ?? state.cloudWorkspaceId,
+        })),
 
       // ── Filter Bookmarks ──
       saveFilterBookmark: (name) =>

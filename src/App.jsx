@@ -5,15 +5,30 @@ import {
 import {
   Database, BarChart3, Table2, Layers3, LayoutDashboard,
   Sun, Moon, Sparkles, Save, FolderOpen, GitMerge,
+  Share2, History, MessageSquare, Building2, CalendarClock,
+  Cloud, CloudOff, LogIn,
 } from "lucide-react";
 import DataSource    from "./pages/DataSource";
 import DataTable     from "./pages/DataTable";
 import ReportBuilder from "./pages/ReportBuilder";
 import Hierarchies   from "./pages/Hierarchies";
 import Dashboard     from "./pages/Dashboard";
-import ScenarioPanel from "./components/scenario/ScenarioPanel";
-import { useStore }  from "./store/useStore";
+import Auth          from "./pages/Auth";
+import SharedView    from "./pages/SharedView";
+import ScenarioPanel     from "./components/scenario/ScenarioPanel";
+import ShareModal        from "./components/cloud/ShareModal";
+import PresenceBar       from "./components/cloud/PresenceBar";
+import CommentsPanel     from "./components/cloud/CommentsPanel";
+import WorkbookHistory   from "./components/cloud/WorkbookHistory";
+import WorkspaceManager  from "./components/cloud/WorkspaceManager";
+import ScheduledReports  from "./components/cloud/ScheduledReports";
+import AuthGate          from "./components/cloud/AuthGate";
+import { useStore }      from "./store/useStore";
 import { useTheme, applyThemeToDocument } from "./styles/theme";
+import { useAuth }       from "./hooks/useAuth";
+import { useCloudSync }  from "./hooks/useCloudSync";
+import { usePresence }   from "./hooks/usePresence";
+import { CLOUD_ENABLED } from "./lib/supabase";
 
 // ── Nav items ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -25,7 +40,19 @@ const NAV_ITEMS = [
 ];
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
-function Sidebar({ onOpenScenario }) {
+function Sidebar({
+  onOpenScenario,
+  onOpenShare,
+  onOpenHistory,
+  onOpenComments,
+  onOpenWorkspace,
+  onOpenScheduled,
+  onSignIn,
+  user,
+  isSaving,
+  lastSaved,
+  online,
+}) {
   const T              = useTheme();
   const themeMode      = useStore((s) => s.themeMode);
   const toggleTheme    = useStore((s) => s.toggleThemeMode);
@@ -34,6 +61,7 @@ function Sidebar({ onOpenScenario }) {
   const loadWorkbook   = useStore((s) => s.loadWorkbook);
   const datasets       = useStore((s) => s.datasets);
   const activeDatasetId = useStore((s) => s.activeDatasetId);
+  const cloudWorkbookId = useStore((s) => s.cloudWorkbookId);
   const fileInputRef   = useRef(null);
 
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || null;
@@ -124,10 +152,7 @@ function Sidebar({ onOpenScenario }) {
               <span className="truncate text-[12px] font-medium" style={{ color: T.text }}>
                 {activeDataset.name}
               </span>
-              <span
-                className="mono shrink-0 text-[10px]"
-                style={{ color: T.muted }}
-              >
+              <span className="mono shrink-0 text-[10px]" style={{ color: T.muted }}>
                 {activeDataset.rows.length.toLocaleString()}r
               </span>
             </div>
@@ -150,7 +175,7 @@ function Sidebar({ onOpenScenario }) {
             to={to}
             className={({ isActive }) => `nav-link anim-fade-in ${isActive ? "active" : ""}`}
           >
-            <Icon size={15} strokeWidth={isActive => isActive ? 2.2 : 1.8} />
+            <Icon size={15} strokeWidth={1.8} />
             <span className="truncate">{label}</span>
           </NavLink>
         ))}
@@ -161,35 +186,20 @@ function Sidebar({ onOpenScenario }) {
 
       {/* ── Bottom actions ── */}
       <div className="px-2 pb-2 space-y-0.5">
-        <div
-          className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest"
-          style={{ color: T.muted }}
-        >
+        <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
           Workspace
         </div>
 
-        <button
-          onClick={handleSave}
-          className="nav-link w-full text-left"
-        >
+        <button onClick={handleSave} className="nav-link w-full text-left">
           <Save size={14} strokeWidth={1.8} />
           <span>Save Workbook</span>
         </button>
 
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="nav-link w-full text-left"
-        >
+        <button onClick={() => fileInputRef.current?.click()} className="nav-link w-full text-left">
           <FolderOpen size={14} strokeWidth={1.8} />
           <span>Open Workbook</span>
         </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          className="hidden"
-          onChange={handleOpenFile}
-        />
+        <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleOpenFile} />
 
         <button
           onClick={onOpenScenario}
@@ -200,12 +210,78 @@ function Sidebar({ onOpenScenario }) {
             {activeScenario ? activeScenario.name : "Scenarios"}
           </span>
           {activeScenario && (
-            <span
-              className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ background: T.accent }}
-            />
+            <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: T.accent }} />
           )}
         </button>
+
+        {/* ── Cloud section ── */}
+        {CLOUD_ENABLED && (
+          <>
+            <div className="mx-2 my-2 border-t" style={{ borderColor: T.border }} />
+            <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+              Cloud
+            </div>
+
+            {/* Cloud sync status */}
+            {user && (
+              <div
+                className="mx-2 mb-1.5 flex items-center gap-2 rounded-lg border px-2.5 py-1.5"
+                style={{ background: T.s2, borderColor: T.border }}
+              >
+                {isSaving ? (
+                  <>
+                    <span className="h-1.5 w-1.5 shrink-0 animate-spin rounded-full border border-current border-t-transparent" style={{ color: T.accent }} />
+                    <span className="text-[10px]" style={{ color: T.accent }}>Saving…</span>
+                  </>
+                ) : lastSaved ? (
+                  <>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "#22c55e" }} />
+                    <span className="text-[10px]" style={{ color: T.dim }}>
+                      Saved {new Date(lastSaved).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Cloud size={10} style={{ color: T.muted }} />
+                    <span className="text-[10px]" style={{ color: T.muted }}>Not saved to cloud</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Presence bar */}
+            {online?.length > 0 && (
+              <div className="mx-2 mb-1.5">
+                <PresenceBar online={online} />
+              </div>
+            )}
+
+            <button onClick={onOpenShare} className="nav-link w-full text-left">
+              <Share2 size={14} strokeWidth={1.8} />
+              <span>Share Dashboard</span>
+            </button>
+
+            <button onClick={onOpenHistory} className="nav-link w-full text-left">
+              <History size={14} strokeWidth={1.8} />
+              <span>Version History</span>
+            </button>
+
+            <button onClick={onOpenComments} className="nav-link w-full text-left">
+              <MessageSquare size={14} strokeWidth={1.8} />
+              <span>Comments</span>
+            </button>
+
+            <button onClick={onOpenWorkspace} className="nav-link w-full text-left">
+              <Building2 size={14} strokeWidth={1.8} />
+              <span>Workspaces</span>
+            </button>
+
+            <button onClick={onOpenScheduled} className="nav-link w-full text-left">
+              <CalendarClock size={14} strokeWidth={1.8} />
+              <span>Scheduled Reports</span>
+            </button>
+          </>
+        )}
 
         {/* ── Theme toggle ── */}
         <div
@@ -233,12 +309,16 @@ function Sidebar({ onOpenScenario }) {
           ))}
         </div>
 
+        {/* ── Auth Gate ── */}
+        {CLOUD_ENABLED && (
+          <div className="mt-2">
+            <AuthGate user={user} onSignIn={onSignIn} />
+          </div>
+        )}
+
         {/* Version */}
-        <div
-          className="px-2 pb-1 pt-2 text-[10px] font-medium"
-          style={{ color: T.muted }}
-        >
-          DataCanvas · v4.0
+        <div className="px-2 pb-1 pt-2 text-[10px] font-medium" style={{ color: T.muted }}>
+          DataCanvas · v5.0
         </div>
       </div>
     </aside>
@@ -249,14 +329,13 @@ function Sidebar({ onOpenScenario }) {
 function AnimatedRoutes() {
   const location = useLocation();
   return (
-    // flex-1 + flex-col so page roots can use flex-1 to fill this container
     <div key={location.pathname} className="page-enter flex-1 flex flex-col min-h-0">
       <Routes location={location}>
-        <Route path="/"           element={<Navigate to="/source" replace />} />
-        <Route path="/source"     element={<DataSource />} />
-        <Route path="/table"      element={<DataTable />} />
-        <Route path="/report"     element={<ReportBuilder />} />
-        <Route path="/dashboard"  element={<Dashboard />} />
+        <Route path="/"            element={<Navigate to="/source" replace />} />
+        <Route path="/source"      element={<DataSource />} />
+        <Route path="/table"       element={<DataTable />} />
+        <Route path="/report"      element={<ReportBuilder />} />
+        <Route path="/dashboard"   element={<Dashboard />} />
         <Route path="/hierarchies" element={<Hierarchies />} />
       </Routes>
     </div>
@@ -267,33 +346,110 @@ function AnimatedRoutes() {
 export default function App() {
   const T         = useTheme();
   const themeMode = useStore((s) => s.themeMode);
-  const [scenarioOpen, setScenarioOpen] = useState(false);
+  const setCloudMeta = useStore((s) => s.setCloudMeta);
+
+  // Phase 5 — cloud hooks
+  const { user, loading: authLoading } = useAuth();
+  const { isSaving, lastSaved, workbookId } = useCloudSync(user);
+  const cloudWorkbookId = useStore((s) => s.cloudWorkbookId);
+  const online = usePresence(cloudWorkbookId, user);
+
+  // Modal states
+  const [scenarioOpen,   setScenarioOpen]   = useState(false);
+  const [shareOpen,      setShareOpen]      = useState(false);
+  const [historyOpen,    setHistoryOpen]    = useState(false);
+  const [commentsOpen,   setCommentsOpen]   = useState(false);
+  const [workspaceOpen,  setWorkspaceOpen]  = useState(false);
+  const [scheduledOpen,  setScheduledOpen]  = useState(false);
+  const [authOpen,       setAuthOpen]       = useState(false);
 
   useEffect(() => {
     applyThemeToDocument(themeMode);
   }, [themeMode]);
 
+  // Sync workbook id from cloud sync hook → store
+  useEffect(() => {
+    if (workbookId) setCloudMeta({ cloudWorkbookId: workbookId });
+  }, [workbookId]);
+
   return (
     <HashRouter>
-      <div
-        className="flex overflow-hidden"
-        style={{ height: "100vh", background: T.bg }}
-      >
-        <Sidebar onOpenScenario={() => setScenarioOpen(true)} />
+      <Routes>
+        {/* Public shared-view route — no sidebar */}
+        <Route path="/share/:token" element={<SharedView />} />
 
-        {/* flex-col so children (AnimatedRoutes) can fill with flex-1 */}
-        <main
-          className="flex-1 min-w-0 flex flex-col overflow-hidden"
-          style={{ background: T.bg }}
-        >
-          <AnimatedRoutes />
-        </main>
-
-        <ScenarioPanel
-          open={scenarioOpen}
-          onClose={() => setScenarioOpen(false)}
+        {/* Auth page — no sidebar */}
+        <Route
+          path="/auth"
+          element={
+            authOpen || true
+              ? <Auth />
+              : <Navigate to="/" replace />
+          }
         />
-      </div>
+
+        {/* Main app */}
+        <Route
+          path="/*"
+          element={
+            <div
+              className="flex overflow-hidden"
+              style={{ height: "100vh", background: T.bg }}
+            >
+              <Sidebar
+                onOpenScenario={() => setScenarioOpen(true)}
+                onOpenShare={() => setShareOpen(true)}
+                onOpenHistory={() => setHistoryOpen(true)}
+                onOpenComments={() => setCommentsOpen(true)}
+                onOpenWorkspace={() => setWorkspaceOpen(true)}
+                onOpenScheduled={() => setScheduledOpen(true)}
+                onSignIn={() => { window.location.hash = "/auth"; }}
+                user={user}
+                isSaving={isSaving}
+                lastSaved={lastSaved}
+                online={online}
+              />
+
+              <main
+                className="flex-1 min-w-0 flex flex-col overflow-hidden"
+                style={{ background: T.bg }}
+              >
+                <AnimatedRoutes />
+              </main>
+
+              {/* Modals & panels */}
+              <ScenarioPanel
+                open={scenarioOpen}
+                onClose={() => setScenarioOpen(false)}
+              />
+              <ShareModal
+                open={shareOpen}
+                onClose={() => setShareOpen(false)}
+              />
+              <WorkbookHistory
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+              />
+              <CommentsPanel
+                open={commentsOpen}
+                onClose={() => setCommentsOpen(false)}
+                workbookId={cloudWorkbookId}
+                user={user}
+              />
+              <WorkspaceManager
+                open={workspaceOpen}
+                onClose={() => setWorkspaceOpen(false)}
+                user={user}
+              />
+              <ScheduledReports
+                open={scheduledOpen}
+                onClose={() => setScheduledOpen(false)}
+                user={user}
+              />
+            </div>
+          }
+        />
+      </Routes>
     </HashRouter>
   );
 }
