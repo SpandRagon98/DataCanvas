@@ -39,6 +39,8 @@ const createId = (prefix) =>
     ? crypto.randomUUID()
     : `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
+const DEMO_DATASET_ID = "demo-dataset-v1";
+
 const createDefaultDashboard = () => ({
   id: createId("dashboard"),
   name: "Dashboard 1",
@@ -61,13 +63,30 @@ const createDashboardItem = (visual, existingItems = []) => {
 const { columns: demoColumns, dataTypes: demoTypes } = buildColumns(DEMO_DATA);
 const initialDashboard = createDefaultDashboard();
 
+const initialDatasets = [{
+  id: DEMO_DATASET_ID,
+  name: "Demo Sales",
+  rows: DEMO_DATA,
+  columns: demoColumns,
+  dataTypes: demoTypes,
+  sourceType: "demo",
+  sourceConfig: {},
+}];
+
 export const useStore = create(
   persist(
     (set, get) => ({
-      // ── Core data ──
+      // ── Core data (mirrors the active dataset) ──
       rawData: DEMO_DATA,
       columns: demoColumns,
       dataTypes: demoTypes,
+
+      // ── Multi-dataset slots ──
+      datasets: initialDatasets,
+      activeDatasetId: DEMO_DATASET_ID,
+
+      // ── REST API Connectors ──
+      apiConnectors: [],
 
       // ── Visuals ──
       filters: {},
@@ -81,7 +100,7 @@ export const useStore = create(
       dashboards: [initialDashboard],
       activeDashboardId: initialDashboard.id,
 
-      // ── Theme (persist middleware handles localStorage) ──
+      // ── Theme ──
       themeMode: "dark",
 
       // ── Calc fields ──
@@ -103,12 +122,24 @@ export const useStore = create(
 
       // ── Actions ──
 
-      setData: (data, columns, types) => {
+      setData: (data, columns, types, name) => {
         const resetDashboard = createDefaultDashboard();
+        const id = createId("dataset");
+        const newDataset = {
+          id,
+          name: name || "Imported Dataset",
+          rows: data,
+          columns,
+          dataTypes: types,
+          sourceType: "file",
+          sourceConfig: {},
+        };
         set({
           rawData: data,
           columns,
           dataTypes: types,
+          datasets: [newDataset],
+          activeDatasetId: id,
           filters: {},
           visuals: [],
           activeVisualId: null,
@@ -127,10 +158,23 @@ export const useStore = create(
 
       loadWorkbook: (wb) => {
         const fallback = createDefaultDashboard();
+        const fallbackId = `migrated-${Date.now()}`;
+        const fallbackDatasets = [{
+          id: fallbackId,
+          name: "My Dataset",
+          rows: wb.rawData ?? DEMO_DATA,
+          columns: wb.columns ?? demoColumns,
+          dataTypes: wb.dataTypes ?? demoTypes,
+          sourceType: "file",
+          sourceConfig: {},
+        }];
         set({
           rawData: wb.rawData ?? DEMO_DATA,
           columns: wb.columns ?? demoColumns,
           dataTypes: wb.dataTypes ?? demoTypes,
+          datasets: wb.datasets ?? fallbackDatasets,
+          activeDatasetId: wb.activeDatasetId ?? fallbackId,
+          apiConnectors: wb.apiConnectors ?? [],
           filters: wb.filters ?? {},
           visuals: wb.visuals ?? [],
           activeVisualId: wb.activeVisualId ?? null,
@@ -147,6 +191,118 @@ export const useStore = create(
           redoStack: [],
         });
       },
+
+      // ── Dataset slot actions ──
+
+      addDataset: ({ name, rows, columns, dataTypes, sourceType = "file", sourceConfig = {} }) =>
+        set((state) => {
+          const id = createId("dataset");
+          const newDataset = {
+            id,
+            name: name || `Dataset ${state.datasets.length + 1}`,
+            rows,
+            columns,
+            dataTypes,
+            sourceType,
+            sourceConfig,
+          };
+          return {
+            datasets: [...state.datasets, newDataset],
+            activeDatasetId: id,
+            rawData: rows,
+            columns,
+            dataTypes,
+            filters: {},
+            crossFilter: {},
+          };
+        }),
+
+      activateDataset: (id) =>
+        set((state) => {
+          const ds = state.datasets.find((d) => d.id === id);
+          if (!ds) return state;
+          return {
+            activeDatasetId: id,
+            rawData: ds.rows,
+            columns: ds.columns,
+            dataTypes: ds.dataTypes,
+            filters: {},
+            crossFilter: {},
+          };
+        }),
+
+      removeDataset: (id) =>
+        set((state) => {
+          if (state.datasets.length <= 1) return state;
+          const datasets = state.datasets.filter((d) => d.id !== id);
+          const isActive = state.activeDatasetId === id;
+          const newActive = isActive ? datasets[0] : null;
+          return {
+            datasets,
+            ...(isActive
+              ? {
+                  activeDatasetId: newActive.id,
+                  rawData: newActive.rows,
+                  columns: newActive.columns,
+                  dataTypes: newActive.dataTypes,
+                  filters: {},
+                  crossFilter: {},
+                }
+              : {}),
+          };
+        }),
+
+      renameDataset: (id, name) =>
+        set((state) => ({
+          datasets: state.datasets.map((d) => (d.id === id ? { ...d, name: name || d.name } : d)),
+        })),
+
+      updateDatasetRows: (id, rows, columns, dataTypes) =>
+        set((state) => {
+          const datasets = state.datasets.map((d) =>
+            d.id === id ? { ...d, rows, columns, dataTypes } : d
+          );
+          const isActive = state.activeDatasetId === id;
+          return {
+            datasets,
+            ...(isActive ? { rawData: rows, columns, dataTypes, filters: {}, crossFilter: {} } : {}),
+          };
+        }),
+
+      // ── API Connector actions ──
+
+      addApiConnector: (config) =>
+        set((state) => ({
+          apiConnectors: [
+            ...state.apiConnectors,
+            {
+              id: createId("api"),
+              name: config.name || "API Connector",
+              url: config.url || "",
+              method: config.method || "GET",
+              headers: config.headers || [],
+              jsonPath: config.jsonPath || "",
+              autoRefresh: config.autoRefresh || false,
+              refreshInterval: config.refreshInterval || 60,
+              datasetId: null,
+              lastFetched: null,
+              lastError: null,
+              rowCount: 0,
+            },
+          ],
+        })),
+
+      updateApiConnector: (id, patch) =>
+        set((state) => ({
+          apiConnectors: state.apiConnectors.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+        })),
+
+      removeApiConnector: (id) =>
+        set((state) => ({
+          apiConnectors: state.apiConnectors.filter((c) => c.id !== id),
+        })),
+
+      // ── Data editing ──
 
       updateCell: ({ rowIndex, field, value }) =>
         set((state) => {
@@ -165,8 +321,14 @@ export const useStore = create(
           const nextRawData = [...state.rawData];
           nextRawData[rowIndex] = { ...nextRawData[rowIndex], [field]: parsedValue };
 
+          // Keep active dataset in sync
+          const datasets = state.datasets.map((d) =>
+            d.id === state.activeDatasetId ? { ...d, rows: nextRawData } : d
+          );
+
           return {
             rawData: nextRawData,
+            datasets,
             visuals: [...state.visuals],
             dashboards: [...state.dashboards],
             undoStack: [...state.undoStack, { rowIndex, field, oldValue, newValue: parsedValue }].slice(-50),
@@ -180,8 +342,12 @@ export const useStore = create(
           const entry = state.undoStack[state.undoStack.length - 1];
           const nextRawData = [...state.rawData];
           nextRawData[entry.rowIndex] = { ...nextRawData[entry.rowIndex], [entry.field]: entry.oldValue };
+          const datasets = state.datasets.map((d) =>
+            d.id === state.activeDatasetId ? { ...d, rows: nextRawData } : d
+          );
           return {
             rawData: nextRawData,
+            datasets,
             undoStack: state.undoStack.slice(0, -1),
             redoStack: [...state.redoStack, entry],
           };
@@ -193,8 +359,12 @@ export const useStore = create(
           const entry = state.redoStack[state.redoStack.length - 1];
           const nextRawData = [...state.rawData];
           nextRawData[entry.rowIndex] = { ...nextRawData[entry.rowIndex], [entry.field]: entry.newValue };
+          const datasets = state.datasets.map((d) =>
+            d.id === state.activeDatasetId ? { ...d, rows: nextRawData } : d
+          );
           return {
             rawData: nextRawData,
+            datasets,
             undoStack: [...state.undoStack, entry],
             redoStack: state.redoStack.slice(0, -1),
           };
@@ -291,7 +461,7 @@ export const useStore = create(
 
       createDashboard: () =>
         set((state) => {
-          const dashboard = { id: createId("dashboard"), name: `Dashboard ${state.dashboards.length + 1}`, items: [] };
+          const dashboard = { id: createId("dashboard"), name: `Dashboard ${state.dashboards.length + 1}`, items: [], annotations: [] };
           return { dashboards: [...state.dashboards, dashboard], activeDashboardId: dashboard.id };
         }),
 
@@ -479,7 +649,6 @@ export const useStore = create(
       // ── Cross-filter ──
       setCrossFilter: (field, value) =>
         set((state) => {
-          // Toggle: clicking the same value clears it
           if (state.crossFilter[field] === String(value)) {
             const next = { ...state.crossFilter };
             delete next[field];
@@ -511,10 +680,35 @@ export const useStore = create(
     }),
     {
       name: "datacanvas.workbook",
+      version: 1,
+      migrate: (persistedState, version) => {
+        if (version < 1) {
+          // Upgrade: wrap existing rawData into a dataset slot
+          const id = `migrated-${Date.now()}`;
+          return {
+            ...persistedState,
+            datasets: [{
+              id,
+              name: "My Dataset",
+              rows: persistedState.rawData ?? DEMO_DATA,
+              columns: persistedState.columns ?? demoColumns,
+              dataTypes: persistedState.dataTypes ?? demoTypes,
+              sourceType: "file",
+              sourceConfig: {},
+            }],
+            activeDatasetId: id,
+            apiConnectors: [],
+          };
+        }
+        return persistedState;
+      },
       partialize: (state) => ({
         rawData: state.rawData,
         columns: state.columns,
         dataTypes: state.dataTypes,
+        datasets: state.datasets,
+        activeDatasetId: state.activeDatasetId,
+        apiConnectors: state.apiConnectors,
         filters: state.filters,
         visuals: state.visuals,
         activeVisualId: state.activeVisualId,
@@ -526,7 +720,7 @@ export const useStore = create(
         scenarios: state.scenarios,
         activeScenarioId: state.activeScenarioId,
         filterBookmarks: state.filterBookmarks,
-        // undoStack and redoStack are intentionally excluded
+        // undoStack, redoStack, crossFilter intentionally excluded
       }),
     }
   )

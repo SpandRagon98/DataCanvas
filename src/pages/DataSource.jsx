@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
-import { Database, Upload, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Database, Upload, ChevronDown, ChevronUp, AlertTriangle, Table2, GitMerge, Wifi } from "lucide-react";
 import { useStore } from "../store/useStore";
 import ImportModal from "../components/import/ImportModal";
 import CalcFieldManager from "../components/calcfields/CalcFieldManager";
+import DatasetSlots from "../components/datasource/DatasetSlots";
+import JoinBuilder from "../components/datasource/JoinBuilder";
+import ApiConnectorPanel from "../components/datasource/ApiConnectorPanel";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import { useTheme } from "../styles/theme";
 
@@ -20,24 +23,19 @@ function profileColumn(rows, col, dataType) {
   let min = null, max = null, topValues = [];
 
   if (dataType === "number") {
-    const nums = rows
-      .map((r) => Number(r[col]))
-      .filter((v) => !isNaN(v));
+    const nums = rows.map((r) => Number(r[col])).filter((v) => !isNaN(v));
     if (nums.length) {
       min = Math.min(...nums);
       max = Math.max(...nums);
     }
   }
 
-  // Top-5 values by frequency
   const freq = {};
   rows.forEach((r) => {
     const v = String(r[col] ?? "");
     freq[v] = (freq[v] || 0) + 1;
   });
-  topValues = Object.entries(freq)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  topValues = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   return { total, nullCount, nullPct, uniqueCount, min, max, topValues };
 }
@@ -57,7 +55,6 @@ function ColumnProfiler({ col, dataType, rows, T }) {
       className="mt-2 rounded-xl border p-3 text-xs space-y-2"
       style={{ background: T.surface, borderColor: T.border }}
     >
-      {/* Null % */}
       <div>
         <div className="flex items-center justify-between mb-1" style={{ color: T.dim }}>
           <span>Null / Empty</span>
@@ -68,32 +65,23 @@ function ColumnProfiler({ col, dataType, rows, T }) {
         <div className="h-1.5 w-full rounded-full" style={{ background: T.border }}>
           <div
             className="h-1.5 rounded-full"
-            style={{
-              width: `${Math.min(nullPct, 100)}%`,
-              background: hasQualityWarning ? T.accent : T.success,
-            }}
+            style={{ width: `${Math.min(nullPct, 100)}%`, background: hasQualityWarning ? T.accent : T.success }}
           />
         </div>
       </div>
 
-      {/* Stats row */}
       <div className="flex flex-wrap gap-3" style={{ color: T.muted }}>
         <span>
           <span style={{ color: T.text, fontWeight: 600 }}>{uniqueCount}</span> unique
         </span>
         {dataType === "number" && min !== null && (
           <>
-            <span>
-              Min: <span style={{ color: T.text, fontWeight: 600 }}>{Number(min).toLocaleString()}</span>
-            </span>
-            <span>
-              Max: <span style={{ color: T.text, fontWeight: 600 }}>{Number(max).toLocaleString()}</span>
-            </span>
+            <span>Min: <span style={{ color: T.text, fontWeight: 600 }}>{Number(min).toLocaleString()}</span></span>
+            <span>Max: <span style={{ color: T.text, fontWeight: 600 }}>{Number(max).toLocaleString()}</span></span>
           </>
         )}
       </div>
 
-      {/* Top 5 values */}
       <div>
         <div className="mb-1.5 font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
           Top values
@@ -108,10 +96,7 @@ function ColumnProfiler({ col, dataType, rows, T }) {
                   <span style={{ color: T.muted }}>{count} ({pct.toFixed(1)}%)</span>
                 </div>
                 <div className="h-1 w-full rounded-full" style={{ background: T.border }}>
-                  <div
-                    className="h-1 rounded-full"
-                    style={{ width: `${pct}%`, background: T.blue }}
-                  />
+                  <div className="h-1 rounded-full" style={{ width: `${pct}%`, background: T.blue }} />
                 </div>
               </div>
             );
@@ -122,19 +107,24 @@ function ColumnProfiler({ col, dataType, rows, T }) {
   );
 }
 
+// ── Right column tabs ──────────────────────────────────────────────────────
+const RIGHT_TABS = [
+  { id: "preview", label: "Preview",       icon: Table2    },
+  { id: "join",    label: "Join Builder",  icon: GitMerge  },
+  { id: "api",     label: "API Connectors", icon: Wifi     },
+];
+
 export default function DataSource() {
   const T = useTheme();
   const setData = useStore((s) => s.setData);
-  const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({
-    applyScenario: false,
-  });
+  const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
 
   const [importOpen, setImportOpen] = useState(false);
   const [expandedCol, setExpandedCol] = useState(null);
+  const [rightTab, setRightTab] = useState("preview");
 
   const preview = useMemo(() => rows.slice(0, 8), [rows]);
 
-  // Pre-compute null% for quality badges
   const nullPcts = useMemo(() => {
     const result = {};
     columns.forEach((col) => {
@@ -146,18 +136,18 @@ export default function DataSource() {
     return result;
   }, [rows, columns]);
 
-  const toggleExpand = (col) => {
-    setExpandedCol((prev) => (prev === col ? null : col));
-  };
+  const toggleExpand = (col) => setExpandedCol((prev) => (prev === col ? null : col));
 
   return (
-    <div className="mx-auto max-w-7xl p-2">
+    <div className="mx-auto max-w-7xl p-2 space-y-5">
+      {/* Full-reset import modal (replaces active dataset) */}
       <ImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
-        onImport={({ rows, columns, types }) => { setData(rows, columns, types); }}
+        onImport={({ rows, columns, types }) => setData(rows, columns, types)}
       />
 
+      {/* ── Page header ───────────────────────────────────────────────── */}
       <div
         className="rounded-[20px] border p-6 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
@@ -165,23 +155,28 @@ export default function DataSource() {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-bold" style={{ color: T.text }}>Data Source</h1>
-            <p className="mt-2 text-sm" style={{ color: T.dim }}>
-              Import datasets and preview detected structure before building visuals
+            <p className="mt-1 text-sm" style={{ color: T.dim }}>
+              Manage datasets, build joins, connect REST APIs, and inspect column profiles
             </p>
           </div>
-
           <button
             onClick={() => setImportOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
             style={{ background: T.accent, color: "#000" }}
           >
-            <Upload size={15} /> Import Data
+            <Upload size={15} /> Replace Dataset
           </button>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_1.9fr]">
-        <div className="space-y-6">
+      {/* ── Dataset slots (full width) ─────────────────────────────────── */}
+      <DatasetSlots />
+
+      {/* ── Main 2-column grid ─────────────────────────────────────────── */}
+      <div className="grid gap-5 xl:grid-cols-[1.1fr_1.9fr]">
+        {/* ── Left column: summary + calc fields ──────────────────────── */}
+        <div className="space-y-5">
+          {/* Active dataset summary */}
           <div
             className="rounded-[20px] border p-5 shadow-sm"
             style={{ background: T.surface, borderColor: T.border }}
@@ -195,11 +190,9 @@ export default function DataSource() {
               </div>
               <div>
                 <h2 className="text-lg font-semibold" style={{ color: T.text }}>
-                  Dataset Summary
+                  Active Dataset
                 </h2>
-                <p className="text-sm" style={{ color: T.dim }}>
-                  Auto-detected columns and types
-                </p>
+                <p className="text-sm" style={{ color: T.dim }}>Auto-detected columns and types</p>
               </div>
             </div>
 
@@ -210,10 +203,9 @@ export default function DataSource() {
               >
                 <span className="text-sm mono" style={{ color: T.dim }}>Rows</span>
                 <span className="text-sm font-semibold mono" style={{ color: T.text }}>
-                  {rows.length}
+                  {rows.length.toLocaleString()}
                 </span>
               </div>
-
               <div
                 className="flex items-center justify-between rounded-xl border px-4 py-3"
                 style={{ background: T.s2, borderColor: T.border }}
@@ -225,18 +217,17 @@ export default function DataSource() {
               </div>
             </div>
 
+            {/* Column profiler */}
             <div className="mt-5">
               <div className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
                 Column Profiler — click a column to inspect
               </div>
-
               <div className="space-y-1">
                 {columns.length ? (
                   columns.map((col) => {
                     const isCalc = calcFieldNames?.has(col);
                     const hasWarning = nullPcts[col] > 20;
                     const isExpanded = expandedCol === col;
-
                     return (
                       <div key={col}>
                         <button
@@ -284,7 +275,6 @@ export default function DataSource() {
                             }
                           </div>
                         </button>
-
                         {isExpanded && (
                           <ColumnProfiler col={col} dataType={dataTypes[col]} rows={rows} T={T} />
                         )}
@@ -292,7 +282,10 @@ export default function DataSource() {
                     );
                   })
                 ) : (
-                  <div className="rounded-xl border px-4 py-6 text-center text-sm" style={{ background: T.s2, borderColor: T.border, color: T.dim }}>
+                  <div
+                    className="rounded-xl border px-4 py-6 text-center text-sm"
+                    style={{ background: T.s2, borderColor: T.border, color: T.dim }}
+                  >
                     No dataset loaded yet
                   </div>
                 )}
@@ -303,69 +296,109 @@ export default function DataSource() {
           <CalcFieldManager />
         </div>
 
+        {/* ── Right column: tabbed (Preview | Join | API) ──────────────── */}
         <div
-          className="rounded-[20px] border p-5 shadow-sm"
+          className="rounded-[20px] border shadow-sm"
           style={{ background: T.surface, borderColor: T.border }}
         >
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold" style={{ color: T.text }}>Data Preview</h2>
-            <p className="mt-1 text-sm" style={{ color: T.dim }}>
-              First few rows from the active dataset
-            </p>
+          {/* Tab bar */}
+          <div
+            className="flex gap-1 border-b px-4 pt-4"
+            style={{ borderColor: T.border }}
+          >
+            {RIGHT_TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setRightTab(id)}
+                className="flex items-center gap-1.5 rounded-t-xl px-4 py-2.5 text-sm font-medium transition"
+                style={{
+                  background: rightTab === id ? T.s2 : "transparent",
+                  color: rightTab === id ? T.text : T.muted,
+                  borderBottom: rightTab === id ? `2px solid ${T.accent}` : "2px solid transparent",
+                  marginBottom: "-1px",
+                }}
+              >
+                <Icon size={14} />
+                {label}
+              </button>
+            ))}
           </div>
 
-          <div className="overflow-auto rounded-2xl border" style={{ borderColor: T.border }}>
-            {preview.length ? (
-              <table className="min-w-full text-sm">
-                <thead style={{ background: T.s2 }}>
-                  <tr>
-                    {columns.map((col) => (
-                      <th
-                        key={col}
-                        className="border-b px-4 py-3 text-left font-semibold"
-                        style={{ borderColor: T.border, color: T.text }}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          {col}
-                          {nullPcts[col] > 20 && (
-                            <AlertTriangle size={11} style={{ color: T.accent }} title={`${nullPcts[col].toFixed(0)}% nulls`} />
-                          )}
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.map((row, idx) => (
-                    <tr key={idx} style={{ background: idx % 2 === 0 ? T.surface : T.s2 }}>
-                      {columns.map((col, i) => (
-                        <td
-                          key={i}
-                          className="border-b px-4 py-3"
-                          style={{ borderColor: T.border, color: T.dim }}
-                        >
-                          {String(row[col] ?? "")}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="flex h-72 flex-col items-center justify-center gap-3">
-                <Database size={34} color={T.muted} />
-                <div className="text-sm" style={{ color: T.dim }}>
-                  Import a dataset to preview it here
+          <div className="p-5">
+            {/* ── Preview tab ──────────────────────────────────────── */}
+            {rightTab === "preview" && (
+              <>
+                <div className="mb-4">
+                  <h2 className="text-lg font-semibold" style={{ color: T.text }}>Data Preview</h2>
+                  <p className="mt-1 text-sm" style={{ color: T.dim }}>
+                    First few rows from the active dataset
+                  </p>
                 </div>
-                <button
-                  onClick={() => setImportOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
-                  style={{ background: T.accent, color: "#000" }}
-                >
-                  <Upload size={14} /> Import Data
-                </button>
-              </div>
+                <div className="overflow-auto rounded-2xl border" style={{ borderColor: T.border }}>
+                  {preview.length ? (
+                    <table className="min-w-full text-sm">
+                      <thead style={{ background: T.s2 }}>
+                        <tr>
+                          {columns.map((col) => (
+                            <th
+                              key={col}
+                              className="border-b px-4 py-3 text-left font-semibold"
+                              style={{ borderColor: T.border, color: T.text }}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                {col}
+                                {nullPcts[col] > 20 && (
+                                  <AlertTriangle
+                                    size={11}
+                                    style={{ color: T.accent }}
+                                    title={`${nullPcts[col].toFixed(0)}% nulls`}
+                                  />
+                                )}
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {preview.map((row, idx) => (
+                          <tr key={idx} style={{ background: idx % 2 === 0 ? T.surface : T.s2 }}>
+                            {columns.map((col, i) => (
+                              <td
+                                key={i}
+                                className="border-b px-4 py-3"
+                                style={{ borderColor: T.border, color: T.dim }}
+                              >
+                                {String(row[col] ?? "")}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="flex h-72 flex-col items-center justify-center gap-3">
+                      <Database size={34} color={T.muted} />
+                      <div className="text-sm" style={{ color: T.dim }}>
+                        Import a dataset to preview it here
+                      </div>
+                      <button
+                        onClick={() => setImportOpen(true)}
+                        className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
+                        style={{ background: T.accent, color: "#000" }}
+                      >
+                        <Upload size={14} /> Import Data
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
+
+            {/* ── Join Builder tab ──────────────────────────────────── */}
+            {rightTab === "join" && <JoinBuilder />}
+
+            {/* ── API Connectors tab ─────────────────────────────────── */}
+            {rightTab === "api" && <ApiConnectorPanel />}
           </div>
         </div>
       </div>
