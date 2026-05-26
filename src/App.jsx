@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HashRouter, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import {
   Database, BarChart3, Table2, Layers3, ArrowRight, LayoutDashboard,
-  Sun, Moon, Sparkles,
+  Sun, Moon, Sparkles, Save, FolderOpen,
 } from "lucide-react";
 import DataSource from "./pages/DataSource";
 import DataTable from "./pages/DataTable";
@@ -19,8 +19,55 @@ function TopNav({ onOpenScenario }) {
   const toggleThemeMode = useStore((s) => s.toggleThemeMode);
   const scenarios = useStore((s) => s.scenarios);
   const activeScenarioId = useStore((s) => s.activeScenarioId);
+  const loadWorkbook = useStore((s) => s.loadWorkbook);
+  const fileInputRef = useRef(null);
 
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || null;
+
+  const handleSave = () => {
+    const state = useStore.getState();
+    const snapshot = {
+      version: "1.0",
+      savedAt: new Date().toISOString(),
+      rawData: state.rawData,
+      columns: state.columns,
+      dataTypes: state.dataTypes,
+      filters: state.filters,
+      visuals: state.visuals,
+      activeVisualId: state.activeVisualId,
+      hierarchies: state.hierarchies,
+      dashboards: state.dashboards,
+      activeDashboardId: state.activeDashboardId,
+      themeMode: state.themeMode,
+      calculatedFields: state.calculatedFields,
+      scenarios: state.scenarios,
+      activeScenarioId: state.activeScenarioId,
+      filterBookmarks: state.filterBookmarks,
+    };
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `datacanvas-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleOpenFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = JSON.parse(ev.target.result);
+        loadWorkbook(wb);
+      } catch {
+        alert("Could not read workbook file. Make sure it is a valid DataCanvas JSON.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
 
   const linkClass = ({ isActive }) =>
     `inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
@@ -29,23 +76,16 @@ function TopNav({ onOpenScenario }) {
 
   const activeStyle = ({ isActive }) =>
     isActive
-      ? {
-          background: T.accent,
-          color: "#000",
-          boxShadow: "0 0 0 1px rgba(245,158,11,0.18) inset",
-        }
+      ? { background: T.accent, color: "#000", boxShadow: "0 0 0 1px rgba(245,158,11,0.18) inset" }
       : { color: T.dim };
 
   return (
     <div
       className="sticky top-0 z-20 border-b"
-      style={{
-        background: T.navBg,
-        backdropFilter: "blur(10px)",
-        borderColor: T.border,
-      }}
+      style={{ background: T.navBg, backdropFilter: "blur(10px)", borderColor: T.border }}
     >
       <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-4 px-6 py-3">
+        {/* Logo */}
         <div className="flex items-center gap-3">
           <div
             className="flex h-10 w-10 items-center justify-center rounded-xl"
@@ -54,15 +94,12 @@ function TopNav({ onOpenScenario }) {
             <Database size={18} color="#000" />
           </div>
           <div>
-            <div className="text-lg font-bold tracking-tight" style={{ color: T.text }}>
-              DataCanvas
-            </div>
-            <div className="text-xs" style={{ color: T.dim }}>
-              Lightweight BI + planning workspace
-            </div>
+            <div className="text-lg font-bold tracking-tight" style={{ color: T.text }}>DataCanvas</div>
+            <div className="text-xs" style={{ color: T.dim }}>Lightweight BI + planning workspace</div>
           </div>
         </div>
 
+        {/* Nav links */}
         <div
           className="flex items-center gap-2 rounded-2xl border p-1"
           style={{ background: T.s2, borderColor: T.border }}
@@ -84,7 +121,38 @@ function TopNav({ onOpenScenario }) {
           </NavLink>
         </div>
 
+        {/* Right controls */}
         <div className="flex items-center gap-2">
+          {/* Save workbook */}
+          <button
+            onClick={handleSave}
+            className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium"
+            style={{ background: T.s2, borderColor: T.border, color: T.text }}
+            title="Save workbook as JSON"
+          >
+            <Save size={14} />
+            <span className="hidden sm:inline">Save</span>
+          </button>
+
+          {/* Open workbook */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium"
+            style={{ background: T.s2, borderColor: T.border, color: T.text }}
+            title="Open workbook from JSON"
+          >
+            <FolderOpen size={14} />
+            <span className="hidden sm:inline">Open</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={handleOpenFile}
+          />
+
+          {/* Scenarios */}
           <button
             onClick={onOpenScenario}
             className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium"
@@ -101,6 +169,7 @@ function TopNav({ onOpenScenario }) {
             </span>
           </button>
 
+          {/* Theme toggle */}
           <button
             onClick={toggleThemeMode}
             className="inline-flex h-9 w-9 items-center justify-center rounded-xl border"
@@ -140,11 +209,7 @@ function HomePage() {
 
         <div
           className="mx-auto inline-flex items-center rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em]"
-          style={{
-            background: T.accentDim,
-            borderColor: "rgba(245,158,11,0.18)",
-            color: T.accent,
-          }}
+          style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.18)", color: T.accent }}
         >
           Welcome to DataCanvas
         </div>

@@ -28,38 +28,25 @@ function StyledSelect({ value, onChange, children, ariaLabel, T }) {
   );
 }
 
-export default function VisualToolbar({
-  chartType,
-  aggregation,
-  sortDirection,
-  onChange,
-}) {
+export default function VisualToolbar({ chartType, aggregation, sortDirection, onChange }) {
   const T = useTheme();
 
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-      <StyledSelect
-        T={T}
-        ariaLabel="Select chart type"
-        value={chartType}
-        onChange={(e) => onChange({ chartType: e.target.value })}
-      >
+      <StyledSelect T={T} ariaLabel="Select chart type" value={chartType} onChange={(e) => onChange({ chartType: e.target.value })}>
         <option value="bar">Bar</option>
         <option value="stackedBar">Stacked Bar</option>
         <option value="line">Line</option>
         <option value="area">Area</option>
+        <option value="scatter">Scatter</option>
         <option value="pie">Pie</option>
         <option value="donut">Donut</option>
+        <option value="radar">Radar</option>
         <option value="table">Table</option>
         <option value="kpi">KPI</option>
       </StyledSelect>
 
-      <StyledSelect
-        T={T}
-        ariaLabel="Select aggregation"
-        value={aggregation}
-        onChange={(e) => onChange({ aggregation: e.target.value })}
-      >
+      <StyledSelect T={T} ariaLabel="Select aggregation" value={aggregation} onChange={(e) => onChange({ aggregation: e.target.value })}>
         <option value="sum">Sum</option>
         <option value="avg">Average</option>
         <option value="count">Count</option>
@@ -68,12 +55,7 @@ export default function VisualToolbar({
         <option value="max">Max</option>
       </StyledSelect>
 
-      <StyledSelect
-        T={T}
-        ariaLabel="Select sort direction"
-        value={sortDirection}
-        onChange={(e) => onChange({ sortDirection: e.target.value })}
-      >
+      <StyledSelect T={T} ariaLabel="Select sort direction" value={sortDirection} onChange={(e) => onChange({ sortDirection: e.target.value })}>
         <option value="asc">Sort Asc</option>
         <option value="desc">Sort Desc</option>
       </StyledSelect>
