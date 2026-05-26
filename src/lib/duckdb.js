@@ -24,8 +24,15 @@ let _initPromise = null;
 
 export const isDuckDBAvailable = () => _available === true;
 
+// CDN URL — loaded at runtime so Rollup never tries to bundle it.
+// Using /* @vite-ignore */ prevents both the static-analysis error and the
+// "unresolved import" fatal warning in production builds.
+const _DUCKDB_CDN =
+  "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.29.0/+esm";
+
 async function _init() {
-  const duckdb = await import("@duckdb/duckdb-wasm");
+  // eslint-disable-next-line import/no-unresolved
+  const duckdb = await import(/* @vite-ignore */ _DUCKDB_CDN);
   const bundles = duckdb.getJsDelivrBundles();
   const bundle  = await duckdb.selectBundle(bundles);
 

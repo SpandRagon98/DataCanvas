@@ -5,10 +5,12 @@ export default defineConfig({
   plugins: [react()],
   base: './',
 
-  // DuckDB-WASM must not be pre-bundled by Vite — it manages its own WASM
-  // loading and relies on dynamic imports at runtime.
-  optimizeDeps: {
-    exclude: ['@duckdb/duckdb-wasm'],
+  // DuckDB-WASM is loaded from CDN at runtime via a dynamic import with
+  // @vite-ignore — Rollup never sees it, so no bundling or resolution needed.
+  // build.target must be 'esnext' to allow top-level await (used by DuckDB
+  // internally) to survive the Rollup output without transformation errors.
+  build: {
+    target: 'esnext',
   },
 
   // Enable module-type Web Workers (needed for compute.worker.js ES imports)
