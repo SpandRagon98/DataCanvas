@@ -6,14 +6,84 @@ import {
   PieChart, Pie, Cell,
   ScatterChart, Scatter,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  FunnelChart, Funnel, LabelList,
+  Treemap,
+  RadialBarChart, RadialBar,
+  ComposedChart,
+  ReferenceLine,
   Tooltip, XAxis, YAxis, Legend, CartesianGrid,
 } from "recharts";
 import { useMemo } from "react";
 import { applyGlobalFilters } from "../../utils/filterEngine";
-import { buildVisualData, getLegendKeys } from "../../utils/chartEngine";
+import {
+  buildVisualData,
+  getLegendKeys,
+  applyRunningTotal,
+  buildWaterfallData,
+  pearsonCorr,
+} from "../../utils/chartEngine";
 import { CHART_COLORS, useTheme } from "../../styles/theme";
 
-export default function VisualRenderer({ visual, rawData, filters, compact = false }) {
+/** Apply cross-filter on top of already-global-filtered rows */
+const applyCrossFilter = (rows, crossFilter) => {
+  if (!crossFilter || !Object.keys(crossFilter).length) return rows;
+  return rows.filter((row) =>
+    Object.entries(crossFilter).every(
+      ([field, value]) => String(row[field] ?? "") === String(value)
+    )
+  );
+};
+
+/** Evaluate a conditional rule against a data entry */
+const evalRule = (entry, rule) => {
+  const val = Number(entry[rule.field]);
+  const threshold = Number(rule.threshold);
+  if (isNaN(val) || isNaN(threshold)) return false;
+  switch (rule.operator) {
+    case ">":  return val > threshold;
+    case "<":  return val < threshold;
+    case ">=": return val >= threshold;
+    case "<=": return val <= threshold;
+    case "==": return val === threshold;
+    default:   return false;
+  }
+};
+
+/** Pick color for a bar cell based on conditional rules; fallback to default */
+const getCellColor = (entry, defaultColor, rules) => {
+  if (!rules?.length) return defaultColor;
+  for (const rule of rules) {
+    if (evalRule(entry, rule)) return rule.color || defaultColor;
+  }
+  return defaultColor;
+};
+
+/** Color a correlation coefficient: blue (-1) → white (0) → amber (+1) */
+const corrColor = (r) => {
+  const clamped = Math.max(-1, Math.min(1, r));
+  if (clamped >= 0) {
+    const t = clamped;
+    const R = Math.round(245 * t + 255 * (1 - t));
+    const G = Math.round(158 * t + 255 * (1 - t));
+    const B = Math.round(11 * t + 255 * (1 - t));
+    return `rgb(${R},${G},${B})`;
+  } else {
+    const t = -clamped;
+    const R = Math.round(96 * t + 255 * (1 - t));
+    const G = Math.round(165 * t + 255 * (1 - t));
+    const B = Math.round(250 * t + 255 * (1 - t));
+    return `rgb(${R},${G},${B})`;
+  }
+};
+
+export default function VisualRenderer({
+  visual,
+  rawData,
+  filters,
+  compact = false,
+  crossFilter = {},
+  onCrossFilter,
+}) {
   const T = useTheme();
 
   const filteredRows = useMemo(
@@ -21,22 +91,35 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
     [rawData, filters]
   );
 
-  const chartData = useMemo(
+  const crossFilteredRows = useMemo(
+    () => applyCrossFilter(filteredRows, crossFilter),
+    [filteredRows, crossFilter]
+  );
+
+  const baseChartData = useMemo(
     () =>
       buildVisualData({
-        rows: filteredRows,
+        rows: crossFilteredRows,
         xFields: visual.xFields,
         yFields: visual.yFields,
         legendField: visual.legendField,
         aggregation: visual.aggregation,
         sortDirection: visual.sortDirection,
       }),
-    [filteredRows, visual]
+    [crossFilteredRows, visual]
   );
+
+  const chartData = useMemo(() => {
+    if (!visual.showRunningTotal) return baseChartData;
+    const keys = getLegendKeys(baseChartData);
+    return applyRunningTotal(baseChartData, keys);
+  }, [baseChartData, visual.showRunningTotal]);
 
   const legendKeys = getLegendKeys(chartData);
   const chartHeight = compact ? "100%" : 320;
   const minChartHeight = compact ? 240 : 320;
+  const conditionalRules = visual.conditionalRules || [];
+  const referenceLines = visual.referenceLines || [];
 
   const tooltipStyle = {
     contentStyle: {
@@ -70,7 +153,13 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
 
   if (!visual.xFields?.length || !visual.yFields?.length) return emptyState;
 
-  if (!chartData.length && visual.chartType !== "kpi" && visual.chartType !== "table" && visual.chartType !== "scatter") {
+  if (
+    !chartData.length &&
+    visual.chartType !== "kpi" &&
+    visual.chartType !== "table" &&
+    visual.chartType !== "scatter" &&
+    visual.chartType !== "correlation"
+  ) {
     return (
       <div
         className="flex items-center justify-center rounded-2xl border border-dashed text-sm"
@@ -142,6 +231,223 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
     );
   }
 
+  // ── Waterfall ──
+  if (visual.chartType === "waterfall") {
+    const yKey = legendKeys[0] || visual.yFields?.[0];
+    const waterfallData = buildWaterfallData(chartData, yKey);
+    return (
+      <div style={{ height: chartHeight, minHeight: minChartHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={waterfallData}>
+            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            <XAxis dataKey="x" {...axisStyle} />
+            <YAxis {...axisStyle} />
+            <Tooltip
+              {...tooltipStyle}
+              formatter={(_, __, props) => [
+                props?.payload?._origVal?.toLocaleString() ?? "",
+                yKey,
+              ]}
+            />
+            {/* Invisible spacer bar */}
+            <Bar dataKey="_phantom" stackId="wf" fill="transparent" legendType="none" />
+            {/* Colored value bar */}
+            <Bar dataKey="_value" stackId="wf" radius={[4, 4, 0, 0]}
+              onClick={(data) => onCrossFilter && onCrossFilter(visual.xFields[0], data.x)}
+              style={{ cursor: onCrossFilter ? "pointer" : "default" }}
+            >
+              {waterfallData.map((entry, i) => (
+                <Cell
+                  key={i}
+                  fill={entry._positive ? T.success : T.error}
+                />
+              ))}
+            </Bar>
+            {referenceLines.map((rl, i) => (
+              <ReferenceLine
+                key={i}
+                y={rl.value}
+                stroke={rl.color || T.accent}
+                strokeDasharray="4 3"
+                label={{ value: rl.label || "", fill: rl.color || T.accent, fontSize: 11 }}
+              />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  // ── Funnel ──
+  if (visual.chartType === "funnel") {
+    const yKey = legendKeys[0] || visual.yFields?.[0];
+    const funnelData = chartData
+      .map((d, i) => ({
+        value: Math.max(0, Number(d[yKey] || 0)),
+        name: d.x,
+        fill: CHART_COLORS[i % CHART_COLORS.length],
+      }))
+      .sort((a, b) => b.value - a.value);
+    return (
+      <div style={{ height: chartHeight, minHeight: minChartHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <FunnelChart>
+            <Tooltip {...tooltipStyle} />
+            <Funnel dataKey="value" data={funnelData} isAnimationActive>
+              <LabelList position="center" fill={T.text} stroke="none" dataKey="name" style={{ fontSize: compact ? 10 : 12 }} />
+            </Funnel>
+          </FunnelChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  // ── Treemap ──
+  if (visual.chartType === "treemap") {
+    const yKey = legendKeys[0] || visual.yFields?.[0];
+    const treemapData = chartData.map((d, i) => ({
+      name: d.x,
+      size: Math.max(0, Number(d[yKey] || 0)),
+      fill: CHART_COLORS[i % CHART_COLORS.length],
+    }));
+    const TreemapContent = ({ x, y, width, height, name, fill }) => {
+      if (width < 20 || height < 20) return null;
+      return (
+        <g>
+          <rect x={x} y={y} width={width} height={height} fill={fill} stroke={T.bg} strokeWidth={2} rx={4} />
+          {height > 28 && (
+            <text
+              x={x + width / 2}
+              y={y + height / 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#000"
+              fontSize={compact ? 10 : 12}
+              fontWeight={600}
+            >
+              {name}
+            </text>
+          )}
+        </g>
+      );
+    };
+    return (
+      <div style={{ height: chartHeight, minHeight: minChartHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <Treemap
+            data={treemapData}
+            dataKey="size"
+            nameKey="name"
+            aspectRatio={4 / 3}
+            content={<TreemapContent />}
+          >
+            <Tooltip {...tooltipStyle} formatter={(v) => [v.toLocaleString(), yKey]} />
+          </Treemap>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  // ── Gauge (RadialBar) ──
+  if (visual.chartType === "gauge") {
+    const gaugeData = visual.yFields.map((yField, i) => {
+      const total = chartData.reduce((s, d) => s + Number(d[yField] || 0), 0);
+      return { name: yField, value: Math.round(total), fill: CHART_COLORS[i % CHART_COLORS.length] };
+    });
+    const maxVal = Math.max(...gaugeData.map((d) => d.value), 1);
+    return (
+      <div style={{ height: chartHeight, minHeight: minChartHeight }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <RadialBarChart
+            data={gaugeData}
+            innerRadius="30%"
+            outerRadius="90%"
+            startAngle={200}
+            endAngle={-20}
+            barSize={compact ? 14 : 18}
+          >
+            <RadialBar
+              dataKey="value"
+              background={{ fill: T.s2 }}
+              label={{ position: "insideStart", fill: T.text, fontSize: compact ? 9 : 11 }}
+            />
+            <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
+            <Tooltip {...tooltipStyle} />
+          </RadialBarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  }
+
+  // ── Correlation Matrix ──
+  if (visual.chartType === "correlation") {
+    const numFields = visual.yFields.filter((f) => {
+      const vals = crossFilteredRows.map((r) => Number(r[f])).filter((v) => !isNaN(v));
+      return vals.length > 0;
+    });
+    if (numFields.length < 2) {
+      return (
+        <div
+          className="flex items-center justify-center rounded-2xl border border-dashed text-sm"
+          style={{ borderColor: T.border, background: T.s2, color: T.dim, height: compact ? "100%" : 260, minHeight: compact ? 220 : 260 }}
+        >
+          Assign 2+ numeric Y fields for a correlation matrix
+        </div>
+      );
+    }
+    const matrix = numFields.map((fA) => {
+      const xsA = crossFilteredRows.map((r) => Number(r[fA])).filter((v) => !isNaN(v));
+      return numFields.map((fB) => {
+        const xsB = crossFilteredRows.map((r) => Number(r[fB])).filter((v) => !isNaN(v));
+        const minLen = Math.min(xsA.length, xsB.length);
+        return pearsonCorr(xsA.slice(0, minLen), xsB.slice(0, minLen));
+      });
+    });
+    const cellSize = compact ? 40 : 56;
+    return (
+      <div style={{ height: compact ? "100%" : 320, minHeight: compact ? 220 : 320, overflow: "auto" }}>
+        <table className="border-collapse text-center text-xs" style={{ color: T.text }}>
+          <thead>
+            <tr>
+              <th className="p-2" style={{ color: T.muted }} />
+              {numFields.map((f) => (
+                <th key={f} className="p-2 font-semibold" style={{ color: T.dim, maxWidth: cellSize, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {f.length > 8 ? f.slice(0, 7) + "…" : f}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.map((row, ri) => (
+              <tr key={ri}>
+                <td className="pr-3 text-right font-semibold" style={{ color: T.dim }}>
+                  {numFields[ri].length > 8 ? numFields[ri].slice(0, 7) + "…" : numFields[ri]}
+                </td>
+                {row.map((corr, ci) => (
+                  <td
+                    key={ci}
+                    style={{
+                      width: cellSize,
+                      height: cellSize,
+                      background: corrColor(corr),
+                      color: "#000",
+                      fontWeight: 600,
+                      borderRadius: 4,
+                      border: `2px solid ${T.bg}`,
+                    }}
+                    title={`${numFields[ri]} vs ${numFields[ci]}: ${corr.toFixed(4)}`}
+                  >
+                    {corr.toFixed(2)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   // ── Pie / Donut ──
   if (visual.chartType === "pie" || visual.chartType === "donut") {
     const pieKey = legendKeys[0] || visual.yFields?.[0];
@@ -158,6 +464,8 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
               nameKey="name"
               outerRadius={compact ? 80 : 110}
               innerRadius={visual.chartType === "donut" ? (compact ? 40 : 60) : 0}
+              onClick={(entry) => onCrossFilter && onCrossFilter(visual.xFields[0], entry.name)}
+              style={{ cursor: onCrossFilter ? "pointer" : "default" }}
             >
               {pieData.map((_, i) => (
                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
@@ -184,7 +492,7 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
               <Scatter
                 key={yField}
                 name={yField}
-                data={filteredRows.map((row) => ({
+                data={crossFilteredRows.map((row) => ({
                   x: Number(row[visual.xFields[0]] ?? 0),
                   y: Number(row[yField] ?? 0),
                 }))}
@@ -239,6 +547,15 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
             {legendKeys.map((k, i) => (
               <Line key={k} type="monotone" dataKey={k} stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={2} dot={false} />
             ))}
+            {referenceLines.map((rl, i) => (
+              <ReferenceLine
+                key={i}
+                y={rl.value}
+                stroke={rl.color || T.accent}
+                strokeDasharray="4 3"
+                label={{ value: rl.label || "", fill: rl.color || T.accent, fontSize: 11 }}
+              />
+            ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -266,6 +583,15 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
                 fillOpacity={0.18}
               />
             ))}
+            {referenceLines.map((rl, i) => (
+              <ReferenceLine
+                key={i}
+                y={rl.value}
+                stroke={rl.color || T.accent}
+                strokeDasharray="4 3"
+                label={{ value: rl.label || "", fill: rl.color || T.accent, fontSize: 11 }}
+              />
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -289,6 +615,25 @@ export default function VisualRenderer({ visual, rawData, filters, compact = fal
               fill={CHART_COLORS[i % CHART_COLORS.length]}
               stackId={visual.chartType === "stackedBar" ? "a" : undefined}
               radius={[4, 4, 0, 0]}
+              onClick={(data) => onCrossFilter && onCrossFilter(visual.xFields[0], data.x)}
+              style={{ cursor: onCrossFilter ? "pointer" : "default" }}
+            >
+              {conditionalRules.length > 0 &&
+                chartData.map((entry, idx) => (
+                  <Cell
+                    key={idx}
+                    fill={getCellColor(entry, CHART_COLORS[i % CHART_COLORS.length], conditionalRules)}
+                  />
+                ))}
+            </Bar>
+          ))}
+          {referenceLines.map((rl, i) => (
+            <ReferenceLine
+              key={i}
+              y={rl.value}
+              stroke={rl.color || T.accent}
+              strokeDasharray="4 3"
+              label={{ value: rl.label || "", fill: rl.color || T.accent, fontSize: 11 }}
             />
           ))}
         </BarChart>

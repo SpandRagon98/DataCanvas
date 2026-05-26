@@ -34,16 +34,25 @@ export default function VisualToolbar({ chartType, aggregation, sortDirection, o
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
       <StyledSelect T={T} ariaLabel="Select chart type" value={chartType} onChange={(e) => onChange({ chartType: e.target.value })}>
-        <option value="bar">Bar</option>
-        <option value="stackedBar">Stacked Bar</option>
-        <option value="line">Line</option>
-        <option value="area">Area</option>
-        <option value="scatter">Scatter</option>
-        <option value="pie">Pie</option>
-        <option value="donut">Donut</option>
-        <option value="radar">Radar</option>
-        <option value="table">Table</option>
-        <option value="kpi">KPI</option>
+        <optgroup label="Standard">
+          <option value="bar">Bar</option>
+          <option value="stackedBar">Stacked Bar</option>
+          <option value="line">Line</option>
+          <option value="area">Area</option>
+          <option value="scatter">Scatter</option>
+          <option value="pie">Pie</option>
+          <option value="donut">Donut</option>
+          <option value="radar">Radar</option>
+          <option value="table">Table</option>
+          <option value="kpi">KPI</option>
+        </optgroup>
+        <optgroup label="Advanced">
+          <option value="waterfall">Waterfall</option>
+          <option value="funnel">Funnel</option>
+          <option value="treemap">Treemap</option>
+          <option value="gauge">Gauge</option>
+          <option value="correlation">Correlation Matrix</option>
+        </optgroup>
       </StyledSelect>
 
       <StyledSelect T={T} ariaLabel="Select aggregation" value={aggregation} onChange={(e) => onChange({ aggregation: e.target.value })}>
@@ -53,6 +62,8 @@ export default function VisualToolbar({ chartType, aggregation, sortDirection, o
         <option value="distinctCount">Distinct Count</option>
         <option value="min">Min</option>
         <option value="max">Max</option>
+        <option value="median">Median</option>
+        <option value="stddev">Std Dev</option>
       </StyledSelect>
 
       <StyledSelect T={T} ariaLabel="Select sort direction" value={sortDirection} onChange={(e) => onChange({ sortDirection: e.target.value })}>

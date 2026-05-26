@@ -93,6 +93,9 @@ export const useStore = create(
       // ── Filter bookmarks (Phase 1) ──
       filterBookmarks: [],
 
+      // ── Cross-filter — transient, not persisted ──
+      crossFilter: {},
+
       // ── Undo / Redo — intentionally excluded from persist (see partialize) ──
       undoStack: [],
       redoStack: [],
@@ -115,6 +118,7 @@ export const useStore = create(
           scenarios: [],
           activeScenarioId: null,
           filterBookmarks: [],
+          crossFilter: {},
           undoStack: [],
           redoStack: [],
         });
@@ -137,6 +141,7 @@ export const useStore = create(
           scenarios: wb.scenarios ?? [],
           activeScenarioId: wb.activeScenarioId ?? null,
           filterBookmarks: wb.filterBookmarks ?? [],
+          crossFilter: {},
           undoStack: [],
           redoStack: [],
         });
@@ -211,6 +216,9 @@ export const useStore = create(
             filters: {},
             width: 1,
             height: 320,
+            referenceLines: [],
+            conditionalRules: [],
+            showRunningTotal: false,
           };
           return { visuals: [...state.visuals, newVisual], activeVisualId: id };
         }),
@@ -418,6 +426,20 @@ export const useStore = create(
               : s
           ),
         })),
+
+      // ── Cross-filter ──
+      setCrossFilter: (field, value) =>
+        set((state) => {
+          // Toggle: clicking the same value clears it
+          if (state.crossFilter[field] === String(value)) {
+            const next = { ...state.crossFilter };
+            delete next[field];
+            return { crossFilter: next };
+          }
+          return { crossFilter: { ...state.crossFilter, [field]: String(value) } };
+        }),
+
+      clearCrossFilter: () => set({ crossFilter: {} }),
 
       // ── Filter Bookmarks ──
       saveFilterBookmark: (name) =>

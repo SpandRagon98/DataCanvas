@@ -1,10 +1,126 @@
 import { useMemo, useState } from "react";
-import { Database, Upload } from "lucide-react";
+import { Database, Upload, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
 import { useStore } from "../store/useStore";
 import ImportModal from "../components/import/ImportModal";
 import CalcFieldManager from "../components/calcfields/CalcFieldManager";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import { useTheme } from "../styles/theme";
+
+/** Compute profile stats for one column */
+function profileColumn(rows, col, dataType) {
+  const total = rows.length;
+  if (!total) return null;
+
+  const nullCount = rows.filter(
+    (r) => r[col] === null || r[col] === undefined || r[col] === ""
+  ).length;
+  const nullPct = total > 0 ? (nullCount / total) * 100 : 0;
+  const uniqueCount = new Set(rows.map((r) => r[col])).size;
+
+  let min = null, max = null, topValues = [];
+
+  if (dataType === "number") {
+    const nums = rows
+      .map((r) => Number(r[col]))
+      .filter((v) => !isNaN(v));
+    if (nums.length) {
+      min = Math.min(...nums);
+      max = Math.max(...nums);
+    }
+  }
+
+  // Top-5 values by frequency
+  const freq = {};
+  rows.forEach((r) => {
+    const v = String(r[col] ?? "");
+    freq[v] = (freq[v] || 0) + 1;
+  });
+  topValues = Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  return { total, nullCount, nullPct, uniqueCount, min, max, topValues };
+}
+
+function ColumnProfiler({ col, dataType, rows, T }) {
+  const profile = useMemo(
+    () => profileColumn(rows, col, dataType),
+    [rows, col, dataType]
+  );
+  if (!profile) return null;
+
+  const { nullPct, uniqueCount, min, max, topValues, total } = profile;
+  const hasQualityWarning = nullPct > 20;
+
+  return (
+    <div
+      className="mt-2 rounded-xl border p-3 text-xs space-y-2"
+      style={{ background: T.surface, borderColor: T.border }}
+    >
+      {/* Null % */}
+      <div>
+        <div className="flex items-center justify-between mb-1" style={{ color: T.dim }}>
+          <span>Null / Empty</span>
+          <span style={{ color: hasQualityWarning ? T.accent : T.muted, fontWeight: 600 }}>
+            {nullPct.toFixed(1)}%
+          </span>
+        </div>
+        <div className="h-1.5 w-full rounded-full" style={{ background: T.border }}>
+          <div
+            className="h-1.5 rounded-full"
+            style={{
+              width: `${Math.min(nullPct, 100)}%`,
+              background: hasQualityWarning ? T.accent : T.success,
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="flex flex-wrap gap-3" style={{ color: T.muted }}>
+        <span>
+          <span style={{ color: T.text, fontWeight: 600 }}>{uniqueCount}</span> unique
+        </span>
+        {dataType === "number" && min !== null && (
+          <>
+            <span>
+              Min: <span style={{ color: T.text, fontWeight: 600 }}>{Number(min).toLocaleString()}</span>
+            </span>
+            <span>
+              Max: <span style={{ color: T.text, fontWeight: 600 }}>{Number(max).toLocaleString()}</span>
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Top 5 values */}
+      <div>
+        <div className="mb-1.5 font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+          Top values
+        </div>
+        <div className="space-y-1">
+          {topValues.map(([val, count]) => {
+            const pct = (count / total) * 100;
+            return (
+              <div key={val}>
+                <div className="flex justify-between mb-0.5">
+                  <span className="truncate max-w-[60%] mono" style={{ color: T.text }}>{val || "(blank)"}</span>
+                  <span style={{ color: T.muted }}>{count} ({pct.toFixed(1)}%)</span>
+                </div>
+                <div className="h-1 w-full rounded-full" style={{ background: T.border }}>
+                  <div
+                    className="h-1 rounded-full"
+                    style={{ width: `${pct}%`, background: T.blue }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function DataSource() {
   const T = useTheme();
@@ -14,8 +130,25 @@ export default function DataSource() {
   });
 
   const [importOpen, setImportOpen] = useState(false);
+  const [expandedCol, setExpandedCol] = useState(null);
 
   const preview = useMemo(() => rows.slice(0, 8), [rows]);
+
+  // Pre-compute null% for quality badges
+  const nullPcts = useMemo(() => {
+    const result = {};
+    columns.forEach((col) => {
+      const nullCount = rows.filter(
+        (r) => r[col] === null || r[col] === undefined || r[col] === ""
+      ).length;
+      result[col] = rows.length > 0 ? (nullCount / rows.length) * 100 : 0;
+    });
+    return result;
+  }, [rows, columns]);
+
+  const toggleExpand = (col) => {
+    setExpandedCol((prev) => (prev === col ? null : col));
+  };
 
   return (
     <div className="mx-auto max-w-7xl p-2">
@@ -94,42 +227,67 @@ export default function DataSource() {
 
             <div className="mt-5">
               <div className="mb-3 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
-                Column Types
+                Column Profiler — click a column to inspect
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {columns.length ? (
                   columns.map((col) => {
                     const isCalc = calcFieldNames?.has(col);
+                    const hasWarning = nullPcts[col] > 20;
+                    const isExpanded = expandedCol === col;
+
                     return (
-                      <div
-                        key={col}
-                        className="flex items-center justify-between rounded-xl border px-3 py-2"
-                        style={{ background: T.s2, borderColor: T.border }}
-                      >
-                        <span className="flex items-center gap-2 text-sm" style={{ color: T.text }}>
-                          {col}
-                          {isCalc && (
-                            <span
-                              className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase mono"
-                              style={{ background: T.accentDim, color: T.accent }}
-                            >
-                              calc
-                            </span>
-                          )}
-                        </span>
-                        <span
-                          className="rounded-md px-2 py-1 text-[11px] uppercase mono"
-                          style={{
-                            background: T.s3,
-                            color:
-                              dataTypes[col] === "number" ? T.blue :
-                              dataTypes[col] === "date" ? T.success :
-                              dataTypes[col] === "boolean" ? T.accent : T.dim,
-                          }}
+                      <div key={col}>
+                        <button
+                          onClick={() => toggleExpand(col)}
+                          className="flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left transition hover:opacity-90"
+                          style={{ background: T.s2, borderColor: isExpanded ? T.accent : T.border }}
                         >
-                          {dataTypes[col]}
-                        </span>
+                          <span className="flex items-center gap-2 text-sm" style={{ color: T.text }}>
+                            {col}
+                            {isCalc && (
+                              <span
+                                className="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase mono"
+                                style={{ background: T.accentDim, color: T.accent }}
+                              >
+                                calc
+                              </span>
+                            )}
+                            {hasWarning && (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                                style={{ background: "rgba(245,158,11,0.14)", color: T.accent }}
+                                title={`${nullPcts[col].toFixed(1)}% nulls`}
+                              >
+                                <AlertTriangle size={9} />
+                                {nullPcts[col].toFixed(0)}% null
+                              </span>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="rounded-md px-2 py-1 text-[11px] uppercase mono"
+                              style={{
+                                background: T.s3,
+                                color:
+                                  dataTypes[col] === "number" ? T.blue :
+                                  dataTypes[col] === "date" ? T.success :
+                                  dataTypes[col] === "boolean" ? T.accent : T.dim,
+                              }}
+                            >
+                              {dataTypes[col]}
+                            </span>
+                            {isExpanded
+                              ? <ChevronUp size={13} style={{ color: T.dim }} />
+                              : <ChevronDown size={13} style={{ color: T.dim }} />
+                            }
+                          </div>
+                        </button>
+
+                        {isExpanded && (
+                          <ColumnProfiler col={col} dataType={dataTypes[col]} rows={rows} T={T} />
+                        )}
                       </div>
                     );
                   })
@@ -167,7 +325,12 @@ export default function DataSource() {
                         className="border-b px-4 py-3 text-left font-semibold"
                         style={{ borderColor: T.border, color: T.text }}
                       >
-                        {col}
+                        <div className="flex items-center gap-1.5">
+                          {col}
+                          {nullPcts[col] > 20 && (
+                            <AlertTriangle size={11} style={{ color: T.accent }} title={`${nullPcts[col].toFixed(0)}% nulls`} />
+                          )}
+                        </div>
                       </th>
                     ))}
                   </tr>

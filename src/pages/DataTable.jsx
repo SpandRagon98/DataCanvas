@@ -1,12 +1,186 @@
 import { AgGridReact } from "ag-grid-react";
-import { useEffect, useMemo } from "react";
-import { Database, Download, Undo2, Redo2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Database, Download, Undo2, Redo2, Search, X } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useStore } from "../store/useStore";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import { useTheme } from "../styles/theme";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
+
+/** Find & Replace modal component */
+function FindReplaceModal({ open, onClose, rows, columns, dataTypes, updateCell, T }) {
+  const [targetCol, setTargetCol] = useState(columns[0] || "");
+  const [findVal, setFindVal] = useState("");
+  const [replaceVal, setReplaceVal] = useState("");
+  const [matchCount, setMatchCount] = useState(null);
+  const [caseSensitive, setCaseSensitive] = useState(false);
+
+  // Reset match count when inputs change
+  useEffect(() => { setMatchCount(null); }, [targetCol, findVal, caseSensitive]);
+
+  if (!open) return null;
+
+  const normalize = (v) => caseSensitive ? String(v ?? "") : String(v ?? "").toLowerCase();
+  const needle = caseSensitive ? findVal : findVal.toLowerCase();
+
+  const getMatches = () =>
+    rows.reduce((acc, row, idx) => {
+      if (normalize(row[targetCol]) === needle) acc.push(idx);
+      return acc;
+    }, []);
+
+  const handlePreview = () => {
+    const matches = getMatches();
+    setMatchCount(matches.length);
+  };
+
+  const handleReplace = () => {
+    const matches = getMatches();
+    setMatchCount(matches.length);
+    const fieldType = dataTypes[targetCol];
+    let parsed = replaceVal;
+    if (fieldType === "number") parsed = replaceVal === "" ? "" : Number(replaceVal);
+    else if (fieldType === "boolean") {
+      if (replaceVal.toLowerCase() === "true") parsed = true;
+      else if (replaceVal.toLowerCase() === "false") parsed = false;
+    }
+    matches.forEach((rowIndex) => {
+      updateCell({ rowIndex, field: targetCol, value: parsed });
+    });
+  };
+
+  const inputStyle = {
+    background: T.s2,
+    borderColor: T.border,
+    color: T.text,
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }}>
+      <div
+        className="w-full max-w-md rounded-[24px] border p-6 shadow-2xl"
+        style={{ background: T.surface, borderColor: T.border }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: T.accentDim }}>
+              <Search size={16} color={T.accent} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold" style={{ color: T.text }}>Find & Replace</h2>
+              <p className="text-xs" style={{ color: T.dim }}>Replace exact cell values in a column</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-xl border p-2" style={{ background: T.s2, borderColor: T.border, color: T.dim }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          {/* Column selector */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" style={{ color: T.text }}>Column</label>
+            <select
+              value={targetCol}
+              onChange={(e) => setTargetCol(e.target.value)}
+              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none"
+              style={inputStyle}
+            >
+              {columns.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+
+          {/* Find */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" style={{ color: T.text }}>Find</label>
+            <input
+              value={findVal}
+              onChange={(e) => setFindVal(e.target.value)}
+              placeholder="Value to find…"
+              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none mono"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Replace */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium" style={{ color: T.text }}>Replace with</label>
+            <input
+              value={replaceVal}
+              onChange={(e) => setReplaceVal(e.target.value)}
+              placeholder="Replacement value…"
+              className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none mono"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Case sensitive toggle */}
+          <label className="flex cursor-pointer items-center gap-3 select-none">
+            <div
+              onClick={() => setCaseSensitive((c) => !c)}
+              className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+              style={{ background: caseSensitive ? T.accent : T.border }}
+            >
+              <span
+                className="inline-block h-3 w-3 rounded-full bg-white transition"
+                style={{ transform: caseSensitive ? "translateX(1.25rem)" : "translateX(0.25rem)" }}
+              />
+            </div>
+            <span className="text-sm" style={{ color: T.dim }}>Case sensitive</span>
+          </label>
+
+          {/* Match count feedback */}
+          {matchCount !== null && (
+            <div
+              className="rounded-xl border px-3 py-2 text-sm"
+              style={{
+                background: matchCount > 0 ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)",
+                borderColor: matchCount > 0 ? "rgba(16,185,129,0.25)" : "rgba(245,158,11,0.25)",
+                color: matchCount > 0 ? T.success : T.accent,
+              }}
+            >
+              {matchCount > 0
+                ? `${matchCount} match${matchCount !== 1 ? "es" : ""} found`
+                : "No matches found"}
+            </div>
+          )}
+        </div>
+
+        {/* Buttons */}
+        <div className="mt-5 flex gap-2">
+          <button
+            onClick={handlePreview}
+            disabled={!findVal}
+            className="flex-1 rounded-xl border px-4 py-2.5 text-sm font-medium"
+            style={{
+              background: T.s2,
+              borderColor: T.border,
+              color: findVal ? T.text : T.muted,
+              cursor: findVal ? "pointer" : "not-allowed",
+            }}
+          >
+            Preview matches
+          </button>
+          <button
+            onClick={handleReplace}
+            disabled={!findVal}
+            className="flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold"
+            style={{
+              background: findVal ? T.accent : T.border,
+              color: findVal ? "#000" : T.muted,
+              cursor: findVal ? "pointer" : "not-allowed",
+            }}
+          >
+            Replace all
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function DataTable() {
   const T = useTheme();
@@ -18,6 +192,8 @@ export default function DataTable() {
   const redoStack = useStore((s) => s.redoStack);
 
   const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
+
+  const [findReplaceOpen, setFindReplaceOpen] = useState(false);
 
   // Ctrl+Z / Ctrl+Y keyboard shortcuts for undo/redo
   useEffect(() => {
@@ -104,6 +280,16 @@ export default function DataTable() {
 
   return (
     <div className="h-[calc(100vh-32px)]">
+      <FindReplaceModal
+        open={findReplaceOpen}
+        onClose={() => setFindReplaceOpen(false)}
+        rows={rows}
+        columns={columns.filter((c) => !calcFieldNames?.has(c))}
+        dataTypes={dataTypes}
+        updateCell={updateCell}
+        T={T}
+      />
+
       <div
         className="mb-4 rounded-[20px] border p-5 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
@@ -153,6 +339,15 @@ export default function DataTable() {
               title="Redo (Ctrl+Y)"
             >
               <Redo2 size={14} /> Redo
+            </button>
+
+            <button
+              onClick={() => setFindReplaceOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
+              style={{ borderColor: T.border, background: T.s2, color: T.text }}
+              title="Find & Replace (Ctrl+H)"
+            >
+              <Search size={14} /> Find & Replace
             </button>
 
             <button

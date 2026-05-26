@@ -1,8 +1,70 @@
 import { useState } from "react";
-import { Calculator, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Calculator, Plus, Trash2, AlertCircle, Zap } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { useTheme } from "../../styles/theme";
 import { validateFormula, extractReferencedFields } from "../../utils/calcFields";
+
+/** Build smart presets from numeric column names */
+function buildSmartPresets(numericColumns) {
+  const presets = [];
+  const cols = numericColumns;
+
+  // Revenue - Cost → Profit
+  const revCol = cols.find((c) => /revenue/i.test(c));
+  const costCol = cols.find((c) => /cost/i.test(c));
+  const profitCol = cols.find((c) => /profit/i.test(c));
+  const unitsCol = cols.find((c) => /unit|qty|quantity/i.test(c));
+  const priceCol = cols.find((c) => /price/i.test(c));
+
+  if (revCol && costCol) {
+    presets.push({ name: "Gross Profit", formula: `[${revCol}] - [${costCol}]` });
+  }
+  if (revCol && costCol) {
+    presets.push({ name: "Margin %", formula: `([${revCol}] - [${costCol}]) / [${revCol}] * 100` });
+  }
+  if (revCol && profitCol) {
+    presets.push({ name: "Profit Ratio", formula: `[${profitCol}] / [${revCol}] * 100` });
+  }
+  if (unitsCol && priceCol) {
+    presets.push({ name: "Total Revenue", formula: `[${unitsCol}] * [${priceCol}]` });
+  }
+
+  return presets;
+}
+
+/** Generic formula presets (always available) */
+const GENERIC_PRESETS = [
+  {
+    label: "A − B",
+    getFormula: (cols) =>
+      cols.length >= 2 ? `[${cols[0]}] - [${cols[1]}]` : `[Field1] - [Field2]`,
+    getName: (cols) =>
+      cols.length >= 2 ? `${cols[0]} minus ${cols[1]}` : "Difference",
+  },
+  {
+    label: "A / B × 100",
+    getFormula: (cols) =>
+      cols.length >= 2 ? `[${cols[0]}] / [${cols[1]}] * 100` : `[Field1] / [Field2] * 100`,
+    getName: (cols) =>
+      cols.length >= 2 ? `${cols[0]} pct of ${cols[1]}` : "Percentage",
+  },
+  {
+    label: "(A−B) / B × 100",
+    getFormula: (cols) =>
+      cols.length >= 2
+        ? `([${cols[0]}] - [${cols[1]}]) / [${cols[1]}] * 100`
+        : `([Field1] - [Field2]) / [Field2] * 100`,
+    getName: (cols) =>
+      cols.length >= 2 ? `Growth % (${cols[0]})` : "Growth %",
+  },
+  {
+    label: "A + B",
+    getFormula: (cols) =>
+      cols.length >= 2 ? `[${cols[0]}] + [${cols[1]}]` : `[Field1] + [Field2]`,
+    getName: (cols) =>
+      cols.length >= 2 ? `${cols[0]} plus ${cols[1]}` : "Sum of two",
+  },
+];
 
 export default function CalcFieldManager() {
   const T = useTheme();
@@ -45,6 +107,14 @@ export default function CalcFieldManager() {
     setFormula("");
   };
 
+  const applyPreset = (presetName, presetFormula) => {
+    setName(presetName);
+    setFormula(presetFormula);
+    setError("");
+  };
+
+  const smartPresets = buildSmartPresets(numericColumns);
+
   return (
     <div
       className="rounded-[20px] border p-5 shadow-sm"
@@ -66,6 +136,50 @@ export default function CalcFieldManager() {
           </p>
         </div>
       </div>
+
+      {/* Formula Presets */}
+      {numericColumns.length >= 1 && (
+        <div className="mb-4">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+            <Zap size={11} style={{ color: T.accent }} />
+            Quick presets
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {/* Generic presets */}
+            {GENERIC_PRESETS.map((preset, i) => (
+              <button
+                key={i}
+                onClick={() => applyPreset(preset.getName(numericColumns), preset.getFormula(numericColumns))}
+                className="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90"
+                style={{
+                  background: T.accentDim,
+                  borderColor: "rgba(245,158,11,0.20)",
+                  color: T.accent,
+                }}
+                title={preset.getFormula(numericColumns)}
+              >
+                {preset.label}
+              </button>
+            ))}
+            {/* Smart presets (data-aware) */}
+            {smartPresets.map((preset, i) => (
+              <button
+                key={`smart-${i}`}
+                onClick={() => applyPreset(preset.name, preset.formula)}
+                className="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90"
+                style={{
+                  background: "rgba(96,165,250,0.10)",
+                  borderColor: "rgba(96,165,250,0.22)",
+                  color: T.blue,
+                }}
+                title={preset.formula}
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         <input

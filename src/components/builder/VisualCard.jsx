@@ -1,5 +1,8 @@
 import { useRef, useMemo, useState } from "react";
-import { Check, LayoutDashboard, Trash2, Copy, Download, AlertTriangle } from "lucide-react";
+import {
+  Check, LayoutDashboard, Trash2, Copy, Download, AlertTriangle,
+  Settings2, ChevronDown, ChevronUp, Plus, X,
+} from "lucide-react";
 import html2canvas from "html2canvas";
 import { useStore } from "../../store/useStore";
 import { useEffectiveData } from "../../hooks/useEffectiveData";
@@ -10,11 +13,15 @@ import VisualToolbar from "./VisualToolbar";
 import VisualRenderer from "./VisualRenderer";
 import { useTheme } from "../../styles/theme";
 
+const OPERATORS = [">", "<", ">=", "<=", "=="];
+
 export default function VisualCard({ visual }) {
   const T = useTheme();
   const { rows: effectiveRows } = useEffectiveData();
 
   const filters = useStore((s) => s.filters);
+  const crossFilter = useStore((s) => s.crossFilter);
+  const setCrossFilter = useStore((s) => s.setCrossFilter);
   const dashboards = useStore((s) => s.dashboards);
   const activeDashboardId = useStore((s) => s.activeDashboardId);
   const assignFieldToVisual = useStore((s) => s.assignFieldToVisual);
@@ -28,8 +35,24 @@ export default function VisualCard({ visual }) {
 
   const [targetDashboardId, setTargetDashboardId] = useState(activeDashboardId || dashboards[0]?.id || "");
   const [addedState, setAddedState] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  // Reference line form state
+  const [rlValue, setRlValue] = useState("");
+  const [rlLabel, setRlLabel] = useState("");
+  const [rlColor, setRlColor] = useState("#ef4444");
+
+  // Conditional rule form state
+  const [crField, setCrField] = useState(visual.yFields?.[0] || "");
+  const [crOp, setCrOp] = useState(">");
+  const [crThreshold, setCrThreshold] = useState("");
+  const [crColor, setCrColor] = useState("#ef4444");
+
   const chartRef = useRef(null);
   const isActive = activeVisualId === visual.id;
+
+  const referenceLines = visual.referenceLines || [];
+  const conditionalRules = visual.conditionalRules || [];
 
   // Compute health warnings to surface misconfiguration early
   const healthWarnings = useMemo(() => {
@@ -88,6 +111,38 @@ export default function VisualCard({ visual }) {
   const handleDuplicate = (e) => {
     e.stopPropagation();
     duplicateVisual(visual.id);
+  };
+
+  // Reference line helpers
+  const addReferenceLine = () => {
+    const val = parseFloat(rlValue);
+    if (isNaN(val)) return;
+    const next = [...referenceLines, { id: Date.now().toString(), value: val, label: rlLabel, color: rlColor }];
+    updateVisual(visual.id, { referenceLines: next });
+    setRlValue("");
+    setRlLabel("");
+  };
+  const removeReferenceLine = (id) => {
+    updateVisual(visual.id, { referenceLines: referenceLines.filter((r) => r.id !== id) });
+  };
+
+  // Conditional rule helpers
+  const addConditionalRule = () => {
+    if (!crField || crThreshold === "") return;
+    const val = parseFloat(crThreshold);
+    if (isNaN(val)) return;
+    const next = [...conditionalRules, { id: Date.now().toString(), field: crField, operator: crOp, threshold: val, color: crColor }];
+    updateVisual(visual.id, { conditionalRules: next });
+    setCrThreshold("");
+  };
+  const removeConditionalRule = (id) => {
+    updateVisual(visual.id, { conditionalRules: conditionalRules.filter((r) => r.id !== id) });
+  };
+
+  const selectStyle = {
+    background: T.s2,
+    borderColor: T.border,
+    color: T.text,
   };
 
   return (
@@ -202,6 +257,168 @@ export default function VisualCard({ visual }) {
         />
       </div>
 
+      {/* ── Advanced Settings ── */}
+      <div
+        className="mb-4 rounded-2xl border"
+        style={{ background: T.s2, borderColor: T.border }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={() => setAdvancedOpen((o) => !o)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm font-semibold"
+          style={{ color: T.text }}
+        >
+          <span className="flex items-center gap-2">
+            <Settings2 size={14} style={{ color: T.accent }} />
+            Advanced Settings
+          </span>
+          {advancedOpen ? <ChevronUp size={14} style={{ color: T.dim }} /> : <ChevronDown size={14} style={{ color: T.dim }} />}
+        </button>
+
+        {advancedOpen && (
+          <div className="space-y-5 border-t px-4 pb-4 pt-4" style={{ borderColor: T.border }}>
+
+            {/* Running Total Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium" style={{ color: T.text }}>Running Total</div>
+                <div className="text-xs" style={{ color: T.dim }}>Accumulate Y values left-to-right</div>
+              </div>
+              <button
+                onClick={() => updateVisual(visual.id, { showRunningTotal: !visual.showRunningTotal })}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition"
+                style={{
+                  background: visual.showRunningTotal ? T.accent : T.border,
+                }}
+                title="Toggle running total"
+              >
+                <span
+                  className="inline-block h-4 w-4 translate-x-1 rounded-full bg-white transition"
+                  style={{ transform: visual.showRunningTotal ? "translateX(1.375rem)" : "translateX(0.25rem)" }}
+                />
+              </button>
+            </div>
+
+            {/* Reference Lines */}
+            <div>
+              <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Reference Lines</div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <input
+                  value={rlValue}
+                  onChange={(e) => setRlValue(e.target.value)}
+                  placeholder="Y value"
+                  type="number"
+                  className="w-24 rounded-xl border px-3 py-1.5 text-sm outline-none"
+                  style={selectStyle}
+                />
+                <input
+                  value={rlLabel}
+                  onChange={(e) => setRlLabel(e.target.value)}
+                  placeholder="Label (opt)"
+                  className="flex-1 rounded-xl border px-3 py-1.5 text-sm outline-none"
+                  style={{ ...selectStyle, minWidth: 80 }}
+                />
+                <input
+                  type="color"
+                  value={rlColor}
+                  onChange={(e) => setRlColor(e.target.value)}
+                  className="h-9 w-10 cursor-pointer rounded-xl border p-1"
+                  style={{ background: T.s2, borderColor: T.border }}
+                  title="Line color"
+                />
+                <button
+                  onClick={addReferenceLine}
+                  className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
+                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}
+                >
+                  <Plus size={13} /> Add
+                </button>
+              </div>
+              {referenceLines.length > 0 ? (
+                <div className="space-y-1.5">
+                  {referenceLines.map((rl) => (
+                    <div key={rl.id} className="flex items-center gap-2 rounded-xl border px-3 py-1.5" style={{ background: T.surface, borderColor: T.border }}>
+                      <span className="h-3 w-3 rounded-full" style={{ background: rl.color }} />
+                      <span className="flex-1 text-sm" style={{ color: T.text }}>
+                        {rl.label ? `${rl.label} (${rl.value})` : rl.value}
+                      </span>
+                      <button onClick={() => removeReferenceLine(rl.id)} style={{ color: T.muted }}>
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: T.muted }}>No reference lines. Renders on bar, line, and area charts.</p>
+              )}
+            </div>
+
+            {/* Conditional Formatting */}
+            <div>
+              <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Conditional Formatting</div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                <select
+                  value={crField}
+                  onChange={(e) => setCrField(e.target.value)}
+                  className="rounded-xl border px-2 py-1.5 text-sm outline-none"
+                  style={selectStyle}
+                >
+                  {visual.yFields.map((f) => <option key={f} value={f}>{f}</option>)}
+                </select>
+                <select
+                  value={crOp}
+                  onChange={(e) => setCrOp(e.target.value)}
+                  className="rounded-xl border px-2 py-1.5 text-sm outline-none"
+                  style={selectStyle}
+                >
+                  {OPERATORS.map((op) => <option key={op} value={op}>{op}</option>)}
+                </select>
+                <input
+                  value={crThreshold}
+                  onChange={(e) => setCrThreshold(e.target.value)}
+                  placeholder="Threshold"
+                  type="number"
+                  className="w-28 rounded-xl border px-3 py-1.5 text-sm outline-none"
+                  style={selectStyle}
+                />
+                <input
+                  type="color"
+                  value={crColor}
+                  onChange={(e) => setCrColor(e.target.value)}
+                  className="h-9 w-10 cursor-pointer rounded-xl border p-1"
+                  style={{ background: T.s2, borderColor: T.border }}
+                  title="Rule color"
+                />
+                <button
+                  onClick={addConditionalRule}
+                  className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
+                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}
+                >
+                  <Plus size={13} /> Add
+                </button>
+              </div>
+              {conditionalRules.length > 0 ? (
+                <div className="space-y-1.5">
+                  {conditionalRules.map((rule) => (
+                    <div key={rule.id} className="flex items-center gap-2 rounded-xl border px-3 py-1.5" style={{ background: T.surface, borderColor: T.border }}>
+                      <span className="h-3 w-3 rounded-full" style={{ background: rule.color }} />
+                      <span className="flex-1 text-sm mono" style={{ color: T.text }}>
+                        {rule.field} {rule.operator} {rule.threshold}
+                      </span>
+                      <button onClick={() => removeConditionalRule(rule.id)} style={{ color: T.muted }}>
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: T.muted }}>No rules. Colors bars based on value thresholds.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Add to Dashboard */}
       <div
         className="mb-5 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-center lg:justify-between"
@@ -238,7 +455,13 @@ export default function VisualCard({ visual }) {
 
       {/* Chart area — ref used for PNG export */}
       <div ref={chartRef}>
-        <VisualRenderer visual={visual} rawData={effectiveRows} filters={filters} />
+        <VisualRenderer
+          visual={visual}
+          rawData={effectiveRows}
+          filters={filters}
+          crossFilter={crossFilter}
+          onCrossFilter={(field, value) => setCrossFilter(field, value)}
+        />
       </div>
     </div>
   );

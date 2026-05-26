@@ -1,9 +1,12 @@
-import { Plus, Pencil, Trash2, LayoutDashboard } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Plus, Pencil, Trash2, LayoutDashboard, Grid3x3, Maximize2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useStore } from "../store/useStore";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import VisualRenderer from "../components/builder/VisualRenderer";
 import { useTheme } from "../styles/theme";
+
+const GRID_SIZE = 40;
+const snap = (v) => Math.round(v / GRID_SIZE) * GRID_SIZE;
 
 export default function Dashboard() {
   const T = useTheme();
@@ -26,6 +29,26 @@ export default function Dashboard() {
   const canvasRef = useRef(null);
   const [editingTabId, setEditingTabId] = useState(null);
   const [draftTabName, setDraftTabName] = useState("");
+  const [snapEnabled, setSnapEnabled] = useState(false);
+
+  // Presentation mode state
+  const [presentMode, setPresentMode] = useState(false);
+  const [presentIndex, setPresentIndex] = useState(0);
+
+  useEffect(() => {
+    if (!presentMode) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") { setPresentMode(false); return; }
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        setPresentIndex((i) => (i + 1) % dashboards.length);
+      }
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        setPresentIndex((i) => (i - 1 + dashboards.length) % dashboards.length);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [presentMode, dashboards.length]);
 
   const handleStartRename = (dashboard) => {
     setEditingTabId(dashboard.id);
@@ -55,13 +78,18 @@ export default function Dashboard() {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
 
+      let newX = Math.max(0, Math.min(startLayout.x + dx, bounds.width - startLayout.w));
+      let newY = Math.max(0, startLayout.y + dy);
+
+      if (snapEnabled) {
+        newX = snap(newX);
+        newY = snap(newY);
+      }
+
       updateDashboardItemLayout({
         dashboardId: activeDashboard.id,
         itemId: item.id,
-        patch: {
-          x: Math.max(0, Math.min(startLayout.x + dx, bounds.width - startLayout.w)),
-          y: Math.max(0, startLayout.y + dy),
-        },
+        patch: { x: newX, y: newY },
       });
     };
 
@@ -89,17 +117,21 @@ export default function Dashboard() {
       const dx = moveEvent.clientX - startX;
       const dy = moveEvent.clientY - startY;
 
-      const nextWidth = Math.max(item.layout.minW || 300, startLayout.w + dx);
-      const nextHeight = Math.max(item.layout.minH || 240, startLayout.h + dy);
-      const allowedWidth = Math.min(nextWidth, bounds.width - startLayout.x);
+      let newW = Math.max(item.layout.minW || 300, startLayout.w + dx);
+      let newH = Math.max(item.layout.minH || 240, startLayout.h + dy);
+      const allowedW = Math.min(newW, bounds.width - startLayout.x);
+
+      if (snapEnabled) {
+        newW = snap(allowedW);
+        newH = snap(newH);
+      } else {
+        newW = allowedW;
+      }
 
       updateDashboardItemLayout({
         dashboardId: activeDashboard.id,
         itemId: item.id,
-        patch: {
-          w: allowedWidth,
-          h: nextHeight,
-        },
+        patch: { w: newW, h: newH },
       });
     };
 
@@ -112,6 +144,132 @@ export default function Dashboard() {
     window.addEventListener("mouseup", onUp);
   };
 
+  // ── Presentation Mode Overlay ──
+  if (presentMode) {
+    const currentDash = dashboards[presentIndex] || dashboards[0];
+    if (!currentDash) return null;
+
+    return (
+      <div
+        className="fixed inset-0 z-50 flex flex-col"
+        style={{ background: T.bg }}
+      >
+        {/* Presentation toolbar */}
+        <div
+          className="flex items-center justify-between gap-4 border-b px-6 py-3"
+          style={{ background: T.surface, borderColor: T.border }}
+        >
+          <div className="text-base font-bold" style={{ color: T.text }}>
+            {currentDash.name}
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-sm" style={{ color: T.dim }}>
+              {presentIndex + 1} / {dashboards.length}
+            </span>
+            <button
+              onClick={() => setPresentIndex((i) => (i - 1 + dashboards.length) % dashboards.length)}
+              disabled={dashboards.length <= 1}
+              className="rounded-xl border px-3 py-2"
+              style={{ background: T.s2, borderColor: T.border, color: T.text }}
+              title="Previous (←)"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => setPresentIndex((i) => (i + 1) % dashboards.length)}
+              disabled={dashboards.length <= 1}
+              className="rounded-xl border px-3 py-2"
+              style={{ background: T.s2, borderColor: T.border, color: T.text }}
+              title="Next (→)"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <button
+              onClick={() => setPresentMode(false)}
+              className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium"
+              style={{ background: T.s2, borderColor: T.border, color: T.text }}
+              title="Exit presentation (Esc)"
+            >
+              <X size={14} /> Exit
+            </button>
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div className="relative flex-1 overflow-auto p-4">
+          {!currentDash.items.length ? (
+            <div
+              className="flex h-full items-center justify-center rounded-[24px] border border-dashed text-sm"
+              style={{ borderColor: T.border, color: T.dim }}
+            >
+              No visuals on this dashboard
+            </div>
+          ) : (
+            <div
+              className="relative"
+              style={{
+                minHeight: Math.max(
+                  560,
+                  ...currentDash.items.map(
+                    (item) => (item.layout?.y || 0) + (item.layout?.h || 300) + 24
+                  )
+                ),
+              }}
+            >
+              {currentDash.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="absolute rounded-[22px] border shadow-sm"
+                  style={{
+                    left: item.layout.x,
+                    top: item.layout.y,
+                    width: item.layout.w,
+                    height: item.layout.h,
+                    background: T.s2,
+                    borderColor: T.border,
+                  }}
+                >
+                  <div className="border-b px-4 py-2" style={{ borderColor: T.border }}>
+                    <div className="truncate text-sm font-semibold" style={{ color: T.text }}>
+                      {item.visualConfig.title}
+                    </div>
+                  </div>
+                  <div className="h-[calc(100%-40px)] p-3">
+                    <VisualRenderer
+                      visual={item.visualConfig}
+                      rawData={effectiveRows}
+                      filters={filters}
+                      compact
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dot navigation */}
+        {dashboards.length > 1 && (
+          <div className="flex items-center justify-center gap-2 py-3">
+            {dashboards.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setPresentIndex(i)}
+                className="rounded-full transition"
+                style={{
+                  width: i === presentIndex ? 22 : 8,
+                  height: 8,
+                  background: i === presentIndex ? T.accent : T.border,
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Normal Dashboard View ──
   return (
     <div className="flex h-[calc(100vh-120px)] flex-col gap-4">
       <div
@@ -121,6 +279,10 @@ export default function Dashboard() {
           background: T.surface,
           borderColor: T.border,
           minHeight: 520,
+          backgroundImage: snapEnabled
+            ? `radial-gradient(circle, ${T.border} 1px, transparent 1px)`
+            : "none",
+          backgroundSize: snapEnabled ? `${GRID_SIZE}px ${GRID_SIZE}px` : "auto",
         }}
       >
         {!activeDashboard || activeDashboard.items.length === 0 ? (
@@ -308,6 +470,35 @@ export default function Dashboard() {
           >
             <Plus size={14} />
             New Dashboard
+          </button>
+
+          {/* Divider */}
+          <div className="mx-1 h-6 w-px" style={{ background: T.border }} />
+
+          {/* Snap-to-grid toggle */}
+          <button
+            onClick={() => setSnapEnabled((s) => !s)}
+            className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium"
+            style={{
+              background: snapEnabled ? T.accentDim : T.s2,
+              borderColor: snapEnabled ? "rgba(245,158,11,0.25)" : T.border,
+              color: snapEnabled ? T.accent : T.dim,
+            }}
+            title="Toggle snap-to-grid"
+          >
+            <Grid3x3 size={14} />
+            Snap
+          </button>
+
+          {/* Presentation mode button */}
+          <button
+            onClick={() => { setPresentIndex(dashboards.findIndex(d => d.id === activeDashboard?.id) || 0); setPresentMode(true); }}
+            className="inline-flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm font-medium"
+            style={{ background: T.s2, borderColor: T.border, color: T.dim }}
+            title="Present dashboards (fullscreen slideshow)"
+          >
+            <Maximize2 size={14} />
+            Present
           </button>
         </div>
       </div>
