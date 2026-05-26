@@ -1,13 +1,14 @@
 import { useRef, useMemo, useState } from "react";
 import {
   Check, LayoutDashboard, Trash2, Copy, Download, AlertTriangle,
-  Settings2, ChevronDown, ChevronUp, Plus, X,
+  Settings2, ChevronDown, ChevronUp, Plus, X, Filter,
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { useStore } from "../../store/useStore";
 import { useEffectiveData } from "../../hooks/useEffectiveData";
-import { applyGlobalFilters } from "../../utils/filterEngine";
+import { applyGlobalFilters, getUniqueValues } from "../../utils/filterEngine";
 import { buildVisualData } from "../../utils/chartEngine";
+import { COLOR_PALETTES, PALETTE_LABELS, getPalette } from "../../styles/theme";
 import DropZone from "./DropZone";
 import VisualToolbar from "./VisualToolbar";
 import VisualRenderer from "./VisualRenderer";
@@ -17,7 +18,7 @@ const OPERATORS = [">", "<", ">=", "<=", "=="];
 
 export default function VisualCard({ visual }) {
   const T = useTheme();
-  const { rows: effectiveRows } = useEffectiveData();
+  const { rows: effectiveRows, columns, dataTypes } = useEffectiveData();
 
   const filters = useStore((s) => s.filters);
   const crossFilter = useStore((s) => s.crossFilter);
@@ -48,13 +49,21 @@ export default function VisualCard({ visual }) {
   const [crThreshold, setCrThreshold] = useState("");
   const [crColor, setCrColor] = useState("#ef4444");
 
+  // Visual-level filter form state
+  const [vfField, setVfField] = useState(columns.filter(c => dataTypes[c] !== "number")[0] || "");
+  const [vfValue, setVfValue] = useState("");
+
   const chartRef = useRef(null);
   const isActive = activeVisualId === visual.id;
 
   const referenceLines = visual.referenceLines || [];
   const conditionalRules = visual.conditionalRules || [];
+  const visualFilters = visual.filters || {};
 
-  // Compute health warnings to surface misconfiguration early
+  // Filterable (non-numeric) columns for visual-level filters
+  const filterableCols = columns.filter((c) => dataTypes[c] !== "number");
+
+  // Compute health warnings
   const healthWarnings = useMemo(() => {
     const w = [];
     if (!visual.xFields?.length) w.push("No X field assigned");
@@ -104,13 +113,8 @@ export default function VisualCard({ visual }) {
       a.download = `${visual.title || "chart"}.png`;
       a.click();
     } catch {
-      // html2canvas can fail for certain SVG content — fail silently
+      // fail silently
     }
-  };
-
-  const handleDuplicate = (e) => {
-    e.stopPropagation();
-    duplicateVisual(visual.id);
   };
 
   // Reference line helpers
@@ -122,9 +126,7 @@ export default function VisualCard({ visual }) {
     setRlValue("");
     setRlLabel("");
   };
-  const removeReferenceLine = (id) => {
-    updateVisual(visual.id, { referenceLines: referenceLines.filter((r) => r.id !== id) });
-  };
+  const removeReferenceLine = (id) => updateVisual(visual.id, { referenceLines: referenceLines.filter((r) => r.id !== id) });
 
   // Conditional rule helpers
   const addConditionalRule = () => {
@@ -135,15 +137,22 @@ export default function VisualCard({ visual }) {
     updateVisual(visual.id, { conditionalRules: next });
     setCrThreshold("");
   };
-  const removeConditionalRule = (id) => {
-    updateVisual(visual.id, { conditionalRules: conditionalRules.filter((r) => r.id !== id) });
+  const removeConditionalRule = (id) => updateVisual(visual.id, { conditionalRules: conditionalRules.filter((r) => r.id !== id) });
+
+  // Visual-level filter helpers
+  const addVisualFilter = () => {
+    if (!vfField || !vfValue) return;
+    updateVisual(visual.id, { filters: { ...visualFilters, [vfField]: vfValue } });
+    setVfValue("");
+  };
+  const removeVisualFilter = (field) => {
+    const next = { ...visualFilters };
+    delete next[field];
+    updateVisual(visual.id, { filters: next });
   };
 
-  const selectStyle = {
-    background: T.s2,
-    borderColor: T.border,
-    color: T.text,
-  };
+  const selectStyle = { background: T.s2, borderColor: T.border, color: T.text };
+  const palette = getPalette(visual.colorPalette);
 
   return (
     <div
@@ -170,31 +179,20 @@ export default function VisualCard({ visual }) {
         </div>
 
         <div className="flex flex-shrink-0 items-center gap-2">
-          <button
-            onClick={handleExportPNG}
+          <button onClick={handleExportPNG}
             className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
-            style={{ borderColor: T.border, color: T.dim, background: T.s2 }}
-            title="Export chart as PNG"
-          >
+            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Export chart as PNG">
             <Download size={13} />
           </button>
-
-          <button
-            onClick={handleDuplicate}
+          <button onClick={(e) => { e.stopPropagation(); duplicateVisual(visual.id); }}
             className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm"
-            style={{ borderColor: T.border, color: T.dim, background: T.s2 }}
-            title="Duplicate visual"
-          >
+            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Duplicate visual">
             <Copy size={13} />
           </button>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); removeVisual(visual.id); }}
+          <button onClick={(e) => { e.stopPropagation(); removeVisual(visual.id); }}
             className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm"
-            style={{ borderColor: T.border, color: T.dim, background: T.s2 }}
-          >
-            <Trash2 size={14} />
-            Remove
+            style={{ borderColor: T.border, color: T.dim, background: T.s2 }}>
+            <Trash2 size={14} /> Remove
           </button>
         </div>
       </div>
@@ -203,17 +201,9 @@ export default function VisualCard({ visual }) {
       {healthWarnings.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
           {healthWarnings.map((w, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium"
-              style={{
-                background: "rgba(245,158,11,0.10)",
-                borderColor: "rgba(245,158,11,0.28)",
-                color: T.accent,
-              }}
-            >
-              <AlertTriangle size={11} />
-              {w}
+            <span key={i} className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium"
+              style={{ background: "rgba(245,158,11,0.10)", borderColor: "rgba(245,158,11,0.28)", color: T.accent }}>
+              <AlertTriangle size={11} />{w}
             </span>
           ))}
         </div>
@@ -221,30 +211,18 @@ export default function VisualCard({ visual }) {
 
       {/* Drop zones */}
       <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <DropZone
-          label="X Axis"
-          value={visual.xFields}
+        <DropZone label="X Axis" value={visual.xFields}
           onDropField={(field) => assignFieldToVisual({ visualId: visual.id, zone: "xFields", field })}
-          onRemoveField={(field) => removeFieldFromVisual({ visualId: visual.id, zone: "xFields", field })}
-        />
-        <DropZone
-          label="Y Axis"
-          value={visual.yFields}
+          onRemoveField={(field) => removeFieldFromVisual({ visualId: visual.id, zone: "xFields", field })} />
+        <DropZone label="Y Axis" value={visual.yFields}
           onDropField={(field) => assignFieldToVisual({ visualId: visual.id, zone: "yFields", field })}
-          onRemoveField={(field) => removeFieldFromVisual({ visualId: visual.id, zone: "yFields", field })}
-        />
-        <DropZone
-          label="Legend"
-          value={visual.legendField}
+          onRemoveField={(field) => removeFieldFromVisual({ visualId: visual.id, zone: "yFields", field })} />
+        <DropZone label="Legend" value={visual.legendField}
           onDropField={(field) => assignFieldToVisual({ visualId: visual.id, zone: "legendField", field })}
-          onRemoveField={() => removeFieldFromVisual({ visualId: visual.id, zone: "legendField", field: visual.legendField })}
-        />
-        <DropZone
-          label="Tooltip"
-          value={visual.tooltipFields}
+          onRemoveField={() => removeFieldFromVisual({ visualId: visual.id, zone: "legendField", field: visual.legendField })} />
+        <DropZone label="Tooltip" value={visual.tooltipFields}
           onDropField={(field) => assignFieldToVisual({ visualId: visual.id, zone: "tooltipFields", field })}
-          onRemoveField={(field) => removeFieldFromVisual({ visualId: visual.id, zone: "tooltipFields", field })}
-        />
+          onRemoveField={(field) => removeFieldFromVisual({ visualId: visual.id, zone: "tooltipFields", field })} />
       </div>
 
       {/* Toolbar */}
@@ -278,73 +256,129 @@ export default function VisualCard({ visual }) {
         {advancedOpen && (
           <div className="space-y-5 border-t px-4 pb-4 pt-4" style={{ borderColor: T.border }}>
 
-            {/* Running Total Toggle */}
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-medium" style={{ color: T.text }}>Running Total</div>
-                <div className="text-xs" style={{ color: T.dim }}>Accumulate Y values left-to-right</div>
+            {/* ─ Color Palette ─ */}
+            <div>
+              <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Color Palette</div>
+              <div className="flex flex-wrap gap-2">
+                {PALETTE_LABELS.map(({ id, label }) => {
+                  const pal = COLOR_PALETTES[id];
+                  const isActive = (visual.colorPalette || "default") === id;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => updateVisual(visual.id, { colorPalette: id })}
+                      className="flex flex-col items-center gap-1 rounded-xl border p-2 transition"
+                      style={{
+                        borderColor: isActive ? T.accent : T.border,
+                        background: isActive ? T.accentDim : T.surface,
+                      }}
+                      title={label}
+                    >
+                      <div className="flex gap-0.5">
+                        {pal.slice(0, 5).map((c, ci) => (
+                          <span key={ci} className="h-3 w-3 rounded-full" style={{ background: c }} />
+                        ))}
+                      </div>
+                      <span className="text-[10px]" style={{ color: isActive ? T.accent : T.muted }}>{label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <button
-                onClick={() => updateVisual(visual.id, { showRunningTotal: !visual.showRunningTotal })}
-                className="relative inline-flex h-6 w-11 items-center rounded-full transition"
-                style={{
-                  background: visual.showRunningTotal ? T.accent : T.border,
-                }}
-                title="Toggle running total"
-              >
-                <span
-                  className="inline-block h-4 w-4 translate-x-1 rounded-full bg-white transition"
-                  style={{ transform: visual.showRunningTotal ? "translateX(1.375rem)" : "translateX(0.25rem)" }}
-                />
-              </button>
             </div>
 
-            {/* Reference Lines */}
+            {/* ─ Running Total + Trendline ─ */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                <span className="text-sm" style={{ color: T.text }}>Running Total</span>
+                <button
+                  onClick={() => updateVisual(visual.id, { showRunningTotal: !visual.showRunningTotal })}
+                  className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                  style={{ background: visual.showRunningTotal ? T.accent : T.border }}
+                >
+                  <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                    style={{ transform: visual.showRunningTotal ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                <span className="text-sm" style={{ color: T.text }}>Trendline</span>
+                <button
+                  onClick={() => updateVisual(visual.id, { showTrendline: !visual.showTrendline })}
+                  className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                  style={{ background: visual.showTrendline ? T.accent : T.border }}
+                >
+                  <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                    style={{ transform: visual.showTrendline ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                </button>
+              </div>
+            </div>
+
+            {/* ─ Visual-Level Filters ─ */}
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium" style={{ color: T.text }}>
+                <Filter size={13} style={{ color: T.accent }} />
+                Visual Filters
+                <span className="text-xs" style={{ color: T.muted }}>(override per-visual)</span>
+              </div>
+              <div className="flex flex-wrap gap-2 mb-2">
+                <select value={vfField} onChange={(e) => { setVfField(e.target.value); setVfValue(""); }}
+                  className="rounded-xl border px-2 py-1.5 text-sm outline-none" style={selectStyle}>
+                  {filterableCols.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select value={vfValue} onChange={(e) => setVfValue(e.target.value)}
+                  className="flex-1 rounded-xl border px-2 py-1.5 text-sm outline-none" style={{ ...selectStyle, minWidth: 80 }}>
+                  <option value="">— select —</option>
+                  {getUniqueValues(effectiveRows, vfField).map((v) => (
+                    <option key={String(v)} value={String(v)}>{String(v)}</option>
+                  ))}
+                </select>
+                <button onClick={addVisualFilter}
+                  className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
+                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
+                  <Plus size={13} /> Add
+                </button>
+              </div>
+              {Object.keys(visualFilters).length > 0 ? (
+                <div className="space-y-1.5">
+                  {Object.entries(visualFilters).map(([field, val]) => (
+                    <div key={field} className="flex items-center gap-2 rounded-xl border px-3 py-1.5"
+                      style={{ background: T.surface, borderColor: T.border }}>
+                      <span className="flex-1 text-sm mono" style={{ color: T.text }}>{field} = {String(val)}</span>
+                      <button onClick={() => removeVisualFilter(field)} style={{ color: T.muted }}><X size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs" style={{ color: T.muted }}>No visual filters active.</p>
+              )}
+            </div>
+
+            {/* ─ Reference Lines ─ */}
             <div>
               <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Reference Lines</div>
               <div className="flex flex-wrap gap-2 mb-3">
-                <input
-                  value={rlValue}
-                  onChange={(e) => setRlValue(e.target.value)}
-                  placeholder="Y value"
-                  type="number"
-                  className="w-24 rounded-xl border px-3 py-1.5 text-sm outline-none"
-                  style={selectStyle}
-                />
-                <input
-                  value={rlLabel}
-                  onChange={(e) => setRlLabel(e.target.value)}
-                  placeholder="Label (opt)"
-                  className="flex-1 rounded-xl border px-3 py-1.5 text-sm outline-none"
-                  style={{ ...selectStyle, minWidth: 80 }}
-                />
-                <input
-                  type="color"
-                  value={rlColor}
-                  onChange={(e) => setRlColor(e.target.value)}
-                  className="h-9 w-10 cursor-pointer rounded-xl border p-1"
-                  style={{ background: T.s2, borderColor: T.border }}
-                  title="Line color"
-                />
-                <button
-                  onClick={addReferenceLine}
+                <input value={rlValue} onChange={(e) => setRlValue(e.target.value)} placeholder="Y value"
+                  type="number" className="w-24 rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
+                <input value={rlLabel} onChange={(e) => setRlLabel(e.target.value)} placeholder="Label (opt)"
+                  className="flex-1 rounded-xl border px-3 py-1.5 text-sm outline-none" style={{ ...selectStyle, minWidth: 80 }} />
+                <input type="color" value={rlColor} onChange={(e) => setRlColor(e.target.value)}
+                  className="h-9 w-10 cursor-pointer rounded-xl border p-1" style={{ background: T.s2, borderColor: T.border }} />
+                <button onClick={addReferenceLine}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
-                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}
-                >
+                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
                   <Plus size={13} /> Add
                 </button>
               </div>
               {referenceLines.length > 0 ? (
                 <div className="space-y-1.5">
                   {referenceLines.map((rl) => (
-                    <div key={rl.id} className="flex items-center gap-2 rounded-xl border px-3 py-1.5" style={{ background: T.surface, borderColor: T.border }}>
+                    <div key={rl.id} className="flex items-center gap-2 rounded-xl border px-3 py-1.5"
+                      style={{ background: T.surface, borderColor: T.border }}>
                       <span className="h-3 w-3 rounded-full" style={{ background: rl.color }} />
                       <span className="flex-1 text-sm" style={{ color: T.text }}>
                         {rl.label ? `${rl.label} (${rl.value})` : rl.value}
                       </span>
-                      <button onClick={() => removeReferenceLine(rl.id)} style={{ color: T.muted }}>
-                        <X size={13} />
-                      </button>
+                      <button onClick={() => removeReferenceLine(rl.id)} style={{ color: T.muted }}><X size={13} /></button>
                     </div>
                   ))}
                 </div>
@@ -353,61 +387,38 @@ export default function VisualCard({ visual }) {
               )}
             </div>
 
-            {/* Conditional Formatting */}
+            {/* ─ Conditional Formatting ─ */}
             <div>
               <div className="mb-2 text-sm font-medium" style={{ color: T.text }}>Conditional Formatting</div>
               <div className="flex flex-wrap gap-2 mb-3">
-                <select
-                  value={crField}
-                  onChange={(e) => setCrField(e.target.value)}
-                  className="rounded-xl border px-2 py-1.5 text-sm outline-none"
-                  style={selectStyle}
-                >
+                <select value={crField} onChange={(e) => setCrField(e.target.value)}
+                  className="rounded-xl border px-2 py-1.5 text-sm outline-none" style={selectStyle}>
                   {visual.yFields.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
-                <select
-                  value={crOp}
-                  onChange={(e) => setCrOp(e.target.value)}
-                  className="rounded-xl border px-2 py-1.5 text-sm outline-none"
-                  style={selectStyle}
-                >
+                <select value={crOp} onChange={(e) => setCrOp(e.target.value)}
+                  className="rounded-xl border px-2 py-1.5 text-sm outline-none" style={selectStyle}>
                   {OPERATORS.map((op) => <option key={op} value={op}>{op}</option>)}
                 </select>
-                <input
-                  value={crThreshold}
-                  onChange={(e) => setCrThreshold(e.target.value)}
-                  placeholder="Threshold"
-                  type="number"
-                  className="w-28 rounded-xl border px-3 py-1.5 text-sm outline-none"
-                  style={selectStyle}
-                />
-                <input
-                  type="color"
-                  value={crColor}
-                  onChange={(e) => setCrColor(e.target.value)}
-                  className="h-9 w-10 cursor-pointer rounded-xl border p-1"
-                  style={{ background: T.s2, borderColor: T.border }}
-                  title="Rule color"
-                />
-                <button
-                  onClick={addConditionalRule}
+                <input value={crThreshold} onChange={(e) => setCrThreshold(e.target.value)} placeholder="Threshold"
+                  type="number" className="w-28 rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
+                <input type="color" value={crColor} onChange={(e) => setCrColor(e.target.value)}
+                  className="h-9 w-10 cursor-pointer rounded-xl border p-1" style={{ background: T.s2, borderColor: T.border }} />
+                <button onClick={addConditionalRule}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
-                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}
-                >
+                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
                   <Plus size={13} /> Add
                 </button>
               </div>
               {conditionalRules.length > 0 ? (
                 <div className="space-y-1.5">
                   {conditionalRules.map((rule) => (
-                    <div key={rule.id} className="flex items-center gap-2 rounded-xl border px-3 py-1.5" style={{ background: T.surface, borderColor: T.border }}>
+                    <div key={rule.id} className="flex items-center gap-2 rounded-xl border px-3 py-1.5"
+                      style={{ background: T.surface, borderColor: T.border }}>
                       <span className="h-3 w-3 rounded-full" style={{ background: rule.color }} />
                       <span className="flex-1 text-sm mono" style={{ color: T.text }}>
                         {rule.field} {rule.operator} {rule.threshold}
                       </span>
-                      <button onClick={() => removeConditionalRule(rule.id)} style={{ color: T.muted }}>
-                        <X size={13} />
-                      </button>
+                      <button onClick={() => removeConditionalRule(rule.id)} style={{ color: T.muted }}><X size={13} /></button>
                     </div>
                   ))}
                 </div>
@@ -420,40 +431,29 @@ export default function VisualCard({ visual }) {
       </div>
 
       {/* Add to Dashboard */}
-      <div
-        className="mb-5 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-center lg:justify-between"
-        style={{ background: T.s2, borderColor: T.border }}
-      >
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-center lg:justify-between"
+        style={{ background: T.s2, borderColor: T.border }}>
         <div>
           <div className="text-sm font-semibold" style={{ color: T.text }}>Add to Dashboard</div>
           <div className="text-xs" style={{ color: T.dim }}>Choose the dashboard for this visual.</div>
         </div>
-
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <select
-            value={targetDashboardId}
-            onChange={(e) => setTargetDashboardId(e.target.value)}
+          <select value={targetDashboardId} onChange={(e) => setTargetDashboardId(e.target.value)}
             className="rounded-xl border px-3 py-2.5 text-sm outline-none"
             style={{ background: T.surface, borderColor: T.border, color: T.text, minWidth: 180 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {dashboards.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
+            onClick={(e) => e.stopPropagation()}>
+            {dashboards.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
-
-          <button
-            onClick={handleAddToDashboard}
+          <button onClick={handleAddToDashboard}
             className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold"
-            style={{ background: addedState ? T.success : T.accent, color: addedState ? "#04120d" : "#000" }}
-          >
+            style={{ background: addedState ? T.success : T.accent, color: addedState ? "#04120d" : "#000" }}>
             {addedState ? <Check size={15} /> : <LayoutDashboard size={15} />}
             {addedState ? "Added" : "Add to Dashboard"}
           </button>
         </div>
       </div>
 
-      {/* Chart area — ref used for PNG export */}
+      {/* Chart area */}
       <div ref={chartRef}>
         <VisualRenderer
           visual={visual}

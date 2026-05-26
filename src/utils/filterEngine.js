@@ -30,12 +30,30 @@ const matchesRelativeDate = (cellValue, filterValue) => {
   return !isNaN(d.getTime()) && fn(d, new Date());
 };
 
+/** Check a date range filter: { from?: string, to?: string } */
+const matchesDateRange = (cellValue, range) => {
+  if (!range.from && !range.to) return true; // empty range = all
+  const d = new Date(cellValue);
+  if (isNaN(d.getTime())) return false;
+  if (range.from) {
+    const fromDate = new Date(range.from);
+    if (!isNaN(fromDate.getTime()) && d < fromDate) return false;
+  }
+  if (range.to) {
+    const toDate = new Date(range.to);
+    toDate.setHours(23, 59, 59, 999); // inclusive end of day
+    if (!isNaN(toDate.getTime()) && d > toDate) return false;
+  }
+  return true;
+};
+
 export const applyGlobalFilters = (rows, filters) => {
   if (!rows?.length) return [];
   if (!filters || Object.keys(filters).length === 0) return rows;
 
   return rows.filter((row) =>
     Object.entries(filters).every(([field, filterValue]) => {
+      // Empty / no filter
       if (
         filterValue === undefined ||
         filterValue === null ||
@@ -44,9 +62,25 @@ export const applyGlobalFilters = (rows, filters) => {
       ) {
         return true;
       }
+
       const cell = row[field];
-      if (isRelativeDateFilter(filterValue)) return matchesRelativeDate(cell, filterValue);
-      if (Array.isArray(filterValue)) return filterValue.includes(cell);
+
+      // Date range object { from?, to? }
+      if (typeof filterValue === "object" && !Array.isArray(filterValue)) {
+        return matchesDateRange(cell, filterValue);
+      }
+
+      // Relative date string
+      if (isRelativeDateFilter(filterValue)) {
+        return matchesRelativeDate(cell, filterValue);
+      }
+
+      // Multi-select array
+      if (Array.isArray(filterValue)) {
+        return filterValue.map(String).includes(String(cell));
+      }
+
+      // Single exact match
       return String(cell) === String(filterValue);
     })
   );

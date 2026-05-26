@@ -62,6 +62,24 @@ export const CHART_COLORS = [
   "#84cc16",
 ];
 
+export const COLOR_PALETTES = {
+  default:    ["#f59e0b","#60a5fa","#10b981","#ef4444","#a78bfa","#ec4899","#06b6d4","#84cc16"],
+  ocean:      ["#0ea5e9","#22d3ee","#38bdf8","#0891b2","#7dd3fc","#0284c7","#67e8f9","#0e7490"],
+  forest:     ["#10b981","#4ade80","#86efac","#059669","#16a34a","#84cc16","#65a30d","#15803d"],
+  sunset:     ["#f97316","#ef4444","#f59e0b","#ec4899","#fb923c","#fbbf24","#f43f5e","#fcd34d"],
+  pastel:     ["#c4b5fd","#93c5fd","#6ee7b7","#fca5a5","#fde68a","#fbcfe8","#a5f3fc","#bef264"],
+};
+
+export const PALETTE_LABELS = [
+  { id: "default",   label: "Default" },
+  { id: "ocean",     label: "Ocean" },
+  { id: "forest",    label: "Forest" },
+  { id: "sunset",    label: "Sunset" },
+  { id: "pastel",    label: "Pastel" },
+];
+
+export const getPalette = (name) => COLOR_PALETTES[name] || COLOR_PALETTES.default;
+
 export function getThemeObject(mode) {
   return mode === "light" ? T_LIGHT : T_DARK;
 }

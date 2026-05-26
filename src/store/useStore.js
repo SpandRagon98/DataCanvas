@@ -43,6 +43,7 @@ const createDefaultDashboard = () => ({
   id: createId("dashboard"),
   name: "Dashboard 1",
   items: [],
+  annotations: [],
 });
 
 const createDashboardItem = (visual, existingItems = []) => {
@@ -219,6 +220,8 @@ export const useStore = create(
             referenceLines: [],
             conditionalRules: [],
             showRunningTotal: false,
+            showTrendline: false,
+            colorPalette: "default",
           };
           return { visuals: [...state.visuals, newVisual], activeVisualId: id };
         }),
@@ -424,6 +427,52 @@ export const useStore = create(
             s.id === scenarioId
               ? { ...s, adjustments: s.adjustments.filter((a) => a.id !== adjustmentId) }
               : s
+          ),
+        })),
+
+      // ── Dashboard Annotations ──
+      addDashboardAnnotation: ({ dashboardId }) =>
+        set((state) => ({
+          dashboards: state.dashboards.map((d) =>
+            d.id === dashboardId
+              ? {
+                  ...d,
+                  annotations: [
+                    ...(d.annotations || []),
+                    {
+                      id: createId("anno"),
+                      x: 20,
+                      y: 20,
+                      w: 220,
+                      text: "📝 Add your note here…",
+                      color: "rgba(245,158,11,0.15)",
+                    },
+                  ],
+                }
+              : d
+          ),
+        })),
+
+      updateDashboardAnnotation: ({ dashboardId, annotationId, patch }) =>
+        set((state) => ({
+          dashboards: state.dashboards.map((d) =>
+            d.id === dashboardId
+              ? {
+                  ...d,
+                  annotations: (d.annotations || []).map((a) =>
+                    a.id === annotationId ? { ...a, ...patch } : a
+                  ),
+                }
+              : d
+          ),
+        })),
+
+      removeDashboardAnnotation: ({ dashboardId, annotationId }) =>
+        set((state) => ({
+          dashboards: state.dashboards.map((d) =>
+            d.id === dashboardId
+              ? { ...d, annotations: (d.annotations || []).filter((a) => a.id !== annotationId) }
+              : d
           ),
         })),
 
