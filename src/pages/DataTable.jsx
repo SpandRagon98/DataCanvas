@@ -59,7 +59,7 @@ function FindReplaceModal({ open, onClose, rows, columns, dataTypes, updateCell,
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.55)" }}>
       <div
-        className="w-full max-w-md rounded-[24px] border p-6 shadow-2xl"
+        className="w-full max-w-md rounded-2xl border p-6 shadow-2xl"
         style={{ background: T.surface, borderColor: T.border }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -279,7 +279,7 @@ export default function DataTable() {
   const gridThemeClass = themeMode === "light" ? "ag-theme-quartz" : "ag-theme-quartz-dark";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden p-4 gap-3">
+    <div className="flex flex-1 flex-col overflow-hidden p-3 gap-2.5">
       <FindReplaceModal
         open={findReplaceOpen}
         onClose={() => setFindReplaceOpen(false)}
@@ -292,7 +292,7 @@ export default function DataTable() {
 
       {/* ── Header toolbar ── */}
       <div
-        className="shrink-0 rounded-[18px] border px-5 py-3 shadow-sm"
+        className="shrink-0 rounded-xl border px-4 py-2 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -376,7 +376,7 @@ export default function DataTable() {
 
       {/* ── AG Grid ── */}
       <div
-        className="flex-1 min-h-0 rounded-[18px] border p-3 shadow-sm"
+        className="flex-1 min-h-0 rounded-xl border p-3 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
       >
         <div className={`${gridThemeClass} h-full w-full`}>

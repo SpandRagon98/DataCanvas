@@ -67,7 +67,7 @@ function ConnectorCard({ connector, onFetch, onRemove, onEdit, T, fetching }) {
 
   return (
     <div
-      className="rounded-2xl border"
+      className="rounded-xl border"
       style={{ background: T.s2, borderColor: T.border }}
     >
       {/* Header row */}
@@ -169,7 +169,7 @@ function ConnectorForm({ initial, onSave, onCancel, T }) {
 
   return (
     <div
-      className="rounded-2xl border p-4 space-y-3"
+      className="rounded-xl border p-4 space-y-3"
       style={{ background: T.s2, borderColor: T.accent }}
     >
       <p className="text-sm font-semibold" style={{ color: T.text }}>
@@ -436,7 +436,7 @@ export default function ApiConnectorPanel() {
 
   return (
     <div
-      className="rounded-[20px] border p-5 shadow-sm"
+      className="rounded-xl border p-5 shadow-sm"
       style={{ background: T.surface, borderColor: T.border }}
     >
       {/* Header */}
@@ -470,7 +470,7 @@ export default function ApiConnectorPanel() {
       {/* Connector list */}
       {apiConnectors.length === 0 && !showForm && (
         <div
-          className="rounded-2xl border px-4 py-8 text-center"
+          className="rounded-xl border px-4 py-8 text-center"
           style={{ background: T.s2, borderColor: T.border }}
         >
           <Wifi size={28} style={{ color: T.muted, margin: "0 auto 10px" }} />

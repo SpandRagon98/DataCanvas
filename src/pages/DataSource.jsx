@@ -139,7 +139,7 @@ export default function DataSource() {
   const toggleExpand = (col) => setExpandedCol((prev) => (prev === col ? null : col));
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="flex-1 overflow-y-auto">
     <div className="mx-auto max-w-7xl p-4 space-y-4">
       {/* Full-reset import modal (replaces active dataset) */}
       <ImportModal
@@ -150,7 +150,7 @@ export default function DataSource() {
 
       {/* ── Page header ───────────────────────────────────────────────── */}
       <div
-        className="rounded-[18px] border px-5 py-4 shadow-sm"
+        className="rounded-xl border px-5 py-4 shadow-sm"
         style={{ background: T.surface, borderColor: T.border }}
       >
         <div className="flex items-center justify-between gap-4">
@@ -184,7 +184,7 @@ export default function DataSource() {
         <div className="space-y-4">
           {/* Active dataset summary */}
           <div
-            className="rounded-[18px] border p-4 shadow-sm"
+            className="rounded-xl border p-4 shadow-sm"
             style={{ background: T.surface, borderColor: T.border }}
           >
             <div className="mb-3 flex items-center gap-2.5">
@@ -304,7 +304,7 @@ export default function DataSource() {
 
         {/* ── Right column: tabbed (Preview | Join | API) ──────────────── */}
         <div
-          className="rounded-[20px] border shadow-sm"
+          className="rounded-xl border shadow-sm"
           style={{ background: T.surface, borderColor: T.border }}
         >
           {/* Tab bar */}
@@ -340,7 +340,7 @@ export default function DataSource() {
                     First few rows from the active dataset
                   </p>
                 </div>
-                <div className="overflow-auto rounded-2xl border" style={{ borderColor: T.border }}>
+                <div className="overflow-auto rounded-xl border" style={{ borderColor: T.border }}>
                   {preview.length ? (
                     <table className="min-w-full text-sm">
                       <thead style={{ background: T.s2 }}>

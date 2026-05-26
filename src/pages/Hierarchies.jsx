@@ -7,12 +7,12 @@ export default function Hierarchies() {
   const T = useTheme();
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-5xl p-5 space-y-5">
 
         {/* ── Page header ── */}
         <div
-          className="rounded-[18px] border px-5 py-4 shadow-sm"
+          className="rounded-xl border px-5 py-4 shadow-sm"
           style={{ background: T.surface, borderColor: T.border }}
         >
           <div className="flex items-center gap-3">

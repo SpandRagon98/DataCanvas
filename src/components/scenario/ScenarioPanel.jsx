@@ -58,7 +58,7 @@ export default function ScenarioPanel({ open, onClose }) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="anim-scale-in w-full max-w-4xl overflow-hidden rounded-[22px] border"
+        className="anim-scale-in w-full max-w-4xl overflow-hidden rounded-2xl border"
         style={{ background: T.surface, borderColor: T.border, boxShadow: "0 24px 60px rgba(0,0,0,0.5)" }}
       >
         <div

@@ -17,7 +17,7 @@ export default function ReportBuilder() {
 
   return (
     /* Full-height flex column — fills the sidebar main content area */
-    <div className="flex h-screen flex-col overflow-hidden">
+    <div className="flex flex-1 flex-col overflow-hidden">
 
       {/* ── Header bar ── */}
       <div
@@ -88,11 +88,11 @@ export default function ReportBuilder() {
         >
           {visuals.length === 0 ? (
             <div
-              className="flex min-h-[420px] flex-col items-center justify-center gap-4 rounded-2xl border border-dashed anim-fade-in"
+              className="flex min-h-[420px] flex-col items-center justify-center gap-4 rounded-xl border border-dashed anim-fade-in"
               style={{ borderColor: T.border, background: T.surface }}
             >
               <div
-                className="flex h-14 w-14 items-center justify-center rounded-2xl"
+                className="flex h-14 w-14 items-center justify-center rounded-xl"
                 style={{ background: T.s2 }}
               >
                 <BarChart3 size={26} style={{ color: T.muted }} />

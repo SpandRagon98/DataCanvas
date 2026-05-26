@@ -158,7 +158,7 @@ export default function VisualRenderer({
 
   const emptyState = (
     <div
-      className="flex items-center justify-center rounded-2xl border border-dashed text-sm"
+      className="flex items-center justify-center rounded-xl border border-dashed text-sm"
       style={{
         borderColor: T.border,
         background: T.s2,
@@ -182,7 +182,7 @@ export default function VisualRenderer({
   ) {
     return (
       <div
-        className="flex items-center justify-center rounded-2xl border border-dashed text-sm"
+        className="flex items-center justify-center rounded-xl border border-dashed text-sm"
         style={{
           borderColor: T.border,
           background: T.s2,
@@ -224,7 +224,7 @@ export default function VisualRenderer({
 
     return (
       <div
-        className="overflow-auto rounded-2xl border"
+        className="overflow-auto rounded-xl border"
         style={{ borderColor: T.border, height: compact ? "100%" : 320, minHeight: compact ? 220 : 320 }}
       >
         <table className="min-w-full text-sm">
@@ -424,7 +424,7 @@ export default function VisualRenderer({
     );
     if (numFields.length < 2) {
       return (
-        <div className="flex items-center justify-center rounded-2xl border border-dashed text-sm"
+        <div className="flex items-center justify-center rounded-xl border border-dashed text-sm"
           style={{ borderColor: T.border, background: T.s2, color: T.dim, height: compact ? "100%" : 260, minHeight: compact ? 220 : 260 }}>
           Assign 2+ numeric Y fields for a correlation matrix
         </div>

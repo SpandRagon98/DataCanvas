@@ -157,7 +157,7 @@ export default function VisualCard({ visual }) {
   return (
     <div
       onClick={() => setActiveVisual(visual.id)}
-      className="rounded-[18px] border p-4 transition"
+      className="rounded-xl border p-4 transition"
       style={{
         background: T.surface,
         borderColor: isActive ? T.accent : T.border,

@@ -76,7 +76,7 @@ function Sidebar({ onOpenScenario }) {
     <aside
       className="flex flex-col shrink-0"
       style={{
-        width: 220,
+        width: 196,
         height: "100vh",
         background: T.sidebarBg,
         borderRight: `1px solid ${T.border}`,
@@ -85,7 +85,7 @@ function Sidebar({ onOpenScenario }) {
       }}
     >
       {/* ── Logo ── */}
-      <div className="px-4 pt-5 pb-4">
+      <div className="px-3 pt-4 pb-3">
         <div className="flex items-center gap-3">
           <div
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
@@ -249,7 +249,8 @@ function Sidebar({ onOpenScenario }) {
 function AnimatedRoutes() {
   const location = useLocation();
   return (
-    <div key={location.pathname} className="page-enter min-h-full">
+    // flex-1 + flex-col so page roots can use flex-1 to fill this container
+    <div key={location.pathname} className="page-enter flex-1 flex flex-col min-h-0">
       <Routes location={location}>
         <Route path="/"           element={<Navigate to="/source" replace />} />
         <Route path="/source"     element={<DataSource />} />
@@ -280,8 +281,9 @@ export default function App() {
       >
         <Sidebar onOpenScenario={() => setScenarioOpen(true)} />
 
+        {/* flex-col so children (AnimatedRoutes) can fill with flex-1 */}
         <main
-          className="flex-1 min-w-0 overflow-y-auto"
+          className="flex-1 min-w-0 flex flex-col overflow-hidden"
           style={{ background: T.bg }}
         >
           <AnimatedRoutes />

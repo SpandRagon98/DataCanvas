@@ -42,7 +42,7 @@ export default function DatasetSlots() {
 
   return (
     <div
-      className="rounded-[20px] border p-5 shadow-sm"
+      className="rounded-xl border p-5 shadow-sm"
       style={{ background: T.surface, borderColor: T.border }}
     >
       {/* Header */}
@@ -90,7 +90,7 @@ export default function DatasetSlots() {
             <div
               key={ds.id}
               onClick={() => !isActive && !isEditing && activateDataset(ds.id)}
-              className="relative flex min-w-[200px] max-w-[260px] flex-1 flex-col gap-2 rounded-2xl border p-4 transition"
+              className="relative flex min-w-[200px] max-w-[260px] flex-1 flex-col gap-2 rounded-xl border p-4 transition"
               style={{
                 background: isActive ? T.accentDim : T.s2,
                 borderColor: isActive ? T.accent : T.border,

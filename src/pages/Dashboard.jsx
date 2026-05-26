@@ -58,7 +58,7 @@ function Annotation({ ann, dashboardId, snapEnabled, canvasBounds, T }) {
 
   return (
     <div
-      className="absolute rounded-[14px] border shadow-md"
+      className="absolute rounded-lg border shadow-md"
       style={{
         left: ann.x,
         top: ann.y,
@@ -252,7 +252,7 @@ export default function Dashboard() {
               minHeight: Math.max(560, ...currentDash.items.map((item) => (item.layout?.y || 0) + (item.layout?.h || 300) + 24)),
             }}>
               {currentDash.items.map((item) => (
-                <div key={item.id} className="absolute rounded-[22px] border shadow-sm"
+                <div key={item.id} className="absolute rounded-2xl border shadow-sm"
                   style={{ left: item.layout.x, top: item.layout.y, width: item.layout.w, height: item.layout.h, background: T.s2, borderColor: T.border }}>
                   <div className="border-b px-4 py-2" style={{ borderColor: T.border }}>
                     <div className="truncate text-sm font-semibold" style={{ color: T.text }}>{item.visualConfig.title}</div>
@@ -284,10 +284,10 @@ export default function Dashboard() {
     : 560;
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-hidden p-3">
+    <div className="flex flex-1 flex-col gap-2.5 overflow-hidden p-3">
       <div
         ref={canvasRef}
-        className="relative flex-1 overflow-auto rounded-[18px] border"
+        className="relative flex-1 overflow-auto rounded-xl border"
         style={{
           background: T.surface,
           borderColor: T.border,
@@ -299,7 +299,7 @@ export default function Dashboard() {
         }}
       >
         {!activeDashboard || (activeDashboard.items.length === 0 && !(activeDashboard.annotations || []).length) ? (
-          <div className="flex h-full min-h-[520px] flex-col items-center justify-center gap-3 rounded-[24px] border border-dashed"
+          <div className="flex h-full min-h-[520px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed"
             style={{ borderColor: T.border, background: T.s2, color: T.dim }}>
             <LayoutDashboard size={38} color={T.muted} />
             <div className="text-base font-semibold" style={{ color: T.text }}>{activeDashboard?.name || "Dashboard"}</div>
@@ -313,7 +313,7 @@ export default function Dashboard() {
           <div ref={canvasContentRef} className="relative" style={{ minHeight: canvasMinHeight }}>
             {/* Dashboard visuals */}
             {activeDashboard.items.map((item) => (
-              <div key={item.id} className="absolute rounded-[22px] border shadow-sm"
+              <div key={item.id} className="absolute rounded-2xl border shadow-sm"
                 style={{ left: item.layout.x, top: item.layout.y, width: item.layout.w, height: item.layout.h, background: T.s2, borderColor: T.border }}>
                 <div className="flex cursor-move items-center justify-between gap-3 border-b px-4 py-3"
                   style={{ borderColor: T.border }} onMouseDown={(e) => beginMove(e, item)}>
@@ -352,7 +352,7 @@ export default function Dashboard() {
 
       {/* ── Tab bar ── */}
       <div
-        className="shrink-0 rounded-[16px] border px-3 py-2"
+        className="shrink-0 rounded-xl border px-3 py-2"
         style={{ background: T.surface, borderColor: T.border }}
       >
         <div className="flex flex-wrap items-center gap-2">

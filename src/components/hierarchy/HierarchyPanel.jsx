@@ -9,7 +9,7 @@ export default function HierarchyPanel() {
 
   return (
     <div
-      className="rounded-[18px] border p-5 shadow-sm"
+      className="rounded-xl border p-5 shadow-sm"
       style={{ background: T.surface, borderColor: T.border }}
     >
       <div className="mb-4 flex items-center gap-3">

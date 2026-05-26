@@ -210,7 +210,7 @@ export default function ImportModal({ open, onClose, onImport }) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="anim-scale-in w-full max-w-xl rounded-[22px] border p-6"
+        className="anim-scale-in w-full max-w-xl rounded-2xl border p-6"
         style={{
           background: T.surface,
           borderColor: T.border,
