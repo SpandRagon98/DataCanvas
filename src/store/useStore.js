@@ -509,6 +509,17 @@ export const useStore = create(
       updateVisual: (id, patch) =>
         set((state) => ({
           visuals: state.visuals.map((v) => (v.id === id ? { ...v, ...patch } : v)),
+          // Keep every dashboard copy in sync — dashboard items deep-copy the visual
+          // at pin time, so we must re-apply the same patch whenever the source visual
+          // changes (chart type, fields, title, colors, numFormat, etc.).
+          dashboards: state.dashboards.map((d) => ({
+            ...d,
+            items: d.items.map((item) =>
+              item.type === "visual" && item.visualConfig?.id === id
+                ? { ...item, visualConfig: { ...item.visualConfig, ...patch } }
+                : item
+            ),
+          })),
         })),
 
       assignFieldToVisual: ({ visualId, zone, field }) =>

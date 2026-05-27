@@ -7,11 +7,17 @@
  */
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 
-const CheckboxSetFilter = forwardRef(function CheckboxSetFilter(
-  { filterChangedCallback, colDef, filterParams = {} },
-  ref
-) {
-  const allValues = filterParams.values ?? [];
+const CheckboxSetFilter = forwardRef(function CheckboxSetFilter(props, ref) {
+  const { filterChangedCallback, colDef } = props;
+
+  /*
+   * AG Grid v32 merges every key from the column's `filterParams` object
+   * directly into the component's root props (not nested under `filterParams`).
+   * So { filterParams: { values: [...] } } in the column def arrives here as
+   * props.values — not props.filterParams.values.
+   * We fall back to props.filterParams?.values for safety.
+   */
+  const allValues = props.values ?? props.filterParams?.values ?? [];
   const [selected, setSelected] = useState(() => new Set(allValues));
   const [search,   setSearch]   = useState("");
 

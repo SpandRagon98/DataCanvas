@@ -19,6 +19,8 @@ export default function VirtualDashboardItem({
   children,
   // Item title shown in skeleton
   title = "",
+  // Click handler forwarded from Dashboard (needed for tile selection)
+  onClick,
 }) {
   const T        = useTheme();
   const ref      = useRef(null);
@@ -56,7 +58,7 @@ export default function VirtualDashboardItem({
   }, []);
 
   return (
-    <div ref={ref} className={className} style={style}>
+    <div ref={ref} className={className} style={style} onClick={onClick}>
       {everSeen ? (
         /*
          * Once seen, keep children mounted (avoids chart re-init on scroll back).
