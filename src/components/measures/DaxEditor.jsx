@@ -21,6 +21,8 @@ const FN_SET   = new Set(FN_NAMES);
 /* ---------- Tokeniser for highlighting only (cheap, regex-based) ---------- */
 function highlight(src, T) {
   if (!src) return [];
+  // Strip optional leading "=" (Power BI style) before highlighting
+  src = src.replace(/^=\s*/, "");
   const out = [];
   let i = 0;
   const n = src.length;

@@ -20,7 +20,8 @@ import { parse } from "./parser.js";
 // Tiny per-formula AST cache (shared across calls within a session)
 const astCache = new Map();
 function parseCached(formula) {
-  const key = String(formula ?? "");
+  // Strip optional leading "=" so users can write "= SUM([Revenue])" Power BI-style
+  const key = String(formula ?? "").trim().replace(/^=\s*/, "");
   if (astCache.has(key)) return astCache.get(key);
   const ast = parse(key);
   astCache.set(key, ast);
@@ -230,7 +231,9 @@ export function evaluateMeasure(measure, { rows, fullRows, measures = [], dataTy
  */
 export function validateFormula(formula) {
   try {
-    parseCached(formula);
+    const cleaned = String(formula ?? "").trim().replace(/^=\s*/, "");
+    if (!cleaned) return { valid: false, error: "Formula is empty." };
+    parseCached(cleaned);
     return { valid: true, error: null };
   } catch (e) {
     return { valid: false, error: e.message };
