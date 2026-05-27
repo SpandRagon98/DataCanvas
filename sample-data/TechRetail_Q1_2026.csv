@@ -1,0 +1,31 @@
+Date,Region,Product,Category,Salesperson,Units,Revenue,Cost,Profit
+2026-01-03,North,Laptop Pro,Electronics,Aman,14,168000,112000,56000
+2026-01-05,South,Wireless Headphones,Electronics,Riya,45,67500,31500,36000
+2026-01-07,East,Office Chair,Furniture,Neeraj,22,55000,33000,22000
+2026-01-09,West,Standing Desk,Furniture,Sara,11,88000,55000,33000
+2026-01-11,North,Smartphone X,Electronics,Aman,38,190000,114000,76000
+2026-01-14,South,Monitor 27",Electronics,Riya,17,85000,51000,34000
+2026-01-16,East,Bookshelf,Furniture,Neeraj,30,45000,24000,21000
+2026-01-18,West,Laptop Pro,Electronics,Sara,9,108000,72000,36000
+2026-01-20,North,Keyboard Mech,Electronics,Aman,60,72000,36000,36000
+2026-01-22,South,Office Chair,Furniture,Riya,18,45000,27000,18000
+2026-01-25,East,Smartphone X,Electronics,Neeraj,29,145000,87000,58000
+2026-01-28,West,Wireless Headphones,Electronics,Sara,52,78000,36400,41600
+2026-02-02,North,Standing Desk,Furniture,Aman,15,120000,75000,45000
+2026-02-05,South,Laptop Pro,Electronics,Riya,12,144000,96000,48000
+2026-02-08,East,Monitor 27",Electronics,Neeraj,21,105000,63000,42000
+2026-02-11,West,Bookshelf,Furniture,Sara,35,52500,28000,24500
+2026-02-14,North,Smartphone X,Electronics,Aman,44,220000,132000,88000
+2026-02-17,South,Keyboard Mech,Electronics,Riya,70,84000,42000,42000
+2026-02-20,East,Laptop Pro,Electronics,Neeraj,8,96000,64000,32000
+2026-02-23,West,Office Chair,Furniture,Sara,25,62500,37500,25000
+2026-03-02,North,Monitor 27",Electronics,Aman,19,95000,57000,38000
+2026-03-05,South,Standing Desk,Furniture,Riya,13,104000,65000,39000
+2026-03-08,East,Wireless Headphones,Electronics,Neeraj,48,72000,33600,38400
+2026-03-11,West,Smartphone X,Electronics,Sara,33,165000,99000,66000
+2026-03-14,North,Bookshelf,Furniture,Aman,40,60000,32000,28000
+2026-03-17,South,Laptop Pro,Electronics,Riya,16,192000,128000,64000
+2026-03-20,East,Keyboard Mech,Electronics,Neeraj,55,66000,33000,33000
+2026-03-23,West,Monitor 27",Electronics,Sara,24,120000,72000,48000
+2026-03-26,North,Office Chair,Furniture,Aman,20,50000,30000,20000
+2026-03-29,South,Smartphone X,Electronics,Riya,41,205000,123000,82000

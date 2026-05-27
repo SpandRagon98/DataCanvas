@@ -56,14 +56,20 @@ function SectionLabel({ title, icon, T }) {
 }
 
 export default function FieldPane() {
-  const T = useTheme();
+  const T             = useTheme();
   const { columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
-  const hierarchies = useStore((s) => s.hierarchies);
+  const hierarchies   = useStore((s) => s.hierarchies);
+  const columnAliases = useStore((s) => s.columnAliases);
   const [search, setSearch] = useState("");
 
+  const displayCol = (col) => columnAliases[col] || col;
+
   const filtered = useMemo(
-    () => columns.filter((c) => c.toLowerCase().includes(search.toLowerCase())),
-    [columns, search]
+    () => columns.filter((c) =>
+      c.toLowerCase().includes(search.toLowerCase()) ||
+      (columnAliases[c] || "").toLowerCase().includes(search.toLowerCase())
+    ),
+    [columns, search, columnAliases]
   );
 
   const dimensions = filtered.filter((c) => dataTypes[c] !== "number");
@@ -127,7 +133,7 @@ export default function FieldPane() {
           <div className="space-y-1">
             {dimensions.length ? (
               dimensions.map((f) => (
-                <FieldChip key={f} field={f} type={dataTypes[f]} isCalculated={calcFieldNames.has(f)} T={T} />
+                <FieldChip key={f} field={f} type={dataTypes[f]} label={displayCol(f)} isCalculated={calcFieldNames.has(f)} T={T} />
               ))
             ) : (
               <p className="text-[11px] px-1" style={{ color: T.muted }}>No matches</p>
@@ -140,7 +146,7 @@ export default function FieldPane() {
           <div className="space-y-1">
             {measures.length ? (
               measures.map((f) => (
-                <FieldChip key={f} field={f} type={dataTypes[f]} isCalculated={calcFieldNames.has(f)} T={T} />
+                <FieldChip key={f} field={f} type={dataTypes[f]} label={displayCol(f)} isCalculated={calcFieldNames.has(f)} T={T} />
               ))
             ) : (
               <p className="text-[11px] px-1" style={{ color: T.muted }}>No matches</p>

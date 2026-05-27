@@ -42,6 +42,20 @@ const createId = (prefix) =>
 
 const DEMO_DATASET_ID = "demo-dataset-v1";
 
+export const DEFAULT_TILE_STYLE = {
+  bgColor:       null,   // null → theme default
+  borderColor:   null,   // null → theme default
+  borderEnabled: true,
+  borderRadius:  16,
+  shadow:        true,
+  transparency:  1,
+  padding:       12,
+  fontFamily:    "inherit",
+  fontSize:      null,   // null → inherit
+  fontWeight:    null,   // null → inherit
+  textColor:     null,   // null → theme default
+};
+
 const createDefaultDashboard = () => ({
   id: createId("dashboard"),
   name: "Dashboard 1",
@@ -55,9 +69,34 @@ const createDashboardItem = (visual, existingItems = []) => {
     0
   );
   return {
-    id: createId("dash_item"),
+    id:           createId("dash_item"),
+    type:         "visual",
     visualConfig: JSON.parse(JSON.stringify(visual)),
-    layout: { x: 16, y: nextY + 16, w: 520, h: 340, minW: 300, minH: 240 },
+    layout:       { x: 16, y: nextY + 16, w: 520, h: 340, minW: 160, minH: 120 },
+    tileStyle:    { ...DEFAULT_TILE_STYLE },
+  };
+};
+
+const createTextboxItem = (existingItems = []) => {
+  const nextY = existingItems.reduce(
+    (max, item) => Math.max(max, (item.layout?.y || 0) + (item.layout?.h || 120) + 16),
+    0
+  );
+  return {
+    id:        createId("textbox"),
+    type:      "textbox",
+    text:      "Double-click to edit text",
+    textStyle: {
+      fontFamily: "inherit",
+      fontSize:   16,
+      fontWeight: 400,
+      color:      null,
+      italic:     false,
+      align:      "left",
+      bgColor:    null,
+    },
+    layout:    { x: 100, y: nextY + 16, w: 320, h: 120, minW: 80, minH: 40 },
+    tileStyle: { ...DEFAULT_TILE_STYLE },
   };
 };
 
@@ -117,6 +156,10 @@ export const useStore = create(
       // ── Cross-filter — transient, not persisted ──
       crossFilter: {},
 
+      // ── Column aliases (display names) — persisted ──
+      // Maps originalKey → display label. Internal keys never change.
+      columnAliases: {},
+
       // ── Cloud meta — transient, not persisted to localStorage ──
       cloudWorkbookId:   null,
       cloudWorkbookName: null,
@@ -131,6 +174,22 @@ export const useStore = create(
       redoStack: [],
 
       // ── Actions ──
+
+      // ── Column rename ──
+      renameColumn: (originalKey, alias) =>
+        set((state) => ({
+          columnAliases: {
+            ...state.columnAliases,
+            [originalKey]: alias?.trim() || originalKey,
+          },
+        })),
+
+      resetColumnAlias: (originalKey) =>
+        set((state) => {
+          const next = { ...state.columnAliases };
+          delete next[originalKey];
+          return { columnAliases: next };
+        }),
 
       setData: (data, columns, types, name) => {
         const resetDashboard = createDefaultDashboard();
@@ -558,6 +617,34 @@ export const useStore = create(
           ),
         })),
 
+      // General-purpose item patch (covers tileStyle, textStyle, text, etc.)
+      updateDashboardItem: ({ dashboardId, itemId, patch }) =>
+        set((state) => ({
+          dashboards: state.dashboards.map((d) =>
+            d.id !== dashboardId ? d : {
+              ...d,
+              items: d.items.map((item) =>
+                item.id !== itemId ? item : { ...item, ...patch }
+              ),
+            }
+          ),
+        })),
+
+      addTextboxToDashboard: (dashboardId) =>
+        set((state) => {
+          const targetId = dashboardId || state.activeDashboardId;
+          const dash = state.dashboards.find((d) => d.id === targetId);
+          if (!dash) return state;
+          return {
+            dashboards: state.dashboards.map((d) =>
+              d.id !== targetId ? d : {
+                ...d,
+                items: [...d.items, createTextboxItem(d.items)],
+              }
+            ),
+          };
+        }),
+
       getActiveVisual: () => {
         const state = get();
         return state.visuals.find((v) => v.id === state.activeVisualId) || null;
@@ -772,6 +859,7 @@ export const useStore = create(
         scenarios: state.scenarios,
         activeScenarioId: state.activeScenarioId,
         filterBookmarks: state.filterBookmarks,
+        columnAliases: state.columnAliases,
         // undoStack, redoStack, crossFilter intentionally excluded
       }),
     }

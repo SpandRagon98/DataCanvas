@@ -1,8 +1,9 @@
 import { useRef, useMemo, useState } from "react";
 import {
   Check, LayoutDashboard, Trash2, Copy, Download, AlertTriangle,
-  Settings2, ChevronDown, ChevronUp, Plus, X, Filter,
+  Settings2, ChevronDown, ChevronUp, Plus, X, Filter, Minimize2,
 } from "lucide-react";
+import ColorPickerInput from "./ColorPickerInput";
 import html2canvas from "html2canvas";
 import { useStore } from "../../store/useStore";
 import { useEffectiveData } from "../../hooks/useEffectiveData";
@@ -16,7 +17,7 @@ import { useTheme } from "../../styles/theme";
 
 const OPERATORS = [">", "<", ">=", "<=", "=="];
 
-export default function VisualCard({ visual }) {
+export default function VisualCard({ visual, onCollapse }) {
   const T = useTheme();
   const { rows: effectiveRows, columns, dataTypes } = useEffectiveData();
 
@@ -183,7 +184,7 @@ export default function VisualCard({ visual }) {
         <div className="flex shrink-0 items-center gap-1.5">
           <button onClick={handleExportPNG}
             className="inline-flex items-center rounded-xl border px-2.5 py-1.5"
-            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Export as PNG">
+            style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Export PNG">
             <Download size={12} />
           </button>
           <button onClick={(e) => { e.stopPropagation(); duplicateVisual(visual.id); }}
@@ -191,6 +192,13 @@ export default function VisualCard({ visual }) {
             style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Duplicate">
             <Copy size={12} />
           </button>
+          {onCollapse && (
+            <button onClick={(e) => { e.stopPropagation(); onCollapse(); }}
+              className="inline-flex items-center rounded-xl border px-2.5 py-1.5"
+              style={{ borderColor: T.border, color: T.dim, background: T.s2 }} title="Collapse visual">
+              <Minimize2 size={12} />
+            </button>
+          )}
           <button onClick={(e) => { e.stopPropagation(); removeVisual(visual.id); }}
             className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
             style={{ borderColor: T.border, color: T.dim, background: T.s2 }}>
@@ -363,8 +371,7 @@ export default function VisualCard({ visual }) {
                   type="number" className="w-24 rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
                 <input value={rlLabel} onChange={(e) => setRlLabel(e.target.value)} placeholder="Label (opt)"
                   className="flex-1 rounded-xl border px-3 py-1.5 text-sm outline-none" style={{ ...selectStyle, minWidth: 80 }} />
-                <input type="color" value={rlColor} onChange={(e) => setRlColor(e.target.value)}
-                  className="h-9 w-10 cursor-pointer rounded-xl border p-1" style={{ background: T.s2, borderColor: T.border }} />
+                <ColorPickerInput value={rlColor} onChange={setRlColor} />
                 <button onClick={addReferenceLine}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
                   style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
@@ -403,8 +410,7 @@ export default function VisualCard({ visual }) {
                 </select>
                 <input value={crThreshold} onChange={(e) => setCrThreshold(e.target.value)} placeholder="Threshold"
                   type="number" className="w-28 rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
-                <input type="color" value={crColor} onChange={(e) => setCrColor(e.target.value)}
-                  className="h-9 w-10 cursor-pointer rounded-xl border p-1" style={{ background: T.s2, borderColor: T.border }} />
+                <ColorPickerInput value={crColor} onChange={setCrColor} />
                 <button onClick={addConditionalRule}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
                   style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
@@ -427,6 +433,62 @@ export default function VisualCard({ visual }) {
               ) : (
                 <p className="text-xs" style={{ color: T.muted }}>No rules. Colors bars based on value thresholds.</p>
               )}
+            </div>
+
+            {/* ─ Number Formatting ─ */}
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+                Number Formatting
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Type</div>
+                  <select
+                    value={(visual.numFormat?.type) || "number"}
+                    onChange={(e) => updateVisual(visual.id, { numFormat: { ...(visual.numFormat || {}), type: e.target.value } })}
+                    className="w-full rounded-xl border px-2 py-1.5 text-sm outline-none" style={selectStyle}>
+                    <option value="number">Default</option>
+                    <option value="whole">Whole Number</option>
+                    <option value="decimal">Decimal</option>
+                    <option value="percent">Percentage</option>
+                    <option value="currency">Currency</option>
+                    <option value="compact">Compact (K/M/B)</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Decimal Places</div>
+                  <input
+                    type="number" min={0} max={10}
+                    value={(visual.numFormat?.decimals) ?? 2}
+                    onChange={(e) => updateVisual(visual.id, { numFormat: { ...(visual.numFormat || {}), decimals: Math.max(0, +e.target.value) } })}
+                    className="w-full rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
+                </div>
+                {(visual.numFormat?.type) === "currency" && (
+                  <div>
+                    <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Currency Symbol</div>
+                    <input
+                      value={(visual.numFormat?.currencySymbol) || "₹"}
+                      onChange={(e) => updateVisual(visual.id, { numFormat: { ...(visual.numFormat || {}), currencySymbol: e.target.value } })}
+                      className="w-full rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
+                  </div>
+                )}
+                <div>
+                  <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Prefix</div>
+                  <input
+                    value={(visual.numFormat?.prefix) || ""}
+                    onChange={(e) => updateVisual(visual.id, { numFormat: { ...(visual.numFormat || {}), prefix: e.target.value } })}
+                    placeholder="e.g. $ "
+                    className="w-full rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
+                </div>
+                <div>
+                  <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Suffix</div>
+                  <input
+                    value={(visual.numFormat?.suffix) || ""}
+                    onChange={(e) => updateVisual(visual.id, { numFormat: { ...(visual.numFormat || {}), suffix: e.target.value } })}
+                    placeholder="e.g. %"
+                    className="w-full rounded-xl border px-3 py-1.5 text-sm outline-none" style={selectStyle} />
+                </div>
+              </div>
             </div>
           </div>
         )}

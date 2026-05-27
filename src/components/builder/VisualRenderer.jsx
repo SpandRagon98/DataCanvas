@@ -13,6 +13,7 @@ import {
   Tooltip, XAxis, YAxis, Legend, CartesianGrid,
 } from "recharts";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { formatValue }                          from "../../utils/formatValue";
 import { applyGlobalFilters }                   from "../../utils/filterEngine";
 import {
   getLegendKeys, applyRunningTotal,
@@ -171,15 +172,20 @@ export default function VisualRenderer({
   const conditionalRules = visual.conditionalRules || [];
   const referenceLines   = visual.referenceLines   || [];
 
+  const numFmt      = visual.numFormat || {};
+  const fmtVal      = (v) => typeof v === "number" ? formatValue(v, numFmt) : v;
+
   const tooltipStyle = {
     contentStyle: {
       background: T.s2, border: `1px solid ${T.border}`,
       borderRadius: 8, color: T.text, fontSize: 12,
     },
+    formatter: (value, name) => [fmtVal(value), name],
   };
   const axisStyle = {
     tick: { fill: T.dim, fontSize: compact ? 10 : 11 },
     stroke: T.border,
+    tickFormatter: fmtVal,
   };
 
   const emptyState = (
@@ -249,7 +255,7 @@ export default function VisualRenderer({
               <tr key={idx} style={{ background: idx % 2 === 0 ? T.surface : T.s2 }}>
                 {allKeys.map((key, i) => (
                   <td key={i} className="border-b px-4 py-3" style={{ borderColor: T.border, color: T.dim }}>
-                    {typeof row[key] === "number" ? row[key].toLocaleString() : row[key]}
+                    {typeof row[key] === "number" ? fmtVal(row[key]) : row[key]}
                   </td>
                 ))}
               </tr>
@@ -259,7 +265,7 @@ export default function VisualRenderer({
                 {allKeys.map((key, i) => (
                   <td key={i} className="border-b px-4 py-3 font-semibold"
                     style={{ borderColor: T.border, color: T.text }}>
-                    {typeof totals[key] === "number" ? totals[key].toLocaleString() : totals[key]}
+                    {typeof totals[key] === "number" ? fmtVal(totals[key]) : totals[key]}
                   </td>
                 ))}
               </tr>
@@ -285,7 +291,7 @@ export default function VisualRenderer({
         style={{ background: T.s2, borderColor: T.border, height: compact ? "100%" : "auto", minHeight: compact ? 220 : 180 }}>
         <div className="text-sm" style={{ color: T.dim }}>{visual.yFields?.join(", ")}</div>
         <div className="mt-2 text-4xl font-bold tracking-tight" style={{ color: T.text }}>
-          {total.toLocaleString()}
+          {fmtVal(total)}
         </div>
         <div className="mt-1 text-sm" style={{ color: T.muted }}>Aggregation: {visual.aggregation}</div>
         {showSpark && (
@@ -313,7 +319,7 @@ export default function VisualRenderer({
             <XAxis dataKey="x" {...axisStyle} />
             <YAxis {...axisStyle} />
             <Tooltip {...tooltipStyle}
-              formatter={(_, __, props) => [props?.payload?._origVal?.toLocaleString() ?? "", yKey]} />
+              formatter={(_, __, props) => [fmtVal(props?.payload?._origVal ?? ""), yKey]} />
             <Bar dataKey="_phantom" stackId="wf" fill="transparent" legendType="none" />
             <Bar dataKey="_value" stackId="wf" radius={[4,4,0,0]}
               onClick={(data) => onCrossFilter && onCrossFilter(visual.xFields[0], data.x)}
@@ -375,7 +381,7 @@ export default function VisualRenderer({
       <div style={{ height: chartHeight, minHeight: minChartH }}>
         <ResponsiveContainer width="100%" height="100%">
           <Treemap data={tmData} dataKey="size" nameKey="name" aspectRatio={4/3} content={<TreemapContent />}>
-            <Tooltip {...tooltipStyle} formatter={(v) => [v.toLocaleString(), yKey]} />
+            <Tooltip {...tooltipStyle} formatter={(v) => [fmtVal(v), yKey]} />
           </Treemap>
         </ResponsiveContainer>
       </div>
