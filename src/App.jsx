@@ -6,13 +6,14 @@ import {
   Database, BarChart3, Table2, Layers3, LayoutDashboard,
   Sun, Moon, Sparkles, Save, FolderOpen,
   Share2, History, MessageSquare, Building2, CalendarClock,
-  Cloud, ClipboardList, Settings,
+  Cloud, ClipboardList, Settings, GitBranch,
 } from "lucide-react";
 import DataSource    from "./pages/DataSource";
 import DataTable     from "./pages/DataTable";
 import ReportBuilder from "./pages/ReportBuilder";
 import Hierarchies   from "./pages/Hierarchies";
 import Dashboard     from "./pages/Dashboard";
+import DataModelling from "./pages/DataModelling";
 import Auth          from "./pages/Auth";
 import SharedView    from "./pages/SharedView";
 import ScenarioPanel     from "./components/scenario/ScenarioPanel";
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { to: "/source",      icon: Database,        label: "Data Source"    },
   { to: "/table",       icon: Table2,          label: "Data Table"     },
   { to: "/report",      icon: BarChart3,       label: "Report Builder" },
+  { to: "/model",       icon: GitBranch,       label: "Data Model"     },
   { to: "/dashboard",   icon: LayoutDashboard, label: "Dashboard"      },
   { to: "/hierarchies", icon: Layers3,         label: "Hierarchies"    },
 ];
@@ -353,6 +355,7 @@ function AnimatedRoutes() {
         <Route path="/source"      element={<DataSource />} />
         <Route path="/table"       element={<DataTable />} />
         <Route path="/report"      element={<ReportBuilder />} />
+        <Route path="/model"       element={<DataModelling />} />
         <Route path="/dashboard"   element={<Dashboard />} />
         <Route path="/hierarchies" element={<Hierarchies />} />
       </Routes>

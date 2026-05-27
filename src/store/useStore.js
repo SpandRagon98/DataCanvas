@@ -160,6 +160,10 @@ export const useStore = create(
       // Maps originalKey → display label. Internal keys never change.
       columnAliases: {},
 
+      // ── Data Modelling — relationships & canvas layout ──
+      relationships: [],
+      modelLayout: {},   // { [datasetId]: { x, y } }
+
       // ── Cloud meta — transient, not persisted to localStorage ──
       cloudWorkbookId:   null,
       cloudWorkbookName: null,
@@ -222,6 +226,8 @@ export const useStore = create(
           scenarios: [],
           activeScenarioId: null,
           filterBookmarks: [],
+          relationships: [],
+          modelLayout: {},
           crossFilter: {},
           lastEditRowIndex: -1,
           undoStack: [],
@@ -259,6 +265,8 @@ export const useStore = create(
           scenarios: wb.scenarios ?? [],
           activeScenarioId: wb.activeScenarioId ?? null,
           filterBookmarks: wb.filterBookmarks ?? [],
+          relationships: wb.relationships ?? [],
+          modelLayout: wb.modelLayout ?? {},
           crossFilter: {},
           undoStack: [],
           redoStack: [],
@@ -827,6 +835,27 @@ export const useStore = create(
         set((state) => ({
           filterBookmarks: state.filterBookmarks.filter((b) => b.id !== id),
         })),
+
+      // ── Data Model — Relationships ──
+      addRelationship: (rel) =>
+        set((state) => ({ relationships: [...state.relationships, rel] })),
+
+      updateRelationship: (id, patch) =>
+        set((state) => ({
+          relationships: state.relationships.map((r) =>
+            r.id === id ? { ...r, ...patch } : r
+          ),
+        })),
+
+      deleteRelationship: (id) =>
+        set((state) => ({
+          relationships: state.relationships.filter((r) => r.id !== id),
+        })),
+
+      setModelLayout: (datasetId, pos) =>
+        set((state) => ({
+          modelLayout: { ...state.modelLayout, [datasetId]: pos },
+        })),
     }),
     {
       name: "datacanvas.workbook",
@@ -871,6 +900,8 @@ export const useStore = create(
         activeScenarioId: state.activeScenarioId,
         filterBookmarks: state.filterBookmarks,
         columnAliases: state.columnAliases,
+        relationships: state.relationships,
+        modelLayout: state.modelLayout,
         // undoStack, redoStack, crossFilter intentionally excluded
       }),
     }
