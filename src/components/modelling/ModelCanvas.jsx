@@ -109,6 +109,7 @@ function DatasetCard({
         userSelect: "none",
         transition: "border-color 120ms",
       }}
+      onMouseDown={(e) => e.stopPropagation()}
       onMouseUp={(e) => e.stopPropagation()}
     >
       {/* Header — drag handle */}
@@ -261,8 +262,25 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
 
   // ── Global window event listeners (attached once) ─────────────────────────
   useEffect(() => {
+    const DRAG_THRESHOLD = 4; // px — must move this far before drag activates
+
     const onMove = (e) => {
       const d = dragRef.current;
+
+      // Activate drag only after passing the threshold (prevents click = drag)
+      if (d._pending) {
+        const dx = Math.abs(e.clientX - d._startClientX);
+        const dy = Math.abs(e.clientY - d._startClientY);
+        if (dx < DRAG_THRESHOLD && dy < DRAG_THRESHOLD) return; // not yet
+        // Passed threshold — promote to real drag
+        delete d._pending;
+        delete d._startClientX;
+        delete d._startClientY;
+        setCanvasMode(
+          d.mode === "pan" ? "panning" : d.mode === "card" ? "dragging" : "drawing"
+        );
+      }
+
       if (d.mode === "pan") {
         setPan({
           x: d.origPan.x + (e.clientX - d.startX),
@@ -285,11 +303,24 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
       setDrawLine(null);
     };
 
+    // Also reset on blur/visibility-change (covers tab switch, alt-tab, etc.)
+    const onBlur = () => {
+      dragRef.current = { mode: "idle" };
+      setCanvasMode("idle");
+      setDrawLine(null);
+    };
+
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onBlur);
     return () => {
+      // Always clean up drag state on unmount
+      dragRef.current = { mode: "idle" };
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onBlur);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally stable — reads via refs
@@ -303,8 +334,11 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
       startX: e.clientX,
       startY: e.clientY,
       origPan: { ...panRef.current },
+      _pending: true,           // Wait for threshold before activating
+      _startClientX: e.clientX,
+      _startClientY: e.clientY,
     };
-    setCanvasMode("panning");
+    // Don't set canvasMode yet — wait for threshold
   };
 
   const onCardHeaderDown = (e, dsId) => {
@@ -318,8 +352,11 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
       dsId,
       offX: w.x - pos.x,
       offY: w.y - pos.y,
+      _pending: true,
+      _startClientX: e.clientX,
+      _startClientY: e.clientY,
     };
-    setCanvasMode("dragging");
+    // Don't set canvasMode yet — wait for threshold
   };
 
   const onPortDown = (e, dsId, colName, colIdx) => {
@@ -333,9 +370,11 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
       fromColumn: colName,
       fromX: from.x,
       fromY: from.y,
+      _pending: true,
+      _startClientX: e.clientX,
+      _startClientY: e.clientY,
     };
-    setCanvasMode("drawing");
-    setDrawLine({ x1: from.x, y1: from.y, x2: from.x, y2: from.y });
+    // Don't set canvasMode yet — wait for threshold
   };
 
   const onPortUp = (e, dsId, colName) => {
@@ -487,10 +526,10 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
                 onHeaderDown={(e) => onCardHeaderDown(e, ds.id)}
                 onPortDown={onPortDown}
                 onPortUp={onPortUp}
-                drawingMode={canvasMode === "drawing"}
+                drawingMode={canvasMode === "drawing" && !dragRef.current._pending}
                 drawingFromDs={dragRef.current.fromDataset}
                 highlightCols={
-                  canvasMode === "drawing" && dragRef.current.fromDataset !== ds.id
+                  canvasMode === "drawing" && !dragRef.current._pending && dragRef.current.fromDataset !== ds.id
                     ? new Set(ds.columns)
                     : null
                 }

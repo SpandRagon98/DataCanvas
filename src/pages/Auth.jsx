@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Database, Mail, Lock, User, Chrome, Eye, EyeOff, AlertCircle, Check } from "lucide-react";
-import { signInWithEmail, signUpWithEmail, signInWithGoogle } from "../lib/supabase";
+import { CLOUD_ENABLED, signInWithEmail, signUpWithEmail, signInWithGoogle } from "../lib/supabase";
+import { useLocalAuth } from "../store/useLocalAuth";
 import { useTheme } from "../styles/theme";
 
-export default function Auth({ hideLocalMode = false }) {
+export default function Auth({ hideLocalMode = false, onLocalLogin }) {
   const T = useTheme();
   const [tab,        setTab]        = useState("signin");
   const [name,       setName]       = useState("");
@@ -13,6 +14,8 @@ export default function Auth({ hideLocalMode = false }) {
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState("");
   const [success,    setSuccess]    = useState("");
+
+  const localAuth = useLocalAuth();
 
   const inputStyle = {
     background: T.s2, borderColor: T.border, color: T.text,
@@ -25,13 +28,36 @@ export default function Auth({ hideLocalMode = false }) {
     reset();
     setLoading(true);
     try {
-      if (tab === "signin") {
-        const { error } = await signInWithEmail(email, password);
-        if (error) setError(error.message);
+      if (CLOUD_ENABLED) {
+        // Cloud auth via Supabase
+        if (tab === "signin") {
+          const { error } = await signInWithEmail(email, password);
+          if (error) setError(error.message);
+        } else {
+          const { error } = await signUpWithEmail(email, password, name);
+          if (error) setError(error.message);
+          else setSuccess("Check your email to confirm your account!");
+        }
       } else {
-        const { error } = await signUpWithEmail(email, password, name);
-        if (error) setError(error.message);
-        else setSuccess("Check your email to confirm your account!");
+        // Local auth
+        if (tab === "signin") {
+          const res = await localAuth.login(email, password);
+          if (!res.ok) setError(res.error);
+          else onLocalLogin?.();
+        } else {
+          const res = await localAuth.register(email, name, password);
+          if (!res.ok) setError(res.error);
+          else {
+            // Auto-login after register for owner, show message for others
+            const isOwner = email.trim().toLowerCase() === "spandan305@gmail.com";
+            if (isOwner) {
+              onLocalLogin?.();
+            } else {
+              setSuccess("Account created! Ask the workspace owner to add you as a member.");
+              setTab("signin");
+            }
+          }
+        }
       }
     } finally {
       setLoading(false);
@@ -39,6 +65,10 @@ export default function Auth({ hideLocalMode = false }) {
   };
 
   const handleGoogle = async () => {
+    if (!CLOUD_ENABLED) {
+      setError("Google sign-in requires cloud mode. Use email/password instead.");
+      return;
+    }
     reset();
     const { error } = await signInWithGoogle();
     if (error) setError(error.message);
@@ -166,27 +196,39 @@ export default function Auth({ hideLocalMode = false }) {
                 boxShadow: "0 2px 10px rgba(245,158,11,0.25)",
               }}
             >
-              {loading ? "Please wait…" : tab === "signin" ? "Sign In" : "Create Account"}
+              {loading ? "Please wait..." : tab === "signin" ? "Sign In" : "Create Account"}
             </button>
           </form>
 
-          <div className="my-4 flex items-center gap-3">
-            <div className="flex-1 border-t" style={{ borderColor: T.border }} />
-            <span className="text-[11px]" style={{ color: T.muted }}>or</span>
-            <div className="flex-1 border-t" style={{ borderColor: T.border }} />
-          </div>
+          {CLOUD_ENABLED && (
+            <>
+              <div className="my-4 flex items-center gap-3">
+                <div className="flex-1 border-t" style={{ borderColor: T.border }} />
+                <span className="text-[11px]" style={{ color: T.muted }}>or</span>
+                <div className="flex-1 border-t" style={{ borderColor: T.border }} />
+              </div>
 
-          <button
-            onClick={handleGoogle}
-            className="flex w-full items-center justify-center gap-2.5 rounded-xl border py-2.5 text-sm font-medium transition"
-            style={{ background: T.s2, borderColor: T.border, color: T.text }}
-          >
-            <Chrome size={15} />
-            Continue with Google
-          </button>
+              <button
+                onClick={handleGoogle}
+                className="flex w-full items-center justify-center gap-2.5 rounded-xl border py-2.5 text-sm font-medium transition"
+                style={{ background: T.s2, borderColor: T.border, color: T.text }}
+              >
+                <Chrome size={15} />
+                Continue with Google
+              </button>
+            </>
+          )}
         </div>
 
-        {!hideLocalMode && (
+        {!CLOUD_ENABLED && (
+          <p className="mt-4 text-center text-[10.5px] leading-relaxed" style={{ color: T.muted }}>
+            Owner account: sign up with your owner email to get full access.
+            <br />
+            Other users must be added by the workspace owner.
+          </p>
+        )}
+
+        {!hideLocalMode && CLOUD_ENABLED && (
           <p className="mt-4 text-center text-[11px]" style={{ color: T.muted }}>
             Works offline without an account —{" "}
             <button

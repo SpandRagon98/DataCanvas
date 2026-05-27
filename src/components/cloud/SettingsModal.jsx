@@ -1,14 +1,14 @@
 /**
- * SettingsModal — full-screen settings overlay with three tabs:
+ * SettingsModal — fixed-size settings overlay with three tabs:
  *   Profile     – user info, role in active workspace, sign out
- *   Workspace   – workspace list, member management (roles + invite + remove)
+ *   Workspace   – workspace list / local member management
  *   Preferences – theme toggle, app info
  */
 import { useState, useEffect, useCallback } from "react";
 import {
   X, User, Building2, Sliders, Crown, ShieldCheck, Code2,
   PenLine, Eye, Plus, Trash2, Check, LogOut, AlertCircle,
-  Sun, Moon, Mail, RefreshCw,
+  Sun, Moon, Mail, RefreshCw, UserPlus, Users,
 } from "lucide-react";
 import {
   CLOUD_ENABLED, signOut,
@@ -16,8 +16,9 @@ import {
   inviteMember, getWorkspaceMembers,
   updateMemberRole, removeMember,
 } from "../../lib/supabase";
-import { useStore }  from "../../store/useStore";
-import { useTheme }  from "../../styles/theme";
+import { useStore }      from "../../store/useStore";
+import { useLocalAuth }  from "../../store/useLocalAuth";
+import { useTheme }      from "../../styles/theme";
 import { ROLES, OWNER_EMAIL } from "../../hooks/useRBAC";
 
 // ── Shared micro-components ────────────────────────────────────────────────
@@ -81,20 +82,39 @@ function AvatarCircle({ name, avatarUrl, size = 36 }) {
 
 function ProfileTab({ user, members, activeWs, onClose, T }) {
   const [signingOut, setSigningOut] = useState(false);
+  const localLogout = useLocalAuth((s) => s.logout);
 
   const name      = user?.user_metadata?.name ?? user?.email ?? "Guest";
   const email     = user?.email ?? "";
   const avatarUrl = user?.user_metadata?.avatar_url;
   const isOwner   = email.toLowerCase() === OWNER_EMAIL.toLowerCase();
 
-  const myMember = members?.find((m) => m.profiles?.email?.toLowerCase() === email.toLowerCase());
-  const myRole   = isOwner ? "owner" : (myMember?.role ?? "viewer");
+  // Determine role from members list (cloud) or local auth
+  const myRole = (() => {
+    if (isOwner) return "owner";
+    if (CLOUD_ENABLED) {
+      const myMember = members?.find((m) => m.profiles?.email?.toLowerCase() === email.toLowerCase());
+      return myMember?.role ?? "viewer";
+    }
+    // Local mode
+    const localMembers = useLocalAuth.getState().workspaceMembers;
+    const match = localMembers.find((m) => m.email.toLowerCase() === email.toLowerCase());
+    return match?.role ?? "viewer";
+  })();
 
   const handleSignOut = async () => {
     setSigningOut(true);
-    await signOut();
+    if (CLOUD_ENABLED) {
+      await signOut();
+    } else {
+      localLogout();
+    }
     setSigningOut(false);
     onClose();
+    // Force reload for local auth to show login screen
+    if (!CLOUD_ENABLED) {
+      window.location.reload();
+    }
   };
 
   return (
@@ -150,8 +170,8 @@ function ProfileTab({ user, members, activeWs, onClose, T }) {
           >
             {[
               { label: "Email",    value: email },
-              { label: "Provider", value: user?.app_metadata?.provider || "email" },
-              { label: "User ID",  value: user?.id ? user.id.slice(0, 12) + "…" : "—" },
+              { label: "Provider", value: CLOUD_ENABLED ? (user?.app_metadata?.provider || "email") : "local" },
+              { label: "Role",     value: ROLES[myRole]?.label ?? "Viewer" },
             ].map(({ label, value }) => (
               <div
                 key={label}
@@ -180,16 +200,314 @@ function ProfileTab({ user, members, activeWs, onClose, T }) {
           }}
         >
           <LogOut size={14} />
-          {signingOut ? "Signing out…" : "Sign Out"}
+          {signingOut ? "Signing out..." : "Sign Out"}
         </button>
       </div>
     </div>
   );
 }
 
-// ── Workspace Tab ──────────────────────────────────────────────────────────
+// ── Local Workspace Tab (no Supabase) ─────────────────────────────────────
 
-function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
+function LocalWorkspaceTab({ user, T }) {
+  const workspaceMembers        = useLocalAuth((s) => s.workspaceMembers);
+  const localUsers              = useLocalAuth((s) => s.localUsers);
+  const addWorkspaceMember      = useLocalAuth((s) => s.addWorkspaceMember);
+  const updateWorkspaceMemberRole = useLocalAuth((s) => s.updateWorkspaceMemberRole);
+  const removeWorkspaceMember   = useLocalAuth((s) => s.removeWorkspaceMember);
+
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole,  setInviteRole]  = useState("viewer");
+  const [inviteMsg,   setInviteMsg]   = useState({ text: "", ok: true });
+  const [innerTab,    setInnerTab]    = useState("members");
+
+  const userEmail = user?.email ?? "";
+  const isOwner   = userEmail.toLowerCase() === OWNER_EMAIL.toLowerCase();
+  const myMember  = workspaceMembers.find((m) => m.email.toLowerCase() === userEmail.toLowerCase());
+  const myRole    = isOwner ? "owner" : (myMember?.role ?? "viewer");
+  const myLevel   = ROLES[myRole]?.level ?? 1;
+  const canManage = myLevel >= ROLES.admin.level;
+
+  const handleInvite = () => {
+    if (!inviteEmail.trim()) return;
+    const trimEmail = inviteEmail.trim().toLowerCase();
+
+    // Check if user has registered
+    const isRegistered = localUsers.some((u) => u.email.toLowerCase() === trimEmail);
+
+    const res = addWorkspaceMember(trimEmail, inviteRole);
+    if (res.ok) {
+      setInviteMsg({
+        text: isRegistered
+          ? `Added ${trimEmail} as ${ROLES[inviteRole]?.label ?? inviteRole}`
+          : `Added ${trimEmail} as ${ROLES[inviteRole]?.label ?? inviteRole}. They must create an account to sign in.`,
+        ok: true,
+      });
+      setInviteEmail("");
+    } else {
+      setInviteMsg({ text: res.error, ok: false });
+    }
+    setTimeout(() => setInviteMsg({ text: "", ok: true }), 4500);
+  };
+
+  const iStyle = {
+    background:   T.s2,
+    borderColor:  T.border,
+    color:        T.text,
+    outline:      "none",
+    borderRadius: 10,
+    border:       `1px solid ${T.border}`,
+  };
+
+  return (
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
+      {/* Header */}
+      <div
+        className="px-5 py-3 border-b shrink-0"
+        style={{ borderColor: T.border }}
+      >
+        <div className="text-sm font-bold" style={{ color: T.text }}>Local Workspace</div>
+        <div className="text-[10.5px] mt-0.5" style={{ color: T.muted }}>
+          {workspaceMembers.length} member{workspaceMembers.length !== 1 ? "s" : ""}
+          {" · "}Your role:{" "}
+          <span style={{ color: ROLES[myRole]?.color ?? T.dim, fontWeight: 600 }}>
+            {ROLES[myRole]?.label ?? "Viewer"}
+          </span>
+        </div>
+      </div>
+
+      {/* Inner tabs */}
+      <div
+        className="flex gap-0 border-b px-5 pt-1.5 pb-0 shrink-0"
+        style={{ borderColor: T.border }}
+      >
+        {[["members", "Members"], ...(canManage ? [["invite", "Add Member"]] : [])].map(([v, l]) => (
+          <button
+            key={v}
+            onClick={() => setInnerTab(v)}
+            className="mr-3 pb-2 text-xs font-medium border-b-2"
+            style={{
+              borderColor: innerTab === v ? T.accent : "transparent",
+              color:       innerTab === v ? T.accent : T.muted,
+            }}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab body */}
+      <div className="flex-1 overflow-y-auto p-5">
+        {/* Members list */}
+        {innerTab === "members" && (
+          <div className="space-y-1.5">
+            {workspaceMembers.length === 0 && (
+              <div className="py-8 text-center text-xs" style={{ color: T.muted }}>
+                No members yet. Use the Add Member tab to add people.
+              </div>
+            )}
+            {workspaceMembers.map((m) => {
+              const mEmail   = m.email;
+              const localU   = localUsers.find((u) => u.email.toLowerCase() === mEmail.toLowerCase());
+              const mName    = localU?.name ?? mEmail.split("@")[0];
+              const isOwnerM = mEmail.toLowerCase() === OWNER_EMAIL.toLowerCase();
+              const mRole    = isOwnerM ? "owner" : m.role;
+              const isMe     = mEmail.toLowerCase() === userEmail.toLowerCase();
+              const mLevel   = ROLES[mRole]?.level ?? 1;
+              const canEdit  = canManage && !isOwnerM && !isMe && mLevel < myLevel;
+
+              return (
+                <div
+                  key={mEmail}
+                  className="flex items-center gap-2.5 rounded-xl border px-3 py-2"
+                  style={{
+                    background:  isMe ? T.accentDim : T.s2,
+                    borderColor: isMe ? "rgba(245,158,11,0.22)" : T.border,
+                  }}
+                >
+                  <AvatarCircle name={mName} size={28} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate text-xs font-semibold" style={{ color: T.text }}>
+                        {mName}
+                      </span>
+                      {isMe && (
+                        <span
+                          className="shrink-0 rounded px-1 py-0.5 text-[9px] font-bold"
+                          style={{ background: T.s3, color: T.muted }}
+                        >
+                          you
+                        </span>
+                      )}
+                      {!localU && (
+                        <span
+                          className="shrink-0 rounded px-1 py-0.5 text-[9px] font-bold"
+                          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+                        >
+                          not registered
+                        </span>
+                      )}
+                    </div>
+                    <div className="truncate text-[10px]" style={{ color: T.muted }}>
+                      {mEmail}
+                    </div>
+                  </div>
+
+                  {/* Role selector / badge */}
+                  {canEdit ? (
+                    <select
+                      value={mRole}
+                      onChange={(e) => updateWorkspaceMemberRole(mEmail, e.target.value)}
+                      className="rounded-lg border text-[10px] px-1.5 py-1 font-semibold"
+                      style={{
+                        background:  T.surface,
+                        borderColor: T.border,
+                        color:       ROLES[mRole]?.color ?? T.dim,
+                        outline:     "none",
+                      }}
+                    >
+                      {Object.entries(ROLES)
+                        .filter(([, r]) => r.level < myLevel)
+                        .sort(([, a], [, b]) => b.level - a.level)
+                        .map(([key, r]) => (
+                          <option key={key} value={key}>{r.label}</option>
+                        ))}
+                    </select>
+                  ) : (
+                    <RoleBadge role={mRole} />
+                  )}
+
+                  {/* Remove button */}
+                  {canEdit && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Remove ${mName} from workspace?`)) {
+                          removeWorkspaceMember(mEmail);
+                        }
+                      }}
+                      className="rounded-lg p-1 opacity-40 hover:opacity-100 transition-opacity"
+                      style={{ color: "#ef4444" }}
+                      title="Remove from workspace"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Add Member */}
+        {innerTab === "invite" && canManage && (
+          <div className="space-y-3 max-w-sm">
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: T.dim }}>
+                <Mail size={10} className="inline mr-1" />
+                Email address
+              </label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleInvite()}
+                placeholder="user@example.com"
+                className="w-full px-3 py-2.5 text-sm"
+                style={iStyle}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: T.dim }}>
+                Role
+              </label>
+              <div className="space-y-1.5">
+                {Object.entries(ROLES)
+                  .filter(([, r]) => r.level < myLevel)
+                  .sort(([, a], [, b]) => b.level - a.level)
+                  .map(([key, r]) => {
+                    const Icon     = ROLE_ICONS[key] ?? Eye;
+                    const selected = inviteRole === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setInviteRole(key)}
+                        className="w-full rounded-xl border p-2.5 text-left flex items-start gap-3"
+                        style={{
+                          background:  selected ? r.color + "12" : T.s2,
+                          borderColor: selected ? r.color + "40" : T.border,
+                        }}
+                      >
+                        <div
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg mt-0.5"
+                          style={{ background: selected ? r.color + "22" : T.s3 }}
+                        >
+                          <Icon size={12} style={{ color: selected ? r.color : T.dim }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="text-xs font-semibold"
+                              style={{ color: selected ? r.color : T.text }}
+                            >
+                              {r.label}
+                            </span>
+                            {selected && <Check size={10} style={{ color: r.color }} />}
+                          </div>
+                          <div className="text-[10px] mt-0.5" style={{ color: T.muted }}>
+                            {r.desc}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {inviteMsg.text && (
+              <div
+                className="rounded-xl border px-3 py-2 text-xs"
+                style={{
+                  background:  inviteMsg.ok ? "rgba(16,185,129,0.08)"  : "rgba(239,68,68,0.08)",
+                  borderColor: inviteMsg.ok ? "rgba(16,185,129,0.25)"  : "rgba(239,68,68,0.25)",
+                  color:       inviteMsg.ok ? "#10b981"                 : "#ef4444",
+                }}
+              >
+                {inviteMsg.text}
+              </div>
+            )}
+
+            <button
+              onClick={handleInvite}
+              disabled={!inviteEmail.trim()}
+              className="w-full rounded-xl py-2.5 text-sm font-semibold"
+              style={{
+                background: T.accent,
+                color:      "#000",
+                opacity:    !inviteEmail.trim() ? 0.5 : 1,
+              }}
+            >
+              <UserPlus size={13} className="inline mr-1.5" />
+              Add Member
+            </button>
+
+            <div
+              className="rounded-xl border px-3 py-2.5 text-[10.5px] leading-relaxed"
+              style={{ background: T.s2, borderColor: T.border, color: T.muted }}
+            >
+              Add a user's email to grant them workspace access. They must create
+              an account on the login page before they can sign in.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Cloud Workspace Tab (Supabase) ────────────────────────────────────────
+
+function CloudWorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
   const setCloudMeta      = useStore((s) => s.setCloudMeta);
   const cloudWorkspaceId  = useStore((s) => s.cloudWorkspaceId);
 
@@ -314,21 +632,6 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
     border:       `1px solid ${T.border}`,
   };
 
-  if (!CLOUD_ENABLED) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-3 px-6 py-10 text-center">
-        <Building2 size={36} style={{ color: T.border }} />
-        <div className="text-sm font-semibold" style={{ color: T.dim }}>Cloud not configured</div>
-        <div className="max-w-xs text-xs leading-relaxed" style={{ color: T.muted }}>
-          Add <span className="font-mono" style={{ color: T.text }}>VITE_SUPABASE_URL</span> and{" "}
-          <span className="font-mono" style={{ color: T.text }}>VITE_SUPABASE_ANON_KEY</span> to your{" "}
-          <span className="font-mono" style={{ color: T.text }}>.env</span> file to enable
-          multi-user workspaces and collaboration.
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       {/* ── Workspace list ── */}
@@ -337,9 +640,7 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
         style={{ borderColor: T.border }}
       >
         <div className="px-3 py-2 border-b shrink-0" style={{ borderColor: T.border }}>
-          <div
-            className="flex items-center justify-between"
-          >
+          <div className="flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
               Workspaces
             </span>
@@ -356,7 +657,7 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
 
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {loading && (
-            <div className="py-4 text-center text-[11px]" style={{ color: T.muted }}>Loading…</div>
+            <div className="py-4 text-center text-[11px]" style={{ color: T.muted }}>Loading...</div>
           )}
           {!loading && workspaces.length === 0 && (
             <div className="py-4 text-center text-[11px]" style={{ color: T.muted }}>
@@ -407,7 +708,7 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
             value={newWsName}
             onChange={(e) => setNewWsName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-            placeholder="New workspace…"
+            placeholder="New workspace..."
             className="w-full px-2.5 py-1.5 text-[11px]"
             style={iStyle}
           />
@@ -422,7 +723,7 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
             }}
           >
             <Plus size={10} />
-            {creating ? "Creating…" : "Create"}
+            {creating ? "Creating..." : "Create"}
           </button>
         </div>
       </div>
@@ -496,7 +797,6 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                     const mRole    = isOwnerM ? "owner" : m.role;
                     const isMe     = mEmail.toLowerCase() === userEmail.toLowerCase();
                     const mLevel   = ROLES[mRole]?.level ?? 1;
-                    // Can only edit members below your own level and not the owner
                     const canEdit  = canManage && !isOwnerM && !isMe && mLevel < myLevel;
 
                     return (
@@ -528,7 +828,6 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                           </div>
                         </div>
 
-                        {/* Role selector / badge */}
                         {canEdit ? (
                           <select
                             value={mRole}
@@ -552,7 +851,6 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                           <RoleBadge role={mRole} />
                         )}
 
-                        {/* Remove button */}
                         {canEdit && (
                           <button
                             onClick={() => handleRemove(m.user_id, mName)}
@@ -658,7 +956,7 @@ function WorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                         opacity:    !inviteEmail.trim() || inviting ? 0.5 : 1,
                       }}
                     >
-                      {inviting ? "Sending invite…" : "Send Invite"}
+                      {inviting ? "Sending invite..." : "Send Invite"}
                     </button>
 
                     <div
@@ -813,7 +1111,7 @@ const TABS = [
 export default function SettingsModal({ open, onClose, user }) {
   const T = useTheme();
   const [activeTab, setActiveTab] = useState("profile");
-  // Shared state so ProfileTab can show workspace-level role
+  // Shared state so ProfileTab can show workspace-level role (cloud only)
   const [members,  setMembers]  = useState([]);
   const [activeWs, setActiveWs] = useState(null);
 
@@ -829,10 +1127,10 @@ export default function SettingsModal({ open, onClose, user }) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="anim-scale-in flex w-full overflow-hidden rounded-2xl border"
+        className="anim-scale-in flex overflow-hidden rounded-2xl border"
         style={{
-          maxWidth: 840,
-          maxHeight: "min(92vh, 660px)",
+          width: 920,
+          height: "min(92vh, 720px)",
           background:  T.surface,
           borderColor: T.border,
           boxShadow:   "0 32px 80px rgba(0,0,0,0.6), 0 8px 20px rgba(0,0,0,0.3)",
@@ -909,12 +1207,19 @@ export default function SettingsModal({ open, onClose, user }) {
               />
             )}
             {activeTab === "workspace" && (
-              <WorkspaceTab
-                user={user}
-                onMembersChange={setMembers}
-                onActiveWsChange={setActiveWs}
-                T={T}
-              />
+              CLOUD_ENABLED ? (
+                <CloudWorkspaceTab
+                  user={user}
+                  onMembersChange={setMembers}
+                  onActiveWsChange={setActiveWs}
+                  T={T}
+                />
+              ) : (
+                <LocalWorkspaceTab
+                  user={user}
+                  T={T}
+                />
+              )
             )}
             {activeTab === "preferences" && (
               <PreferencesTab T={T} />

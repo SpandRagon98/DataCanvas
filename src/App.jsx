@@ -28,11 +28,13 @@ import AuthGate          from "./components/cloud/AuthGate";
 import AuditLog          from "./components/cloud/AuditLog";
 import SettingsModal     from "./components/cloud/SettingsModal";
 import { useStore }      from "./store/useStore";
+import { useLocalAuth }  from "./store/useLocalAuth";
 import { useTheme, applyThemeToDocument } from "./styles/theme";
 import { useAuth }       from "./hooks/useAuth";
 import { useCloudSync }  from "./hooks/useCloudSync";
 import { usePresence }   from "./hooks/usePresence";
 import { CLOUD_ENABLED } from "./lib/supabase";
+import { ROLES, OWNER_EMAIL } from "./hooks/useRBAC";
 
 // ── Nav items ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
@@ -57,6 +59,7 @@ function Sidebar({
   onOpenSettings,
   onSignIn,
   user,
+  localUser,
   isSaving,
   lastSaved,
   online,
@@ -239,7 +242,7 @@ function Sidebar({
                 {isSaving ? (
                   <>
                     <span className="h-1.5 w-1.5 shrink-0 animate-spin rounded-full border border-current border-t-transparent" style={{ color: T.accent }} />
-                    <span className="text-[10px]" style={{ color: T.accent }}>Saving…</span>
+                    <span className="text-[10px]" style={{ color: T.accent }}>Saving...</span>
                   </>
                 ) : lastSaved ? (
                   <>
@@ -322,7 +325,7 @@ function Sidebar({
           ))}
         </div>
 
-        {/* ── Auth Gate ── */}
+        {/* ── Auth Gate (cloud mode) ── */}
         {CLOUD_ENABLED && (
           <div className="mt-2">
             <AuthGate user={user} onSignIn={onSignIn} />
@@ -378,6 +381,13 @@ export default function App() {
   const cloudWorkbookId = useStore((s) => s.cloudWorkbookId);
   const online = usePresence(cloudWorkbookId, user);
 
+  // Local auth (for when CLOUD_ENABLED is false)
+  const localUser = useLocalAuth((s) => s.currentUser);
+  const localLogout = useLocalAuth((s) => s.logout);
+
+  // Force re-render when local login happens
+  const [, forceUpdate] = useState(0);
+
   // Modal states
   const [scenarioOpen,   setScenarioOpen]   = useState(false);
   const [shareOpen,      setShareOpen]      = useState(false);
@@ -392,14 +402,16 @@ export default function App() {
     applyThemeToDocument(themeMode);
   }, [themeMode]);
 
-  // Sync workbook id from cloud sync hook → store
+  // Sync workbook id from cloud sync hook -> store
   useEffect(() => {
     if (workbookId) setCloudMeta({ cloudWorkbookId: workbookId });
   }, [workbookId]);
 
   // ── Login gate ────────────────────────────────────────────────────────────
-  // When cloud is configured, block the main app behind auth.
-  // The /share/:token route is kept public in both branches.
+  // When cloud is configured, block behind Supabase auth.
+  // When cloud is NOT configured, block behind local auth.
+  // The /share/:token route is always public.
+
   if (CLOUD_ENABLED && authLoading) {
     return (
       <div
@@ -414,13 +426,14 @@ export default function App() {
             <Database size={22} color="#000" strokeWidth={2.2} />
           </div>
           <div className="text-[13px] font-medium" style={{ color: T.muted }}>
-            Loading…
+            Loading...
           </div>
         </div>
       </div>
     );
   }
 
+  // Cloud mode — no user
   if (CLOUD_ENABLED && !user) {
     return (
       <HashRouter>
@@ -431,6 +444,38 @@ export default function App() {
       </HashRouter>
     );
   }
+
+  // Local mode — no user
+  if (!CLOUD_ENABLED && !localUser) {
+    return (
+      <HashRouter>
+        <Routes>
+          <Route path="/share/:token" element={<SharedView />} />
+          <Route
+            path="*"
+            element={
+              <Auth
+                hideLocalMode
+                onLocalLogin={() => forceUpdate((n) => n + 1)}
+              />
+            }
+          />
+        </Routes>
+      </HashRouter>
+    );
+  }
+
+  // Determine the effective user object for settings/display
+  const effectiveUser = CLOUD_ENABLED
+    ? user
+    : localUser
+      ? {
+          email: localUser.email,
+          user_metadata: { name: localUser.name },
+          app_metadata: { provider: "local" },
+          id: localUser.email,
+        }
+      : null;
 
   return (
     <HashRouter>
@@ -457,6 +502,7 @@ export default function App() {
                 onOpenSettings={() => setSettingsOpen(true)}
                 onSignIn={() => setSettingsOpen(true)}
                 user={user}
+                localUser={localUser}
                 isSaving={isSaving}
                 lastSaved={lastSaved}
                 online={online}
@@ -486,17 +532,17 @@ export default function App() {
                 open={commentsOpen}
                 onClose={() => setCommentsOpen(false)}
                 workbookId={cloudWorkbookId}
-                user={user}
+                user={effectiveUser}
               />
               <WorkspaceManager
                 open={workspaceOpen}
                 onClose={() => setWorkspaceOpen(false)}
-                user={user}
+                user={effectiveUser}
               />
               <ScheduledReports
                 open={scheduledOpen}
                 onClose={() => setScheduledOpen(false)}
-                user={user}
+                user={effectiveUser}
               />
               <AuditLog
                 open={auditOpen}
@@ -505,7 +551,7 @@ export default function App() {
               <SettingsModal
                 open={settingsOpen}
                 onClose={() => setSettingsOpen(false)}
-                user={user}
+                user={effectiveUser}
               />
             </div>
           }
