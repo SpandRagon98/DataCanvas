@@ -358,6 +358,38 @@ export const trackPresence = (workbookId, userInfo) => {
   };
 };
 
+// ── Member role management ────────────────────────────────────────────────────
+
+/**
+ * Update a workspace member's role.
+ * Only admins / owners should call this (enforced at RLS level too).
+ */
+export const updateMemberRole = async (workspaceId, userId, role) => {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("workspace_members")
+    .update({ role })
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+  return error ? null : data;
+};
+
+/**
+ * Remove a member from a workspace entirely.
+ * Only admins / owners should call this.
+ */
+export const removeMember = async (workspaceId, userId) => {
+  if (!supabase) return false;
+  const { error } = await supabase
+    .from("workspace_members")
+    .delete()
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", userId);
+  return !error;
+};
+
 export const subscribeComments = (workbookId, onInsert) => {
   if (!supabase) return () => {};
   const channel = supabase

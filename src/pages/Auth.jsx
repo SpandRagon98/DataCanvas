@@ -3,7 +3,7 @@ import { Database, Mail, Lock, User, Chrome, Eye, EyeOff, AlertCircle, Check } f
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from "../lib/supabase";
 import { useTheme } from "../styles/theme";
 
-export default function Auth() {
+export default function Auth({ hideLocalMode = false }) {
   const T = useTheme();
   const [tab,        setTab]        = useState("signin");
   const [name,       setName]       = useState("");
@@ -186,16 +186,18 @@ export default function Auth() {
           </button>
         </div>
 
-        <p className="mt-4 text-center text-[11px]" style={{ color: T.muted }}>
-          Works offline without an account —{" "}
-          <button
-            onClick={() => window.location.hash = "/source"}
-            className="underline"
-            style={{ color: T.accent }}
-          >
-            continue locally
-          </button>
-        </p>
+        {!hideLocalMode && (
+          <p className="mt-4 text-center text-[11px]" style={{ color: T.muted }}>
+            Works offline without an account —{" "}
+            <button
+              onClick={() => window.location.hash = "/source"}
+              className="underline"
+              style={{ color: T.accent }}
+            >
+              continue locally
+            </button>
+          </p>
+        )}
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import {
   Database, BarChart3, Table2, Layers3, LayoutDashboard,
   Sun, Moon, Sparkles, Save, FolderOpen,
   Share2, History, MessageSquare, Building2, CalendarClock,
-  Cloud, ClipboardList,
+  Cloud, ClipboardList, Settings,
 } from "lucide-react";
 import DataSource    from "./pages/DataSource";
 import DataTable     from "./pages/DataTable";
@@ -24,6 +24,7 @@ import WorkspaceManager  from "./components/cloud/WorkspaceManager";
 import ScheduledReports  from "./components/cloud/ScheduledReports";
 import AuthGate          from "./components/cloud/AuthGate";
 import AuditLog          from "./components/cloud/AuditLog";
+import SettingsModal     from "./components/cloud/SettingsModal";
 import { useStore }      from "./store/useStore";
 import { useTheme, applyThemeToDocument } from "./styles/theme";
 import { useAuth }       from "./hooks/useAuth";
@@ -49,6 +50,7 @@ function Sidebar({
   onOpenWorkspace,
   onOpenScheduled,
   onOpenAuditLog,
+  onOpenSettings,
   onSignIn,
   user,
   isSaving,
@@ -323,9 +325,18 @@ function Sidebar({
           </div>
         )}
 
+        {/* ── Settings button ── */}
+        <button
+          onClick={onOpenSettings}
+          className="nav-link w-full text-left mt-1"
+        >
+          <Settings size={14} strokeWidth={1.8} />
+          <span>Settings</span>
+        </button>
+
         {/* Version */}
         <div className="px-2 pb-1 pt-2 text-[10px] font-medium" style={{ color: T.muted }}>
-          DataCanvas · v6.0
+          DataCanvas · v7.0
         </div>
       </div>
     </aside>
@@ -369,7 +380,7 @@ export default function App() {
   const [workspaceOpen,  setWorkspaceOpen]  = useState(false);
   const [scheduledOpen,  setScheduledOpen]  = useState(false);
   const [auditOpen,      setAuditOpen]      = useState(false);
-  const [authOpen,       setAuthOpen]       = useState(false);
+  const [settingsOpen,   setSettingsOpen]   = useState(false);
 
   useEffect(() => {
     applyThemeToDocument(themeMode);
@@ -380,21 +391,46 @@ export default function App() {
     if (workbookId) setCloudMeta({ cloudWorkbookId: workbookId });
   }, [workbookId]);
 
+  // ── Login gate ────────────────────────────────────────────────────────────
+  // When cloud is configured, block the main app behind auth.
+  // The /share/:token route is kept public in both branches.
+  if (CLOUD_ENABLED && authLoading) {
+    return (
+      <div
+        className="flex items-center justify-center min-h-screen"
+        style={{ background: T.bg }}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="flex h-12 w-12 items-center justify-center rounded-xl"
+            style={{ background: T.accent, boxShadow: "0 4px 20px rgba(245,158,11,0.4)" }}
+          >
+            <Database size={22} color="#000" strokeWidth={2.2} />
+          </div>
+          <div className="text-[13px] font-medium" style={{ color: T.muted }}>
+            Loading…
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (CLOUD_ENABLED && !user) {
+    return (
+      <HashRouter>
+        <Routes>
+          <Route path="/share/:token" element={<SharedView />} />
+          <Route path="*" element={<Auth hideLocalMode />} />
+        </Routes>
+      </HashRouter>
+    );
+  }
+
   return (
     <HashRouter>
       <Routes>
         {/* Public shared-view route — no sidebar */}
         <Route path="/share/:token" element={<SharedView />} />
-
-        {/* Auth page — no sidebar */}
-        <Route
-          path="/auth"
-          element={
-            authOpen || true
-              ? <Auth />
-              : <Navigate to="/" replace />
-          }
-        />
 
         {/* Main app */}
         <Route
@@ -412,7 +448,8 @@ export default function App() {
                 onOpenWorkspace={() => setWorkspaceOpen(true)}
                 onOpenScheduled={() => setScheduledOpen(true)}
                 onOpenAuditLog={() => setAuditOpen(true)}
-                onSignIn={() => { window.location.hash = "/auth"; }}
+                onOpenSettings={() => setSettingsOpen(true)}
+                onSignIn={() => setSettingsOpen(true)}
                 user={user}
                 isSaving={isSaving}
                 lastSaved={lastSaved}
@@ -458,6 +495,11 @@ export default function App() {
               <AuditLog
                 open={auditOpen}
                 onClose={() => setAuditOpen(false)}
+              />
+              <SettingsModal
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                user={user}
               />
             </div>
           }
