@@ -1,3 +1,14 @@
+import { evaluateMeasure } from "./dax";
+
+/**
+ * Find a measure by name in a measures array.
+ * Returns null if none matches.
+ */
+export const findMeasure = (measures, name) => {
+  if (!measures?.length) return null;
+  return measures.find((m) => m.name === name) ?? null;
+};
+
 export const aggregateValue = (rows, field, aggregation) => {
   const numeric = rows
     .map((r) => Number(r[field]))
@@ -50,6 +61,8 @@ export const buildVisualData = ({
   legendField,
   aggregation = "sum",
   sortDirection = "asc",
+  measures = [],
+  fullRows = null,
 }) => {
   if (!rows?.length) return [];
   if (!xFields?.length || !yFields?.length) return [];
@@ -88,20 +101,40 @@ export const buildVisualData = ({
         const legendBucket = groupRow[key];
         yFields.forEach((yField) => {
           const measureKey = `${key} | ${yField}`;
-          result[measureKey] = aggregateValue(
-            legendBucket[yField] || [],
-            yField,
-            aggregation
-          );
+          const measure = findMeasure(measures, yField);
+          if (measure) {
+            const { value } = evaluateMeasure(measure, {
+              rows: legendBucket[yField] || [],
+              fullRows: fullRows ?? rows,
+              measures,
+            });
+            result[measureKey] = typeof value === "number" ? value : 0;
+          } else {
+            result[measureKey] = aggregateValue(
+              legendBucket[yField] || [],
+              yField,
+              aggregation
+            );
+          }
         });
       });
     } else {
       yFields.forEach((yField) => {
-        result[yField] = aggregateValue(
-          groupRow[yField] || [],
-          yField,
-          aggregation
-        );
+        const measure = findMeasure(measures, yField);
+        if (measure) {
+          const { value } = evaluateMeasure(measure, {
+            rows: groupRow[yField] || [],
+            fullRows: fullRows ?? rows,
+            measures,
+          });
+          result[yField] = typeof value === "number" ? value : 0;
+        } else {
+          result[yField] = aggregateValue(
+            groupRow[yField] || [],
+            yField,
+            aggregation
+          );
+        }
       });
     }
 

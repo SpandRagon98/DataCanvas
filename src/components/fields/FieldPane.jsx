@@ -1,8 +1,9 @@
-import { Search, Hash, Type, Calendar, ToggleLeft, Layers3, Sigma } from "lucide-react";
+import { Search, Hash, Type, Calendar, ToggleLeft, Layers3, Sigma, AlertCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore }          from "../../store/useStore";
 import { useEffectiveData }  from "../../hooks/useEffectiveData";
 import { useTheme }          from "../../styles/theme";
+import { validateFormula }   from "../../utils/dax";
 
 function TypeIcon({ type, T }) {
   if (type === "number")  return <Hash      size={10} strokeWidth={2.2} color={T.blue}    />;
@@ -55,11 +56,44 @@ function SectionLabel({ title, icon, T }) {
   );
 }
 
+/** A draggable chip for a DAX measure — drags the measure name like a column. */
+function MeasureChip({ measure, T }) {
+  const valid = useMemo(() => validateFormula(measure.formula).valid, [measure.formula]);
+  const handleDragStart = (e) => {
+    if (!valid) { e.preventDefault(); return; }
+    e.dataTransfer.setData("fieldName", measure.name);
+  };
+  return (
+    <div
+      draggable={valid}
+      onDragStart={handleDragStart}
+      title={measure.description || measure.formula}
+      className="drag-chip rounded-xl border px-2.5 py-1.5"
+      style={{
+        background: T.s2,
+        borderColor: valid ? T.border : "rgba(239,68,68,0.4)",
+        color: T.text,
+        opacity: valid ? 1 : 0.7,
+        cursor: valid ? "grab" : "not-allowed",
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex items-center gap-1.5">
+          <Sigma size={10} strokeWidth={2.2} color={T.accent} />
+          <span className="truncate text-[12.5px]">{measure.name}</span>
+        </div>
+        {!valid && <AlertCircle size={10} style={{ color: "#ef4444", flexShrink: 0 }} />}
+      </div>
+    </div>
+  );
+}
+
 export default function FieldPane() {
   const T             = useTheme();
   const { columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
   const hierarchies   = useStore((s) => s.hierarchies);
   const columnAliases = useStore((s) => s.columnAliases);
+  const daxMeasures   = useStore((s) => s.measures);
   const [search, setSearch] = useState("");
 
   const displayCol = (col) => columnAliases[col] || col;
@@ -162,6 +196,22 @@ export default function FieldPane() {
                 .filter((f) => f.toLowerCase().includes(search.toLowerCase()))
                 .map((f) => (
                   <FieldChip key={f} field={f} type={dataTypes[f]} isCalculated T={T} />
+                ))}
+            </div>
+          </div>
+        )}
+
+        {daxMeasures.length > 0 && (
+          <div>
+            <SectionLabel title="Measures (DAX)" icon={<Sigma size={10} color={T.accent} />} T={T} />
+            <div className="space-y-1">
+              {daxMeasures
+                .filter((m) =>
+                  m.name.toLowerCase().includes(search.toLowerCase()) ||
+                  (m.description || "").toLowerCase().includes(search.toLowerCase())
+                )
+                .map((m) => (
+                  <MeasureChip key={m.id} measure={m} T={T} />
                 ))}
             </div>
           </div>

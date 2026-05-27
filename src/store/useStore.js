@@ -164,6 +164,10 @@ export const useStore = create(
       relationships: [],
       modelLayout: {},   // { [datasetId]: { x, y } }
 
+      // ── Measures (DAX) ──
+      // Each: { id, name, formula, description, format }
+      measures: [],
+
       // ── Cloud meta — transient, not persisted to localStorage ──
       cloudWorkbookId:   null,
       cloudWorkbookName: null,
@@ -228,6 +232,7 @@ export const useStore = create(
           filterBookmarks: [],
           relationships: [],
           modelLayout: {},
+          measures: [],
           crossFilter: {},
           lastEditRowIndex: -1,
           undoStack: [],
@@ -267,6 +272,7 @@ export const useStore = create(
           filterBookmarks: wb.filterBookmarks ?? [],
           relationships: wb.relationships ?? [],
           modelLayout: wb.modelLayout ?? {},
+          measures: wb.measures ?? [],
           crossFilter: {},
           undoStack: [],
           redoStack: [],
@@ -856,6 +862,51 @@ export const useStore = create(
         set((state) => ({
           modelLayout: { ...state.modelLayout, [datasetId]: pos },
         })),
+
+      // ── Measures (DAX) ──
+      addMeasure: (measure) =>
+        set((state) => ({
+          measures: [...state.measures, {
+            id: measure.id ?? createId("measure"),
+            name: measure.name ?? "New Measure",
+            formula: measure.formula ?? "",
+            description: measure.description ?? "",
+            format: measure.format ?? "number",
+            createdAt: new Date().toISOString(),
+          }],
+        })),
+
+      updateMeasure: (id, patch) =>
+        set((state) => ({
+          measures: state.measures.map((m) =>
+            m.id === id ? { ...m, ...patch, updatedAt: new Date().toISOString() } : m
+          ),
+        })),
+
+      deleteMeasure: (id) =>
+        set((state) => ({
+          measures: state.measures.filter((m) => m.id !== id),
+        })),
+
+      duplicateMeasure: (id) =>
+        set((state) => {
+          const src = state.measures.find((m) => m.id === id);
+          if (!src) return state;
+          let name = `${src.name} (copy)`;
+          // Avoid name collision
+          let n = 2;
+          while (state.measures.some((m) => m.name === name)) {
+            name = `${src.name} (copy ${n++})`;
+          }
+          return {
+            measures: [...state.measures, {
+              ...src,
+              id: createId("measure"),
+              name,
+              createdAt: new Date().toISOString(),
+            }],
+          };
+        }),
     }),
     {
       name: "datacanvas.workbook",
@@ -902,6 +953,7 @@ export const useStore = create(
         columnAliases: state.columnAliases,
         relationships: state.relationships,
         modelLayout: state.modelLayout,
+        measures: state.measures,
         // undoStack, redoStack, crossFilter intentionally excluded
       }),
     }

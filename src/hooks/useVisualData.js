@@ -19,6 +19,7 @@ import {
   getLegendKeys,
 } from "../utils/chartEngine";
 import { applyGlobalFilters } from "../utils/filterEngine";
+import { useStore } from "../store/useStore";
 
 // Shared table name — all visuals share one table (the active dataset)
 const TABLE = "dc_active";
@@ -40,6 +41,17 @@ export function useVisualData({ visual, rawData, filters, crossFilter = {} }) {
   const [loading,  setLoading]  = useState(false);
   const abortRef  = useRef(0);
   const isLarge   = rawData?.length >= DUCKDB_THRESHOLD;
+  const measures  = useStore((s) => s.measures);
+
+  // Force re-render when a measure used by this visual is edited.
+  // We compute a stable key from referenced measure formulas to invalidate memo.
+  const measureSignature = useMemo(() => {
+    const usedNames = new Set([...(visual.yFields || []), ...(visual.xFields || [])]);
+    return measures
+      .filter((m) => usedNames.has(m.name))
+      .map((m) => `${m.id}:${m.formula}`)
+      .join("|");
+  }, [measures, visual.yFields, visual.xFields]);
 
   // ── Always compute synchronous JS data (instant fallback / small data) ──
   const { filteredRows, baseChartDataJS } = useMemo(() => {
@@ -53,13 +65,22 @@ export function useVisualData({ visual, rawData, filters, crossFilter = {} }) {
       legendField: visual.legendField,
       aggregation: visual.aggregation,
       sortDirection: visual.sortDirection,
+      measures,
+      fullRows: rawData,
     });
     return { filteredRows: cf, baseChartDataJS: base };
-  }, [rawData, filters, visual, crossFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawData, filters, visual, crossFilter, measureSignature]);
 
   // ── Async DuckDB path for large datasets ──
   useEffect(() => {
-    if (!isLarge || !visual.xFields?.length || !visual.yFields?.length) {
+    // Bail out of the SQL path if any yField/xField is a DAX measure —
+    // the SQL aggregator doesn't understand measure formulas.
+    const usesMeasure =
+      (visual.yFields || []).some((f) => measures.some((m) => m.name === f)) ||
+      (visual.xFields || []).some((f) => measures.some((m) => m.name === f));
+
+    if (!isLarge || usesMeasure || !visual.xFields?.length || !visual.yFields?.length) {
       setSqlData(null);
       return;
     }
