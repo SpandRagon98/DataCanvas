@@ -9,6 +9,7 @@ import CalcFieldManager     from "../components/calcfields/CalcFieldManager";
 import DatasetSlots         from "../components/datasource/DatasetSlots";
 import JoinBuilder          from "../components/datasource/JoinBuilder";
 import ApiConnectorPanel    from "../components/datasource/ApiConnectorPanel";
+import DataCleaningPanel    from "../components/ai/DataCleaningPanel";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import { useTheme }         from "../styles/theme";
 
@@ -107,6 +108,8 @@ export default function DataSource() {
   // column rename state
   const [renamingCol,  setRenamingCol]  = useState(null);
   const [renameVal,    setRenameVal]    = useState("");
+  // AI data cleaning
+  const [showCleaning, setShowCleaning] = useState(false);
 
   const preview = useMemo(() => rows.slice(0, 10), [rows]);
 
@@ -139,7 +142,10 @@ export default function DataSource() {
         <ImportModal
           open={importOpen}
           onClose={() => setImportOpen(false)}
-          onImport={({ rows, columns, types }) => setData(rows, columns, types)}
+          onImport={({ rows, columns, types }) => {
+            setData(rows, columns, types);
+            setShowCleaning(true);
+          }}
         />
 
         {/* ── Page header ── */}
@@ -165,6 +171,16 @@ export default function DataSource() {
 
         {/* ── Dataset slots ── */}
         <DatasetSlots />
+
+        {/* ── AI Data Cleaning Panel (shown after import) ── */}
+        {showCleaning && columns.length > 0 && rows.length > 0 && (
+          <DataCleaningPanel
+            columns={columns}
+            dataTypes={dataTypes}
+            rows={rows}
+            onClose={() => setShowCleaning(false)}
+          />
+        )}
 
         {/* ── Main 2-column grid ── */}
         <div className="grid gap-4" style={{ gridTemplateColumns: "minmax(260px,320px) 1fr" }}>

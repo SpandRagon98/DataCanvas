@@ -3,6 +3,7 @@ import { Calculator, Plus, Trash2, AlertCircle, Zap } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { useTheme } from "../../styles/theme";
 import { validateFormula, extractReferencedFields } from "../../utils/calcFields";
+import AIFormulaAssistant from "../ai/AIFormulaAssistant";
 
 /** Build smart presets from numeric column names */
 function buildSmartPresets(numericColumns) {
@@ -178,6 +179,20 @@ export default function CalcFieldManager() {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* AI Formula Assistant */}
+      {numericColumns.length > 0 && (
+        <div className="mb-4">
+          <AIFormulaAssistant
+            columns={columns}
+            dataTypes={dataTypes}
+            onInsert={(formulaText) => {
+              setFormula(formulaText);
+              setError("");
+            }}
+          />
         </div>
       )}
 

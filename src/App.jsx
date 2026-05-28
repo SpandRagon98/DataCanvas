@@ -27,6 +27,7 @@ import ScheduledReports  from "./components/cloud/ScheduledReports";
 import AuthGate          from "./components/cloud/AuthGate";
 import AuditLog          from "./components/cloud/AuditLog";
 import SettingsModal     from "./components/cloud/SettingsModal";
+import CommandBar        from "./components/ai/CommandBar";
 import { useStore }      from "./store/useStore";
 import { useLocalAuth }  from "./store/useLocalAuth";
 import { useTheme, applyThemeToDocument } from "./styles/theme";
@@ -553,6 +554,9 @@ export default function App() {
                 onClose={() => setSettingsOpen(false)}
                 user={effectiveUser}
               />
+
+              {/* AI Command Bar (Cmd+K) */}
+              <CommandBar />
             </div>
           }
         />

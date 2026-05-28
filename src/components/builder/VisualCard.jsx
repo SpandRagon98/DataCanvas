@@ -13,6 +13,8 @@ import { COLOR_PALETTES, PALETTE_LABELS, getPalette } from "../../styles/theme";
 import DropZone from "./DropZone";
 import VisualToolbar from "./VisualToolbar";
 import VisualRenderer from "./VisualRenderer";
+import AIChartSuggestion from "../ai/AIChartSuggestion";
+import AIInsightsPanel from "../ai/AIInsightsPanel";
 import { useTheme } from "../../styles/theme";
 
 const OPERATORS = [">", "<", ">=", "<=", "=="];
@@ -245,6 +247,24 @@ export default function VisualCard({ visual, onCollapse }) {
         />
       </div>
 
+      {/* AI Chart Suggestion */}
+      {visual.xFields?.length > 0 && visual.yFields?.length > 0 && (
+        <div className="mb-3">
+          <AIChartSuggestion
+            fields={[...(visual.xFields || []), ...(visual.yFields || [])]}
+            dataTypes={dataTypes}
+            sampleValues={(() => {
+              const sv = {};
+              [...(visual.xFields || []), ...(visual.yFields || [])].forEach((f) => {
+                sv[f] = effectiveRows.slice(0, 5).map((r) => r[f]);
+              });
+              return sv;
+            })()}
+            onApply={(patch) => updateVisual(visual.id, patch)}
+          />
+        </div>
+      )}
+
       {/* ── Advanced Settings ── */}
       <div
         className="mb-3 rounded-xl border"
@@ -296,7 +316,7 @@ export default function VisualCard({ visual, onCollapse }) {
               </div>
             </div>
 
-            {/* ─ Running Total + Trendline ─ */}
+            {/* ─ Running Total + Trendline + AI toggles ─ */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
                 <span className="text-xs" style={{ color: T.text }}>Running Total</span>
@@ -321,7 +341,59 @@ export default function VisualCard({ visual, onCollapse }) {
                     style={{ transform: visual.showTrendline ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
                 </button>
               </div>
+
+              <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                <span className="text-xs" style={{ color: T.text }}>Anomaly Detection</span>
+                <button
+                  onClick={() => updateVisual(visual.id, { showAnomalies: !visual.showAnomalies })}
+                  className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                  style={{ background: visual.showAnomalies ? T.accent : T.border }}
+                >
+                  <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                    style={{ transform: visual.showAnomalies ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                <span className="text-xs" style={{ color: T.text }}>Forecast</span>
+                <button
+                  onClick={() => updateVisual(visual.id, { showForecast: !visual.showForecast })}
+                  className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                  style={{ background: visual.showForecast ? T.accent : T.border }}
+                >
+                  <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                    style={{ transform: visual.showForecast ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                </button>
+              </div>
             </div>
+
+            {/* ─ Forecast Settings (shown when forecast is on) ─ */}
+            {visual.showForecast && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Forecast Periods</div>
+                  <input
+                    type="number" min={1} max={24}
+                    value={visual.forecastPeriods || 6}
+                    onChange={(e) => updateVisual(visual.id, { forecastPeriods: Math.max(1, Math.min(24, +e.target.value)) })}
+                    className="w-full rounded-xl border px-3 py-1.5 text-sm outline-none"
+                    style={selectStyle}
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Method</div>
+                  <select
+                    value={visual.forecastMethod || "linear"}
+                    onChange={(e) => updateVisual(visual.id, { forecastMethod: e.target.value })}
+                    className="w-full rounded-xl border px-2 py-1.5 text-sm outline-none"
+                    style={selectStyle}
+                  >
+                    <option value="linear">Linear Regression</option>
+                    <option value="ses">Exponential Smoothing</option>
+                  </select>
+                </div>
+              </div>
+            )}
 
             {/* ─ Visual-Level Filters ─ */}
             <div>
@@ -522,6 +594,28 @@ export default function VisualCard({ visual, onCollapse }) {
           onCrossFilter={(field, value) => setCrossFilter(field, value)}
         />
       </div>
+
+      {/* AI Insights */}
+      {visual.xFields?.length > 0 && visual.yFields?.length > 0 && (
+        <AIInsightsPanel
+          visual={visual}
+          chartData={(() => {
+            try {
+              const filtered = applyGlobalFilters(effectiveRows, filters);
+              return buildVisualData({
+                rows: filtered,
+                xFields: visual.xFields,
+                yFields: visual.yFields,
+                legendField: visual.legendField,
+                aggregation: visual.aggregation,
+                sortDirection: visual.sortDirection,
+              });
+            } catch {
+              return [];
+            }
+          })()}
+        />
+      )}
     </div>
   );
 }

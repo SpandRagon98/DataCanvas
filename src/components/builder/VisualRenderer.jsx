@@ -22,6 +22,8 @@ import {
 import { getPalette, useTheme }                 from "../../styles/theme";
 import { useVisualData }                        from "../../hooks/useVisualData";
 import { useComputeWorker, WORKER_THRESHOLD }   from "../../hooks/useComputeWorker";
+import { detectAnomalies }                      from "../../utils/anomalyDetection";
+import { linearForecast, sesForecast, generateForecastLabels, summarizeTrend } from "../../utils/forecasting";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -171,6 +173,44 @@ export default function VisualRenderer({
   const minChartH    = compact ? 240 : 320;
   const conditionalRules = visual.conditionalRules || [];
   const referenceLines   = visual.referenceLines   || [];
+
+  // ── Anomaly detection ───────────────────────────────────────────────────
+  const anomalyResult = useMemo(() => {
+    if (!visual.showAnomalies || !chartData?.length || !legendKeys[0]) return null;
+    return detectAnomalies(chartData, legendKeys[0], visual.anomalyThreshold || 3);
+  }, [chartData, legendKeys, visual.showAnomalies, visual.anomalyThreshold]);
+
+  // ── Forecasting ─────────────────────────────────────────────────────────
+  const forecastResult = useMemo(() => {
+    if (!visual.showForecast || !chartData?.length || !legendKeys[0]) return null;
+    const yKey = legendKeys[0];
+    const values = chartData.map((d) => Number(d[yKey]) || 0);
+    const periods = visual.forecastPeriods || 6;
+    const method = visual.forecastMethod || "linear";
+
+    const result = method === "ses"
+      ? sesForecast(values, periods, visual.forecastAlpha || 0.3)
+      : linearForecast(values, periods);
+
+    const lastLabel = chartData[chartData.length - 1]?.x;
+    const labels = generateForecastLabels(lastLabel, periods);
+    const trend = summarizeTrend(values);
+
+    return { ...result, labels, trend, yKey };
+  }, [chartData, legendKeys, visual.showForecast, visual.forecastPeriods, visual.forecastMethod, visual.forecastAlpha]);
+
+  // Build extended data with forecast points appended
+  const extendedChartData = useMemo(() => {
+    if (!forecastResult?.forecast?.length) return chartData;
+    const forecastPoints = forecastResult.forecast.map((val, i) => ({
+      x: forecastResult.labels[i],
+      [forecastResult.yKey]: val,
+      _isForecast: true,
+      _upper: forecastResult.upper?.[i],
+      _lower: forecastResult.lower?.[i],
+    }));
+    return [...chartData.map((d) => ({ ...d, _isForecast: false })), ...forecastPoints];
+  }, [chartData, forecastResult]);
 
   const numFmt      = visual.numFormat || {};
   const fmtVal      = (v) => typeof v === "number" ? formatValue(v, numFmt) : v;
@@ -539,10 +579,12 @@ export default function VisualRenderer({
 
   // ── Line ──
   if (visual.chartType === "line") {
+    const lineData = forecastResult ? extendedChartData : chartData;
+    const actualLen = chartData.length;
     return (
       <div style={{ height: chartHeight, minHeight: minChartH }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
+          <LineChart data={lineData}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
             <XAxis dataKey="x" {...axisStyle} />
             <YAxis {...axisStyle} />
@@ -550,8 +592,39 @@ export default function VisualRenderer({
             <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
             {legendKeys.map((k, i) => (
               <Line key={k} type="monotone" dataKey={k} stroke={palette[i%palette.length]}
-                strokeWidth={2} dot={false} />
+                strokeWidth={2}
+                dot={(props) => {
+                  const { cx, cy, index, payload } = props;
+                  // Forecast dots — dashed style
+                  if (payload?._isForecast) {
+                    return (
+                      <circle key={`fc-${index}`} cx={cx} cy={cy} r={4}
+                        fill={T.surface} stroke={palette[i%palette.length]}
+                        strokeWidth={2} strokeDasharray="3 2" />
+                    );
+                  }
+                  // Anomaly dots — red highlight
+                  if (anomalyResult?.points?.[index]?.isAnomaly) {
+                    return (
+                      <circle key={`an-${index}`} cx={cx} cy={cy} r={6}
+                        fill="rgba(239,68,68,0.25)" stroke="#ef4444"
+                        strokeWidth={2} />
+                    );
+                  }
+                  return null;
+                }}
+                strokeDasharray={undefined}
+              />
             ))}
+            {/* Forecast confidence band as reference area */}
+            {forecastResult?.upper && forecastResult.upper.map((_, i) => {
+              const idx = actualLen + i;
+              if (!lineData[idx]) return null;
+              return (
+                <ReferenceLine key={`fu-${i}`} y={forecastResult.upper[i]}
+                  stroke="transparent" strokeDasharray="0" ifOverflow="extendDomain" />
+              );
+            })}
             {trendLine}
             {referenceLines.map((rl, i) => (
               <ReferenceLine key={i} y={rl.value} stroke={rl.color||T.accent} strokeDasharray="4 3"
@@ -559,16 +632,24 @@ export default function VisualRenderer({
             ))}
           </LineChart>
         </ResponsiveContainer>
+        {forecastResult && (
+          <div className="mt-1 flex items-center gap-3 text-[10px]" style={{ color: T.muted }}>
+            <span>Forecast: {forecastResult.forecast.length} periods</span>
+            <span>Trend: {forecastResult.trend}</span>
+            {forecastResult.r2 !== undefined && <span>R²: {forecastResult.r2}</span>}
+          </div>
+        )}
       </div>
     );
   }
 
   // ── Area ──
   if (visual.chartType === "area") {
+    const areaData = forecastResult ? extendedChartData : chartData;
     return (
       <div style={{ height: chartHeight, minHeight: minChartH }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+          <AreaChart data={areaData}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
             <XAxis dataKey="x" {...axisStyle} />
             <YAxis {...axisStyle} />
@@ -585,6 +666,12 @@ export default function VisualRenderer({
             ))}
           </AreaChart>
         </ResponsiveContainer>
+        {forecastResult && (
+          <div className="mt-1 flex items-center gap-3 text-[10px]" style={{ color: T.muted }}>
+            <span>Forecast: {forecastResult.forecast.length} periods</span>
+            <span>Trend: {forecastResult.trend}</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -605,9 +692,18 @@ export default function VisualRenderer({
               radius={[4,4,0,0]}
               onClick={(data) => onCrossFilter && onCrossFilter(visual.xFields[0], data.x)}
               style={{ cursor: onCrossFilter?"pointer":"default" }}>
-              {conditionalRules.length > 0 && chartData.map((entry, idx) => (
-                <Cell key={idx} fill={getCellColor(entry, palette[i%palette.length], conditionalRules)} />
-              ))}
+              {(conditionalRules.length > 0 || anomalyResult) && chartData.map((entry, idx) => {
+                const isAnomaly = anomalyResult?.points?.[idx]?.isAnomaly;
+                const baseColor = getCellColor(entry, palette[i%palette.length], conditionalRules);
+                return (
+                  <Cell
+                    key={idx}
+                    fill={isAnomaly ? "#ef4444" : baseColor}
+                    stroke={isAnomaly ? "#dc2626" : undefined}
+                    strokeWidth={isAnomaly ? 2 : 0}
+                  />
+                );
+              })}
             </Bar>
           ))}
           {trendLine}
