@@ -18,11 +18,15 @@ export default defineConfig({
     format: 'es',
   },
 
-  // Dev proxy — forwards /api/ai requests to the Vercel serverless function
+  // Dev proxy — forwards /api/* requests to the Vercel serverless function
   // or a local Express server running on port 3001 during development.
   server: {
     proxy: {
       '/api/ai': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/api/bigquery': {
         target: 'http://localhost:3001',
         changeOrigin: true,
       },

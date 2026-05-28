@@ -1,7 +1,31 @@
-import { useState } from "react";
-import { Upload, X, Link2, AlertCircle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Upload, X, Link2, AlertCircle, Database, Play, ChevronDown, ChevronUp, Info } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useTheme } from "../../styles/theme";
+
+// ── BigQuery helpers ─────────────────────────────────────────────────────────
+
+const BQ_CREDS_KEY  = "datacanvas.bq.credentials";
+const BQ_PROJECT_KEY = "datacanvas.bq.projectId";
+
+function loadBQSession() {
+  try {
+    return {
+      projectId:  sessionStorage.getItem(BQ_PROJECT_KEY) || "",
+      credsText:  sessionStorage.getItem(BQ_CREDS_KEY)   || "",
+    };
+  } catch { return { projectId: "", credsText: "" }; }
+}
+
+function saveBQSession(projectId, credsText) {
+  try {
+    sessionStorage.setItem(BQ_PROJECT_KEY, projectId);
+    sessionStorage.setItem(BQ_CREDS_KEY,   credsText);
+  } catch {}
+}
+
+const _AI_BASE   = import.meta.env.VITE_AI_API_BASE_URL || "/api/ai";
+const BQ_API_URL = _AI_BASE.replace(/\/ai$/, "/bigquery");
 
 const detectType = (values) => {
   let numberCount = 0;
@@ -114,6 +138,21 @@ export default function ImportModal({ open, onClose, onImport }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // ── BigQuery state ──
+  const bqSession = loadBQSession();
+  const [bqProjectId,  setBqProjectId]  = useState(bqSession.projectId);
+  const [bqCredsText,  setBqCredsText]  = useState(bqSession.credsText);
+  const [bqQuery,      setBqQuery]      = useState("SELECT * FROM `project.dataset.table` LIMIT 1000");
+  const [bqMaxRows,    setBqMaxRows]    = useState(5000);
+  const [bqCredsOpen,  setBqCredsOpen]  = useState(!bqSession.credsText);
+  const [bqStatus,     setBqStatus]     = useState(""); // info messages
+  const queryRef = useRef(null);
+
+  // Persist project + creds to sessionStorage whenever they change
+  useEffect(() => {
+    saveBQSession(bqProjectId, bqCredsText);
+  }, [bqProjectId, bqCredsText]);
+
   if (!open) return null;
 
   const doImportRows = (jsonRows) => {
@@ -170,6 +209,58 @@ export default function ImportModal({ open, onClose, onImport }) {
     onClose();
   };
 
+  const handleBigQuery = async () => {
+    setError("");
+    setBqStatus("");
+
+    if (!bqProjectId.trim()) { setError("Enter your GCP Project ID."); return; }
+    if (!bqCredsText.trim()) { setError("Paste your service account JSON key."); setBqCredsOpen(true); return; }
+    if (!bqQuery.trim())     { setError("Enter a SQL query."); return; }
+
+    let credentials;
+    try {
+      credentials = JSON.parse(bqCredsText);
+      if (!credentials.client_email || !credentials.private_key) throw new Error("Missing fields");
+    } catch {
+      setError("Invalid service account JSON. Make sure you copied the full key file.");
+      setBqCredsOpen(true);
+      return;
+    }
+
+    setLoading(true);
+    setBqStatus("Authenticating with Google...");
+    try {
+      const res = await fetch(BQ_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId:   bqProjectId.trim(),
+          credentials,
+          query:       bqQuery.trim(),
+          maxResults:  bqMaxRows,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setError(data.error || `Server error ${res.status}`);
+        return;
+      }
+
+      const { columns, rows, types, totalRows } = data;
+      if (!columns?.length) { setError("Query returned no columns."); return; }
+
+      setBqStatus(`Fetched ${rows.length.toLocaleString()} of ${Number(totalRows).toLocaleString()} rows.`);
+      onImport({ rows, columns, types });
+      onClose();
+    } catch (err) {
+      setError(err.message || "Network error — check that the app is deployed on Vercel.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSheets = async () => {
     setError("");
     const match = url.match(/\/spreadsheets\/d\/([^/]+)/);
@@ -210,8 +301,10 @@ export default function ImportModal({ open, onClose, onImport }) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="anim-scale-in w-full max-w-xl rounded-2xl border p-6"
+        className="anim-scale-in w-full rounded-2xl border p-6"
         style={{
+          maxWidth: tab === "bigquery" ? 680 : 576,
+          transition: "max-width 0.2s ease",
           background: T.surface,
           borderColor: T.border,
           boxShadow: T.shadowXl,
@@ -223,7 +316,9 @@ export default function ImportModal({ open, onClose, onImport }) {
               Import Data
             </h2>
             <p className="mt-1 text-sm" style={{ color: T.dim }}>
-              File upload, pasted CSV, or public Google Sheets link
+              {tab === "bigquery"
+                ? "Connect to Google BigQuery — run SQL and import results"
+                : "File upload, pasted CSV, or public Google Sheets link"}
             </p>
           </div>
 
@@ -237,27 +332,30 @@ export default function ImportModal({ open, onClose, onImport }) {
         </div>
 
         <div
-          className="mb-5 flex gap-2 rounded-xl border p-1"
+          className="mb-5 flex gap-1 rounded-xl border p-1"
           style={{ background: T.s2, borderColor: T.border }}
         >
           {[
-            ["file", "File Upload"],
-            ["paste", "Paste CSV"],
-            ["sheets", "Google Sheets"],
+            ["file",     "File Upload"],
+            ["paste",    "Paste CSV"],
+            ["sheets",   "Google Sheets"],
+            ["bigquery", "BigQuery"],
           ].map(([id, label]) => (
             <button
               key={id}
-              onClick={() => {
-                setTab(id);
-                setError("");
-              }}
-              className="flex-1 rounded-lg px-3 py-2 text-sm font-medium"
+              onClick={() => { setTab(id); setError(""); setBqStatus(""); }}
+              className="flex-1 rounded-lg px-2 py-2 text-sm font-medium"
               style={{
                 background: tab === id ? T.surface : "transparent",
                 color: tab === id ? T.text : T.muted,
                 border: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 5,
               }}
             >
+              {id === "bigquery" && <Database size={12} />}
               {label}
             </button>
           ))}
@@ -340,6 +438,165 @@ export default function ImportModal({ open, onClose, onImport }) {
             <p className="mt-3 text-xs" style={{ color: T.dim }}>
               Sheet must be public — “Anyone with the link can view”
             </p>
+          </div>
+        )}
+
+        {/* ── BigQuery tab ── */}
+        {tab === "bigquery" && (
+          <div className="space-y-4">
+
+            {/* Info banner */}
+            <div
+              className="flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-xs"
+              style={{ background: "rgba(59,130,246,0.07)", borderColor: "rgba(59,130,246,0.25)", color: T.dim }}
+            >
+              <Info size={13} className="mt-0.5 shrink-0" style={{ color: "#60a5fa" }} />
+              <span>
+                Credentials are sent only to your own Vercel serverless function and used
+                for a single request. They are never stored on any server.
+                Your key is saved in browser <strong>sessionStorage</strong> for this tab session only.
+              </span>
+            </div>
+
+            {/* Row 1: Project ID + max rows */}
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+                  GCP Project ID
+                </label>
+                <input
+                  value={bqProjectId}
+                  onChange={(e) => setBqProjectId(e.target.value)}
+                  placeholder="my-gcp-project-123"
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none mono"
+                  style={{ background: T.s2, borderColor: T.border, color: T.text }}
+                />
+              </div>
+              <div style={{ width: 110 }}>
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+                  Max Rows
+                </label>
+                <input
+                  type="number"
+                  min={1} max={10000}
+                  value={bqMaxRows}
+                  onChange={(e) => setBqMaxRows(Number(e.target.value) || 5000)}
+                  className="w-full rounded-xl border px-3 py-2 text-sm outline-none mono"
+                  style={{ background: T.s2, borderColor: T.border, color: T.text }}
+                />
+              </div>
+            </div>
+
+            {/* Service Account JSON — collapsible */}
+            <div>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm font-semibold transition"
+                style={{
+                  background: bqCredsText ? "rgba(16,185,129,0.08)" : T.s2,
+                  borderColor: bqCredsText ? "rgba(16,185,129,0.35)" : T.border,
+                  color: bqCredsText ? T.success : T.text,
+                }}
+                onClick={() => setBqCredsOpen((p) => !p)}
+              >
+                <span className="flex items-center gap-2">
+                  <Database size={13} />
+                  {bqCredsText ? "Service Account Key ✓ (loaded)" : "Paste Service Account JSON key"}
+                </span>
+                {bqCredsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+
+              {bqCredsOpen && (
+                <div className="mt-2">
+                  <textarea
+                    value={bqCredsText}
+                    onChange={(e) => setBqCredsText(e.target.value)}
+                    placeholder={'{\n  "type": "service_account",\n  "project_id": "...",\n  "private_key": "-----BEGIN RSA PRIVATE KEY-----\\n...",\n  "client_email": "name@project.iam.gserviceaccount.com"\n}'}
+                    rows={7}
+                    className="w-full resize-none rounded-xl border p-3 text-xs outline-none mono"
+                    style={{ background: T.s2, borderColor: T.border, color: T.text, lineHeight: 1.5 }}
+                    spellCheck={false}
+                  />
+                  <p className="mt-1 text-xs" style={{ color: T.muted }}>
+                    GCP Console → IAM → Service Accounts → Keys → Add Key → JSON.
+                    Grant the account <strong>BigQuery Data Viewer</strong> + <strong>BigQuery Job User</strong> roles.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* SQL Query editor */}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>
+                SQL Query <span style={{ color: T.dim, fontWeight: 400, textTransform: "none" }}>(Standard SQL)</span>
+              </label>
+              <textarea
+                ref={queryRef}
+                value={bqQuery}
+                onChange={(e) => setBqQuery(e.target.value)}
+                rows={6}
+                spellCheck={false}
+                className="w-full resize-y rounded-xl border p-3 text-sm outline-none mono"
+                style={{
+                  background: T.s2,
+                  borderColor: T.border,
+                  color: T.text,
+                  lineHeight: 1.6,
+                  minHeight: 110,
+                  fontFamily: "'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace",
+                  fontSize: 12.5,
+                }}
+                onKeyDown={(e) => {
+                  // Tab key → insert 2 spaces instead of switching focus
+                  if (e.key === "Tab") {
+                    e.preventDefault();
+                    const el = e.target;
+                    const start = el.selectionStart;
+                    const end   = el.selectionEnd;
+                    const next  = bqQuery.substring(0, start) + "  " + bqQuery.substring(end);
+                    setBqQuery(next);
+                    setTimeout(() => el.setSelectionRange(start + 2, start + 2), 0);
+                  }
+                }}
+              />
+              <p className="mt-1 text-xs" style={{ color: T.muted }}>
+                Use backtick-quoted table names: <span className="mono" style={{ color: T.dim }}>`project.dataset.table`</span>. Add a LIMIT clause for large tables.
+              </p>
+            </div>
+
+            {/* Status + Run button row */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs" style={{ color: T.dim }}>
+                {bqStatus && <span style={{ color: T.success }}>{bqStatus}</span>}
+              </div>
+              <button
+                onClick={handleBigQuery}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold"
+                style={{
+                  background: loading ? T.s3 : T.accent,
+                  color: loading ? T.muted : "#000",
+                  opacity: loading ? 0.85 : 1,
+                  transition: "background 0.15s",
+                  minWidth: 140,
+                  justifyContent: "center",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <span
+                      className="h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin shrink-0"
+                    />
+                    {bqStatus || "Running…"}
+                  </>
+                ) : (
+                  <>
+                    <Play size={14} />
+                    Run Query
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 
