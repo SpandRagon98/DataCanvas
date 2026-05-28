@@ -61,7 +61,7 @@ export default function DatasetSlots() {
                 className="ml-2 rounded-full px-2 py-0.5 text-xs font-bold"
                 style={{ background: T.s3, color: T.dim }}
               >
-                {datasets.length}
+                {datasets.filter((d) => !d.isSystemTable).length}
               </span>
             </h2>
             <p className="text-xs" style={{ color: T.muted }}>
@@ -79,9 +79,9 @@ export default function DatasetSlots() {
         </button>
       </div>
 
-      {/* Dataset cards */}
+      {/* Dataset cards — system tables (Calendar) are hidden here; they appear in the Data Model only */}
       <div className="flex flex-wrap gap-3">
-        {datasets.map((ds) => {
+        {datasets.filter((ds) => !ds.isSystemTable).map((ds) => {
           const isActive = ds.id === activeDatasetId;
           const isEditing = editingId === ds.id;
           const badge = SOURCE_BADGE[ds.sourceType] || SOURCE_BADGE.file;

@@ -109,12 +109,12 @@ function DatasetCard({
         userSelect: "none",
         transition: "border-color 120ms",
       }}
-      onMouseDown={(e) => e.stopPropagation()}
-      onMouseUp={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
     >
       {/* Header — drag handle */}
       <div
-        onMouseDown={onHeaderDown}
+        onPointerDown={onHeaderDown}
         style={{
           height: HEADER_H,
           background: T.sidebarBg,
@@ -124,6 +124,7 @@ function DatasetCard({
           gap: 8,
           padding: "0 10px",
           cursor: "grab",
+          touchAction: "none",   // prevent scroll competing with drag
         }}
       >
         <Grip size={12} style={{ color: T.dim, flexShrink: 0 }} />
@@ -185,8 +186,8 @@ function DatasetCard({
 
             {/* Port dot — drag target / source */}
             <div
-              onMouseDown={(e) => onPortDown(e, ds.id, col, idx)}
-              onMouseUp={(e) => onPortUp(e, ds.id, col)}
+              onPointerDown={(e) => onPortDown(e, ds.id, col, idx)}
+              onPointerUp={(e) => onPortUp(e, ds.id, col)}
               style={{
                 width: PORT_R * 2,
                 height: PORT_R * 2,
@@ -195,11 +196,12 @@ function DatasetCard({
                 marginLeft: 8,
                 flexShrink: 0,
                 cursor: "crosshair",
+                touchAction: "none",
                 transition: "background 120ms, transform 120ms",
                 transform: isTarget ? "scale(1.4)" : "scale(1)",
               }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = "#60a5fa"; e.currentTarget.style.transform = "scale(1.3)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = isTarget ? "#60a5fa" : T.border; e.currentTarget.style.transform = "scale(1)"; }}
+              onPointerEnter={(e) => { e.currentTarget.style.background = "#60a5fa"; e.currentTarget.style.transform = "scale(1.3)"; }}
+              onPointerLeave={(e) => { e.currentTarget.style.background = isTarget ? "#60a5fa" : T.border; e.currentTarget.style.transform = "scale(1)"; }}
             />
           </div>
         );
@@ -310,15 +312,20 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
       setDrawLine(null);
     };
 
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    // Use pointer events for reliable drag termination across all input devices.
+    // pointercancel fires when the browser interrupts the pointer (e.g. mouse
+    // released outside the window, touch cancelled by scroll, etc.) — this is
+    // the primary fix for the "card stays attached after mouse release" bug.
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup",   onUp);
+    window.addEventListener("pointercancel", onUp);
     window.addEventListener("blur", onBlur);
     document.addEventListener("visibilitychange", onBlur);
     return () => {
-      // Always clean up drag state on unmount
       dragRef.current = { mode: "idle" };
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup",   onUp);
+      window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", onBlur);
     };
@@ -334,7 +341,7 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
       startX: e.clientX,
       startY: e.clientY,
       origPan: { ...panRef.current },
-      _pending: true,           // Wait for threshold before activating
+      _pending: true,
       _startClientX: e.clientX,
       _startClientY: e.clientY,
     };
@@ -455,8 +462,8 @@ export default function ModelCanvas({ selectedRelId, onSelectRel }) {
     <div
       ref={containerRef}
       className="relative flex-1 overflow-hidden"
-      style={{ background: T.bg, cursor: cursorMap[canvasMode] }}
-      onMouseDown={onBgDown}
+      style={{ background: T.bg, cursor: cursorMap[canvasMode], touchAction: "none" }}
+      onPointerDown={onBgDown}
     >
       {/* Panned world ──────────────────────────────────────────────────────── */}
       <div

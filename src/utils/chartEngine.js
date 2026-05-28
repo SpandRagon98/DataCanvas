@@ -54,6 +54,17 @@ const makeCompositeX = (row, xFields) => {
   return xFields.map((field) => row[field] ?? "(Blank)").join(" / ");
 };
 
+/**
+ * If the first xField has a hidden sort-key column (_sort_<field>), return it.
+ * Used to sort Calendar string fields (e.g. "Month Year") chronologically.
+ */
+const getXSortKey = (row, xFields) => {
+  if (!xFields?.length) return undefined;
+  const sortCol = `_sort_${xFields[0]}`;
+  const v = row[sortCol];
+  return v !== undefined ? Number(v) : undefined;
+};
+
 export const buildVisualData = ({
   rows,
   xFields,
@@ -73,7 +84,12 @@ export const buildVisualData = ({
     const xKey = makeCompositeX(row, xFields);
     const legendKey = legendField ? row[legendField] ?? "(Blank)" : null;
 
-    if (!grouped[xKey]) grouped[xKey] = { x: xKey };
+    if (!grouped[xKey]) {
+      grouped[xKey] = { x: xKey };
+      // Capture the Calendar sort key on first encounter of this x value
+      const sk = getXSortKey(row, xFields);
+      if (sk !== undefined) grouped[xKey].__sortVal = sk;
+    }
 
     if (legendField) {
       if (!grouped[xKey][legendKey]) grouped[xKey][legendKey] = {};
@@ -141,13 +157,21 @@ export const buildVisualData = ({
     return result;
   });
 
-  output.sort((a, b) =>
-    sortDirection === "asc"
+  // Sort: use numeric Calendar sort-key when available (chronological),
+  // otherwise fall back to locale-aware string comparison.
+  output.sort((a, b) => {
+    if (a.__sortVal !== undefined && b.__sortVal !== undefined) {
+      return sortDirection === "asc"
+        ? a.__sortVal - b.__sortVal
+        : b.__sortVal - a.__sortVal;
+    }
+    return sortDirection === "asc"
       ? String(a.x).localeCompare(String(b.x))
-      : String(b.x).localeCompare(String(a.x))
-  );
+      : String(b.x).localeCompare(String(a.x));
+  });
 
-  return output;
+  // Strip internal helper key before returning
+  return output.map(({ __sortVal, ...rest }) => rest);
 };
 
 export const getLegendKeys = (data) => {

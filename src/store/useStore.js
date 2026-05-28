@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { createEmptyScenario } from "../utils/scenarioEngine";
 import { log, A } from "../lib/auditLog";
+import { ensureCalendarTable, CALENDAR_DATASET_ID } from "../utils/calendarTable";
 
 const DEMO_DATA = [
   { Date: "2026-01-01", Region: "North", Product: "Laptop", Category: "Electronics", Revenue: 120000, Cost: 90000, Profit: 30000, Units: 12, Salesperson: "Aman" },
@@ -103,7 +104,7 @@ const createTextboxItem = (existingItems = []) => {
 const { columns: demoColumns, dataTypes: demoTypes } = buildColumns(DEMO_DATA);
 const initialDashboard = createDefaultDashboard();
 
-const initialDatasets = [{
+const _baseDemoDatasets = [{
   id: DEMO_DATASET_ID,
   name: "Demo Sales",
   rows: DEMO_DATA,
@@ -112,6 +113,12 @@ const initialDatasets = [{
   sourceType: "demo",
   sourceConfig: {},
 }];
+
+// Generate Calendar table from demo data at startup
+const {
+  datasets:      initialDatasets,
+  relationships: initialRelationships,
+} = ensureCalendarTable(_baseDemoDatasets, []);
 
 export const useStore = create(
   persist(
@@ -161,7 +168,7 @@ export const useStore = create(
       columnAliases: {},
 
       // ── Data Modelling — relationships & canvas layout ──
-      relationships: [],
+      relationships: initialRelationships,
       modelLayout: {},   // { [datasetId]: { x, y } }
 
       // ── Measures (DAX) ──
@@ -214,11 +221,16 @@ export const useStore = create(
         log({ action: A.DATA_IMPORTED, target: name || "Imported Dataset",
               detail: `${data.length.toLocaleString()} rows, ${columns.length} columns`,
               workbook_id: useStore.getState().cloudWorkbookId });
+
+        // Generate / refresh the Calendar dimension table
+        const { datasets: withCal, relationships: autoRels } =
+          ensureCalendarTable([newDataset], []);
+
         set({
           rawData: data,
           columns,
           dataTypes: types,
-          datasets: [newDataset],
+          datasets: withCal,
           activeDatasetId: id,
           filters: {},
           visuals: [],
@@ -230,7 +242,7 @@ export const useStore = create(
           scenarios: [],
           activeScenarioId: null,
           filterBookmarks: [],
-          relationships: [],
+          relationships: autoRels,
           modelLayout: {},
           measures: [],
           crossFilter: {},
@@ -252,11 +264,22 @@ export const useStore = create(
           sourceType: "file",
           sourceConfig: {},
         }];
+
+        const loadedDatasets = wb.datasets ?? fallbackDatasets;
+        const loadedRels     = wb.relationships ?? [];
+
+        // Ensure Calendar is present and up-to-date
+        const hasCalendar = loadedDatasets.some((d) => d.id === CALENDAR_DATASET_ID);
+        const { datasets: datasetsWithCal, relationships: relsWithCal } =
+          hasCalendar
+            ? { datasets: loadedDatasets, relationships: loadedRels }
+            : ensureCalendarTable(loadedDatasets, loadedRels);
+
         set({
           rawData: wb.rawData ?? DEMO_DATA,
           columns: wb.columns ?? demoColumns,
           dataTypes: wb.dataTypes ?? demoTypes,
-          datasets: wb.datasets ?? fallbackDatasets,
+          datasets: datasetsWithCal,
           activeDatasetId: wb.activeDatasetId ?? fallbackId,
           apiConnectors: wb.apiConnectors ?? [],
           filters: wb.filters ?? {},
@@ -270,7 +293,7 @@ export const useStore = create(
           scenarios: wb.scenarios ?? [],
           activeScenarioId: wb.activeScenarioId ?? null,
           filterBookmarks: wb.filterBookmarks ?? [],
-          relationships: wb.relationships ?? [],
+          relationships: relsWithCal,
           modelLayout: wb.modelLayout ?? {},
           measures: wb.measures ?? [],
           crossFilter: {},
@@ -293,12 +316,17 @@ export const useStore = create(
             sourceType,
             sourceConfig,
           };
+          // Rebuild Calendar using all non-system datasets + the new one
+          const nonCalendar = state.datasets.filter((d) => d.id !== CALENDAR_DATASET_ID);
+          const { datasets: withCal, relationships: autoRels } =
+            ensureCalendarTable([...nonCalendar, newDataset], state.relationships);
           return {
-            datasets: [...state.datasets, newDataset],
+            datasets: withCal,
             activeDatasetId: id,
             rawData: rows,
             columns,
             dataTypes,
+            relationships: autoRels,
             filters: {},
             crossFilter: {},
           };
