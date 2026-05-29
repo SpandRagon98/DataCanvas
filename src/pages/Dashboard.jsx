@@ -1,17 +1,21 @@
 import {
   Plus, Pencil, Trash2, LayoutDashboard, Grid3x3, Maximize2, X,
   ChevronLeft, ChevronRight, StickyNote, Download, Type as TypeIcon,
-  Palette, Hash, AlignLeft, Settings2,
+  Palette, Hash, AlignLeft, Settings2, Sparkles, ChevronDown, ChevronUp,
+  Loader2, RefreshCw, AlertCircle, Eye, EyeOff,
 } from "lucide-react";
-import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import html2canvas      from "html2canvas";
-import { useStore }     from "../store/useStore";
+import {
+  useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect,
+} from "react";
+import html2canvas        from "html2canvas";
+import { useStore }       from "../store/useStore";
 import { DEFAULT_TILE_STYLE } from "../store/useStore";
-import { useEffectiveData } from "../hooks/useEffectiveData";
-import VisualRenderer   from "../components/builder/VisualRenderer";
-import VirtualDashboardItem from "../components/dashboard/VirtualDashboardItem";
-import ColorPickerInput from "../components/builder/ColorPickerInput";
-import { useTheme }     from "../styles/theme";
+import { useEffectiveData }   from "../hooks/useEffectiveData";
+import VisualRenderer     from "../components/builder/VisualRenderer";
+import VirtualDashboardItem   from "../components/dashboard/VirtualDashboardItem";
+import ColorPickerInput   from "../components/builder/ColorPickerInput";
+import { useTheme }       from "../styles/theme";
+import { callAI, AI_ENABLED } from "../services/aiClient";
 
 const GRID_SIZE = 40;
 const snap = (v) => Math.round(v / GRID_SIZE) * GRID_SIZE;
@@ -22,7 +26,143 @@ const ANNOTATION_COLORS = [
   "rgba(167,139,250,0.18)",
 ];
 
-// ── Annotation sticky note (unchanged) ───────────────────────────────────
+// ── ResponsiveChart: uses ResizeObserver so charts fill the tile exactly ─────
+function ResponsiveChart({ visual, rawData, filters, crossFilter }) {
+  const containerRef = useRef(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      setSize({ w: Math.floor(width), h: Math.floor(height) });
+    });
+    ro.observe(el);
+    setSize({ w: el.clientWidth, h: el.clientHeight });
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ width: "100%", height: "100%", minHeight: 60, overflow: "hidden" }}>
+      {size.w > 0 && size.h > 0 && (
+        <VisualRenderer
+          visual={visual}
+          rawData={rawData}
+          filters={filters}
+          crossFilter={crossFilter}
+          compact
+          containerWidth={size.w}
+          containerHeight={size.h}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Inline AI Insights for a single dashboard tile ────────────────────────────
+function TileAIInsights({ visual, chartData, T }) {
+  const [open,     setOpen]     = useState(false);
+  const [insights, setInsights] = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
+  const cacheKeyRef = useRef("");
+
+  const cacheKey = JSON.stringify({
+    chartType:   visual?.chartType,
+    xFields:     visual?.xFields,
+    yFields:     visual?.yFields,
+    aggregation: visual?.aggregation,
+    dataLen:     chartData?.length,
+  });
+
+  const fetchInsights = useCallback(async (force = false) => {
+    if (!force && cacheKeyRef.current === cacheKey && insights) return;
+    setLoading(true);
+    setError("");
+    try {
+      const trimmedData = (chartData || []).slice(0, 30);
+      const result = await callAI({
+        task: "insights",
+        payload: {
+          chartType:   visual?.chartType,
+          xAxis:       visual?.xFields?.join(", ") || "",
+          yAxis:       visual?.yFields?.join(", ") || "",
+          aggregation: visual?.aggregation || "sum",
+          data:        trimmedData,
+        },
+      });
+      setInsights(result);
+      cacheKeyRef.current = cacheKey;
+    } catch (err) {
+      setError(err.message || "Failed to generate insights.");
+    } finally {
+      setLoading(false);
+    }
+  }, [cacheKey, chartData, visual, insights]);
+
+  if (!AI_ENABLED || !chartData?.length) return null;
+
+  const handleToggle = () => {
+    const willOpen = !open;
+    setOpen(willOpen);
+    if (willOpen && !insights && !loading) fetchInsights();
+  };
+
+  return (
+    <div className="border-t" style={{ borderColor: T.border, background: "rgba(0,0,0,0.04)" }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleToggle(); }}
+        className="flex w-full items-center justify-between px-3 py-1.5 text-[11px] font-semibold"
+        style={{ color: T.dim }}
+      >
+        <span className="flex items-center gap-1.5">
+          <Sparkles size={10} style={{ color: T.accent }} />
+          AI Insights
+        </span>
+        {open ? <ChevronUp size={10} style={{ color: T.dim }} /> : <ChevronDown size={10} style={{ color: T.dim }} />}
+      </button>
+      {open && (
+        <div
+          className="border-t px-3 py-2"
+          style={{ borderColor: T.border, maxHeight: 140, overflowY: "auto" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {loading && (
+            <div className="flex items-center gap-1.5 text-[11px]" style={{ color: T.muted }}>
+              <Loader2 size={10} className="animate-spin" /> Generating…
+            </div>
+          )}
+          {error && (
+            <div className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px]"
+              style={{ background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)", color: "#ef4444" }}>
+              <AlertCircle size={10} /> {error}
+            </div>
+          )}
+          {insights && !loading && (
+            <div className="space-y-1">
+              {insights.split("\n").filter(Boolean).map((line, i) => (
+                <p key={i} className="text-[11px] leading-relaxed" style={{ color: T.dim }}>{line}</p>
+              ))}
+              <button onClick={() => fetchInsights(true)}
+                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: T.accent }}>
+                <RefreshCw size={9} /> Refresh
+              </button>
+            </div>
+          )}
+          {!insights && !loading && !error && (
+            <button onClick={() => fetchInsights()}
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium" style={{ color: T.accent }}>
+              <Sparkles size={10} /> Generate insights
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Annotation sticky note ────────────────────────────────────────────────────
 function Annotation({ ann, dashboardId, snapEnabled, T }) {
   const updateDashboardAnnotation = useStore((s) => s.updateDashboardAnnotation);
   const removeDashboardAnnotation = useStore((s) => s.removeDashboardAnnotation);
@@ -56,7 +196,8 @@ function Annotation({ ann, dashboardId, snapEnabled, T }) {
       style={{ left: ann.x, top: ann.y, width: ann.w || 220, background: ann.color || ANNOTATION_COLORS[0], borderColor: T.border, zIndex: 10 }}>
       <div className="flex cursor-move items-center justify-between gap-2 rounded-t-[14px] px-3 py-2"
         style={{ background: "rgba(0,0,0,0.08)" }} onMouseDown={beginDrag}>
-        <button onClick={cycleColor} className="h-4 w-4 rounded-full border-2 border-white" style={{ background: ann.color }} title="Change color" />
+        <button onClick={cycleColor} className="h-4 w-4 rounded-full border-2 border-white"
+          style={{ background: ann.color }} title="Change color" />
         <div className="flex items-center gap-1">
           <button onClick={() => setEditing((o) => !o)}
             className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
@@ -81,20 +222,21 @@ function Annotation({ ann, dashboardId, snapEnabled, T }) {
   );
 }
 
-// ── Textbox item ──────────────────────────────────────────────────────────
+// ── Enhanced TextboxItem ──────────────────────────────────────────────────────
 function TextboxItem({ item, dashboardId, snapEnabled, isSelected, onSelect, canvasRef, T }) {
-  const updateDashboardItem  = useStore((s) => s.updateDashboardItem);
-  const updateDashboardItemLayout = useStore((s) => s.updateDashboardItemLayout);
-  const removeDashboardItem  = useStore((s) => s.removeDashboardItem);
+  const updateDashboardItem        = useStore((s) => s.updateDashboardItem);
+  const updateDashboardItemLayout  = useStore((s) => s.updateDashboardItemLayout);
+  const removeDashboardItem        = useStore((s) => s.removeDashboardItem);
   const [editing, setEditing] = useState(false);
 
-  const ts    = item.textStyle || {};
-  const tile  = item.tileStyle || {};
+  const ts   = item.textStyle || {};
+  const tile = item.tileStyle || {};
 
   const bgColor      = tile.bgColor || "transparent";
+  const borderWidth  = tile.borderWidth ?? 1;
   const borderColor  = tile.borderEnabled !== false ? (tile.borderColor || T.border) : "transparent";
-  const borderRadius = tile.borderRadius ?? 12;
-  const shadow       = tile.shadow !== false ? "0 2px 8px rgba(0,0,0,0.12)" : "none";
+  const borderRadius = tile.borderRadius ?? 8;
+  const shadow       = tile.shadow !== false ? (tile.shadowValue || "0 2px 8px rgba(0,0,0,0.12)") : "none";
   const padding      = tile.padding ?? 12;
   const opacity      = tile.transparency ?? 1;
 
@@ -128,6 +270,19 @@ function TextboxItem({ item, dashboardId, snapEnabled, isSelected, onSelect, can
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
   };
 
+  const textContentStyle = {
+    padding,
+    color:       ts.color      || tile.textColor || T.text,
+    fontFamily:  ts.fontFamily || tile.fontFamily || "inherit",
+    fontSize:    ts.fontSize   || 15,
+    fontWeight:  ts.fontWeight || 400,
+    fontStyle:   ts.italic     ? "italic" : "normal",
+    textAlign:   ts.align      || "left",
+    lineHeight:  ts.lineHeight || 1.5,
+    wordBreak:   ts.noWrap     ? "normal" : "break-word",
+    whiteSpace:  ts.noWrap     ? "nowrap" : "pre-wrap",
+  };
+
   return (
     <div
       onClick={onSelect}
@@ -136,13 +291,13 @@ function TextboxItem({ item, dashboardId, snapEnabled, isSelected, onSelect, can
         left: item.layout.x, top: item.layout.y,
         width: item.layout.w, height: item.layout.h,
         background: bgColor, borderRadius,
-        border: `${tile.borderEnabled !== false ? 1 : 0}px solid ${borderColor}`,
+        border: `${tile.borderEnabled !== false ? borderWidth : 0}px solid ${borderColor}`,
         boxShadow: isSelected ? `0 0 0 2px ${T.accent}, ${shadow}` : shadow,
         opacity, overflow: "hidden",
         zIndex: isSelected ? 5 : 2,
       }}
     >
-      {/* Drag handle — top strip */}
+      {/* Drag handle */}
       <div
         className="flex cursor-move items-center justify-between gap-2 px-2 py-1"
         style={{ background: "rgba(0,0,0,0.06)", minHeight: 28 }}
@@ -155,7 +310,6 @@ function TextboxItem({ item, dashboardId, snapEnabled, isSelected, onSelect, can
           style={{ color: T.dim }}><X size={11} /></button>
       </div>
 
-      {/* Content */}
       {editing ? (
         <textarea
           autoFocus
@@ -163,30 +317,13 @@ function TextboxItem({ item, dashboardId, snapEnabled, isSelected, onSelect, can
           onChange={(e) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { text: e.target.value } })}
           onBlur={() => setEditing(false)}
           onMouseDown={(e) => e.stopPropagation()}
-          className="w-full h-full resize-none bg-transparent outline-none"
-          style={{
-            padding,
-            color: ts.color || T.text,
-            fontFamily: ts.fontFamily || "inherit",
-            fontSize:   ts.fontSize   || 15,
-            fontWeight: ts.fontWeight || 400,
-            fontStyle:  ts.italic     ? "italic" : "normal",
-            textAlign:  ts.align      || "left",
-          }}
+          className="w-full resize-none bg-transparent outline-none"
+          style={{ ...textContentStyle, height: "calc(100% - 28px)" }}
         />
       ) : (
         <div
-          className="w-full h-full cursor-text whitespace-pre-wrap break-words"
-          style={{
-            padding,
-            color:      ts.color      || T.text,
-            fontFamily: ts.fontFamily || "inherit",
-            fontSize:   ts.fontSize   || 15,
-            fontWeight: ts.fontWeight || 400,
-            fontStyle:  ts.italic     ? "italic" : "normal",
-            textAlign:  ts.align      || "left",
-            overflow:   "auto",
-          }}
+          className="cursor-text overflow-auto"
+          style={{ ...textContentStyle, height: "calc(100% - 28px)" }}
           onDoubleClick={(e) => { e.stopPropagation(); setEditing(true); }}
         >
           {item.text || <span style={{ opacity: 0.35 }}>Double-click to edit text…</span>}
@@ -202,7 +339,7 @@ function TextboxItem({ item, dashboardId, snapEnabled, isSelected, onSelect, can
   );
 }
 
-// ── Tile Format Panel ─────────────────────────────────────────────────────
+// ── Tile Format Panel ─────────────────────────────────────────────────────────
 function TileFormatPanel({ item, dashboardId, T }) {
   const updateDashboardItem = useStore((s) => s.updateDashboardItem);
 
@@ -214,19 +351,31 @@ function TileFormatPanel({ item, dashboardId, T }) {
   );
 
   const tile = item.tileStyle || {};
-  const ts   = item.textStyle || {};
+  const ts   = item.textStyle  || {};
   const vc   = item.visualConfig || {};
   const nf   = vc.numFormat || {};
 
-  const patchTile = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { tileStyle: { ...DEFAULT_TILE_STYLE, ...tile, ...patch } } });
-  const patchText = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { textStyle: { ...ts, ...patch } } });
+  const patchTile   = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { tileStyle: { ...DEFAULT_TILE_STYLE, ...tile, ...patch } } });
+  const patchText   = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { textStyle: { ...ts, ...patch } } });
+  const patchVisual = (patch) => {
+    if (item.type !== "visual") return;
+    updateDashboardItem({ dashboardId, itemId: item.id, patch: { visualConfig: { ...vc, ...patch } } });
+  };
   const patchNumFmt = (patch) => {
     if (item.type !== "visual") return;
     updateDashboardItem({ dashboardId, itemId: item.id, patch: { visualConfig: { ...vc, numFormat: { ...nf, ...patch } } } });
   };
 
-  const iLabel = { display: "block", fontSize: 11, color: T.muted, marginBottom: 3 };
+  const iLabel  = { display: "block", fontSize: 11, color: T.muted, marginBottom: 3 };
   const iSelect = { background: T.s2, borderColor: T.border, color: T.text, width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 8, border: `1px solid ${T.border}`, outline: "none" };
+  const Toggle  = ({ val, onChange }) => (
+    <button onClick={() => onChange(!val)}
+      className="relative inline-flex h-5 w-9 items-center rounded-full transition shrink-0"
+      style={{ background: val ? T.accent : T.border }}>
+      <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+        style={{ transform: val ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+    </button>
+  );
 
   return (
     <div className="flex flex-col overflow-y-auto h-full" style={{ fontSize: 12, color: T.text }}>
@@ -246,35 +395,37 @@ function TileFormatPanel({ item, dashboardId, T }) {
             style={{ color: T.muted }}><Palette size={10} /> Tile Style</div>
           <div className="space-y-2.5">
             <div>
-              <label style={iLabel}>Background Color</label>
+              <label style={iLabel}>Background</label>
               <ColorPickerInput value={tile.bgColor || "#1a1a2e"} onChange={(c) => patchTile({ bgColor: c })} />
             </div>
-            <div className="flex items-center gap-2">
-              <label style={{ ...iLabel, marginBottom: 0 }}>Border</label>
-              <button onClick={() => patchTile({ borderEnabled: !tile.borderEnabled })}
-                className="relative inline-flex h-5 w-9 items-center rounded-full transition shrink-0"
-                style={{ background: tile.borderEnabled !== false ? T.accent : T.border }}>
-                <span className="inline-block h-3 w-3 rounded-full bg-white transition"
-                  style={{ transform: tile.borderEnabled !== false ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
-              </button>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label style={{ ...iLabel, marginBottom: 0 }}>Border</label>
+                <Toggle val={tile.borderEnabled !== false} onChange={(v) => patchTile({ borderEnabled: v })} />
+              </div>
               {tile.borderEnabled !== false && (
-                <ColorPickerInput value={tile.borderColor || T.border} onChange={(c) => patchTile({ borderColor: c })} />
+                <div className="mt-1.5 space-y-1.5">
+                  <ColorPickerInput value={tile.borderColor || T.border} onChange={(c) => patchTile({ borderColor: c })} />
+                  <div>
+                    <label style={iLabel}>Border Width: {tile.borderWidth ?? 1}px</label>
+                    <input type="range" min={1} max={6} value={tile.borderWidth ?? 1}
+                      onChange={(e) => patchTile({ borderWidth: +e.target.value })}
+                      style={{ width: "100%", accentColor: T.accent }} />
+                  </div>
+                </div>
               )}
             </div>
             <div>
-              <label style={iLabel}>Border Radius: {tile.borderRadius ?? 16}px</label>
-              <input type="range" min={0} max={32} value={tile.borderRadius ?? 16}
+              <label style={iLabel}>Corner Radius: {tile.borderRadius ?? 8}px</label>
+              <input type="range" min={0} max={32} value={tile.borderRadius ?? 8}
                 onChange={(e) => patchTile({ borderRadius: +e.target.value })}
                 style={{ width: "100%", accentColor: T.accent }} />
             </div>
-            <div className="flex items-center gap-2">
-              <label style={{ ...iLabel, marginBottom: 0 }}>Shadow</label>
-              <button onClick={() => patchTile({ shadow: !tile.shadow })}
-                className="relative inline-flex h-5 w-9 items-center rounded-full transition"
-                style={{ background: tile.shadow !== false ? T.accent : T.border }}>
-                <span className="inline-block h-3 w-3 rounded-full bg-white transition"
-                  style={{ transform: tile.shadow !== false ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
-              </button>
+            <div>
+              <div className="flex items-center justify-between">
+                <label style={{ ...iLabel, marginBottom: 0 }}>Shadow</label>
+                <Toggle val={tile.shadow !== false} onChange={(v) => patchTile({ shadow: v })} />
+              </div>
             </div>
             <div>
               <label style={iLabel}>Opacity: {Math.round((tile.transparency ?? 1) * 100)}%</label>
@@ -283,13 +434,98 @@ function TileFormatPanel({ item, dashboardId, T }) {
                 style={{ width: "100%", accentColor: T.accent }} />
             </div>
             <div>
-              <label style={iLabel}>Padding: {tile.padding ?? 12}px</label>
-              <input type="range" min={0} max={32} value={tile.padding ?? 12}
+              <label style={iLabel}>Padding: {tile.padding ?? 0}px</label>
+              <input type="range" min={0} max={32} value={tile.padding ?? 0}
                 onChange={(e) => patchTile({ padding: +e.target.value })}
                 style={{ width: "100%", accentColor: T.accent }} />
             </div>
           </div>
         </section>
+
+        {/* ── Title (visual tiles) ── */}
+        {item.type === "visual" && (
+          <section>
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
+              style={{ color: T.muted }}><TypeIcon size={10} /> Title</div>
+            <div className="space-y-2.5">
+              <div>
+                <div className="flex items-center justify-between">
+                  <label style={{ ...iLabel, marginBottom: 0 }}>Show Title</label>
+                  <Toggle val={tile.showTitle !== false} onChange={(v) => patchTile({ showTitle: v })} />
+                </div>
+              </div>
+              {tile.showTitle !== false && (
+                <>
+                  <div>
+                    <label style={iLabel}>Title Text</label>
+                    <input
+                      value={vc.title || ""}
+                      onChange={(e) => patchVisual({ title: e.target.value })}
+                      className="w-full rounded-lg border px-2 py-1.5 text-xs outline-none"
+                      style={{ background: T.s2, borderColor: T.border, color: T.text }}
+                    />
+                  </div>
+                  <div>
+                    <label style={iLabel}>Title Size: {tile.titleSize ?? 13}px</label>
+                    <input type="range" min={10} max={28} value={tile.titleSize ?? 13}
+                      onChange={(e) => patchTile({ titleSize: +e.target.value })}
+                      style={{ width: "100%", accentColor: T.accent }} />
+                  </div>
+                  <div>
+                    <label style={iLabel}>Title Color</label>
+                    <ColorPickerInput value={tile.titleColor || T.text} onChange={(c) => patchTile({ titleColor: c })} />
+                  </div>
+                  <div>
+                    <label style={iLabel}>Title Align</label>
+                    <div className="flex gap-1.5">
+                      {["left","center","right"].map((a) => (
+                        <button key={a} onClick={() => patchTile({ titleAlign: a })}
+                          className="flex-1 rounded-lg border py-1 text-xs capitalize transition"
+                          style={{ background: (tile.titleAlign || "left") === a ? T.accent : T.s2, color: (tile.titleAlign || "left") === a ? "#000" : T.text, borderColor: T.border }}>
+                          {a}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Chart Options (visual tiles) ── */}
+        {item.type === "visual" && (
+          <section>
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
+              style={{ color: T.muted }}><Settings2 size={10} /> Chart Options</div>
+            <div className="space-y-2.5">
+              <div>
+                <div className="flex items-center justify-between">
+                  <label style={{ ...iLabel, marginBottom: 0 }}>Gridlines</label>
+                  <Toggle val={vc.showGridlines !== false} onChange={(v) => patchVisual({ showGridlines: v })} />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <label style={{ ...iLabel, marginBottom: 0 }}>Legend</label>
+                  <Toggle val={vc.showLegend !== false} onChange={(v) => patchVisual({ showLegend: v })} />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between">
+                  <label style={{ ...iLabel, marginBottom: 0 }}>Axis Labels</label>
+                  <Toggle val={vc.showAxisLabels !== false} onChange={(v) => patchVisual({ showAxisLabels: v })} />
+                </div>
+              </div>
+              <div>
+                <label style={iLabel}>Axis Font Size: {vc.axisFontSize ?? 11}px</label>
+                <input type="range" min={8} max={18} value={vc.axisFontSize ?? 11}
+                  onChange={(e) => patchVisual({ axisFontSize: +e.target.value })}
+                  style={{ width: "100%", accentColor: T.accent }} />
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── Font / Text Style ── */}
         <section>
@@ -309,8 +545,7 @@ function TileFormatPanel({ item, dashboardId, T }) {
             </div>
             <div>
               <label style={iLabel}>Font Size: {tile.fontSize ?? "auto"}px</label>
-              <input type="range" min={10} max={48} step={1}
-                value={tile.fontSize ?? 14}
+              <input type="range" min={10} max={48} step={1} value={tile.fontSize ?? 14}
                 onChange={(e) => patchTile({ fontSize: +e.target.value })}
                 style={{ width: "100%", accentColor: T.accent }} />
             </div>
@@ -331,7 +566,7 @@ function TileFormatPanel({ item, dashboardId, T }) {
           </div>
         </section>
 
-        {/* ── Textbox-specific text style ── */}
+        {/* ── Textbox-specific style ── */}
         {item.type === "textbox" && (
           <section>
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
@@ -355,14 +590,26 @@ function TileFormatPanel({ item, dashboardId, T }) {
                   onChange={(e) => patchText({ fontSize: +e.target.value })}
                   style={{ width: "100%", accentColor: T.accent }} />
               </div>
-              <div className="flex items-center gap-2">
+              <div>
+                <label style={iLabel}>Font Weight</label>
+                <select value={ts.fontWeight ?? 400} onChange={(e) => patchText({ fontWeight: +e.target.value })} style={iSelect}>
+                  <option value={300}>Light</option><option value={400}>Regular</option>
+                  <option value={600}>Semi-Bold</option><option value={700}>Bold</option>
+                </select>
+              </div>
+              <div className="flex items-center justify-between">
                 <label style={{ ...iLabel, marginBottom: 0 }}>Italic</label>
-                <button onClick={() => patchText({ italic: !ts.italic })}
-                  className="relative inline-flex h-5 w-9 items-center rounded-full transition"
-                  style={{ background: ts.italic ? T.accent : T.border }}>
-                  <span className="inline-block h-3 w-3 rounded-full bg-white transition"
-                    style={{ transform: ts.italic ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
-                </button>
+                <Toggle val={!!ts.italic} onChange={(v) => patchText({ italic: v })} />
+              </div>
+              <div className="flex items-center justify-between">
+                <label style={{ ...iLabel, marginBottom: 0 }}>No Wrap</label>
+                <Toggle val={!!ts.noWrap} onChange={(v) => patchText({ noWrap: v })} />
+              </div>
+              <div>
+                <label style={iLabel}>Line Height: {ts.lineHeight ?? 1.5}</label>
+                <input type="range" min={1} max={3} step={0.1} value={ts.lineHeight ?? 1.5}
+                  onChange={(e) => patchText({ lineHeight: +e.target.value })}
+                  style={{ width: "100%", accentColor: T.accent }} />
               </div>
               <div>
                 <label style={iLabel}>Text Color</label>
@@ -372,7 +619,7 @@ function TileFormatPanel({ item, dashboardId, T }) {
           </section>
         )}
 
-        {/* ── Number Formatting (visual tiles only) ── */}
+        {/* ── Number Format (visual tiles) ── */}
         {item.type !== "textbox" && (
           <section>
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
@@ -422,7 +669,96 @@ function TileFormatPanel({ item, dashboardId, T }) {
   );
 }
 
-// ── Main Dashboard component ──────────────────────────────────────────────
+// ── Visual Tile (live chart) ──────────────────────────────────────────────────
+function VisualTile({
+  item, isSelected, dashboardId, snapEnabled, effectiveRows, filters,
+  onSelect, onBeginMove, onBeginResize, onRemove, T,
+}) {
+  const ts = item.tileStyle || {};
+  const vc = item.visualConfig || {};
+
+  // Compute display chartData for AI insights (use filtered rows directly)
+  const chartData = useMemo(() => {
+    if (!effectiveRows?.length) return [];
+    // Lightweight sample: limit to 30 points for AI
+    return effectiveRows.slice(0, 30);
+  }, [effectiveRows]);
+
+  const titleSize  = ts.titleSize ?? 13;
+  const titleColor = ts.titleColor || T.text;
+  const titleAlign = ts.titleAlign || "left";
+  const showTitle  = ts.showTitle !== false;
+
+  return (
+    <VirtualDashboardItem
+      className="absolute"
+      style={{
+        left: item.layout.x, top: item.layout.y,
+        width: item.layout.w, height: item.layout.h,
+        borderRadius: ts.borderRadius ?? 8,
+        border: `${ts.borderEnabled !== false ? (ts.borderWidth ?? 1) : 0}px solid ${ts.borderEnabled !== false ? (ts.borderColor || T.border) : "transparent"}`,
+        background:  ts.bgColor || T.s2,
+        boxShadow: isSelected
+          ? `0 0 0 2px ${T.accent}, ${ts.shadow !== false ? "0 4px 18px rgba(0,0,0,0.18)" : "none"}`
+          : ts.shadow !== false ? "0 4px 16px rgba(0,0,0,0.12)" : "none",
+        opacity:    ts.transparency ?? 1,
+        fontFamily: ts.fontFamily   || "inherit",
+        fontSize:   ts.fontSize     ? ts.fontSize + "px" : undefined,
+        fontWeight: ts.fontWeight   || undefined,
+        color:      ts.textColor    || T.text,
+        zIndex: isSelected ? 5 : 2,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+      title={vc.title}
+      onClick={(e) => { e.stopPropagation(); onSelect(); }}
+    >
+      {/* Header — drag handle */}
+      {showTitle && (
+        <div
+          className="flex shrink-0 cursor-move items-center justify-between gap-3 border-b px-3 py-2"
+          style={{ borderColor: ts.borderColor || T.border }}
+          onMouseDown={(e) => onBeginMove(e)}
+        >
+          <div
+            className="min-w-0 truncate font-semibold"
+            style={{ fontSize: titleSize, color: titleColor, textAlign: titleAlign, flex: 1 }}
+          >
+            {vc.title}
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="rounded-lg border px-2 py-0.5 text-[11px] shrink-0"
+            style={{ background: T.surface, borderColor: T.border, color: T.dim }}>
+            Remove
+          </button>
+        </div>
+      )}
+
+      {/* Chart area — flex-1 so it fills whatever is left */}
+      <div className="flex-1 min-h-0 relative" style={{ padding: ts.padding ?? 0 }}>
+        <ResponsiveChart
+          visual={vc}
+          rawData={effectiveRows}
+          filters={filters}
+        />
+      </div>
+
+      {/* AI Insights strip */}
+      <TileAIInsights visual={vc} chartData={chartData} T={T} />
+
+      {/* Resize handle */}
+      <button
+        className="absolute bottom-1.5 right-1.5 h-4 w-4 cursor-se-resize rounded-sm"
+        style={{ borderRight: `2px solid ${T.accent}`, borderBottom: `2px solid ${T.accent}`, opacity: 0.6 }}
+        onMouseDown={(e) => onBeginResize(e)}
+        title="Resize" />
+    </VirtualDashboardItem>
+  );
+}
+
+// ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const T                    = useTheme();
   const { rows: effectiveRows } = useEffectiveData();
@@ -433,24 +769,26 @@ export default function Dashboard() {
   const renameDashboard      = useStore((s) => s.renameDashboard);
   const removeDashboard      = useStore((s) => s.removeDashboard);
   const setActiveDashboard   = useStore((s) => s.setActiveDashboard);
-  const updateDashboardItemLayout = useStore((s) => s.updateDashboardItemLayout);
-  const removeDashboardItem  = useStore((s) => s.removeDashboardItem);
-  const addDashboardAnnotation    = useStore((s) => s.addDashboardAnnotation);
-  const addTextboxToDashboard     = useStore((s) => s.addTextboxToDashboard);
+  const updateDashboardItemLayout  = useStore((s) => s.updateDashboardItemLayout);
+  const removeDashboardItem        = useStore((s) => s.removeDashboardItem);
+  const addDashboardAnnotation     = useStore((s) => s.addDashboardAnnotation);
+  const addTextboxToDashboard      = useStore((s) => s.addTextboxToDashboard);
 
-  const activeDashboard = useMemo(() => {
-    if (!dashboards?.length) return null;
-    return dashboards.find((d) => d.id === activeDashboardId) || dashboards[0];
-  }, [dashboards, activeDashboardId]);
+  const activeDashboard = useMemo(() =>
+    dashboards?.length
+      ? dashboards.find((d) => d.id === activeDashboardId) || dashboards[0]
+      : null,
+    [dashboards, activeDashboardId]
+  );
 
-  const canvasRef       = useRef(null);
-  const canvasContentRef= useRef(null);
-  const [editingTabId,  setEditingTabId]  = useState(null);
-  const [draftTabName,  setDraftTabName]  = useState("");
-  const [snapEnabled,   setSnapEnabled]   = useState(false);
-  const [presentMode,   setPresentMode]   = useState(false);
-  const [presentIndex,  setPresentIndex]  = useState(0);
-  const [selectedItemId, setSelectedItemId] = useState(null);
+  const canvasRef        = useRef(null);
+  const canvasContentRef = useRef(null);
+  const [editingTabId,    setEditingTabId]    = useState(null);
+  const [draftTabName,    setDraftTabName]    = useState("");
+  const [snapEnabled,     setSnapEnabled]     = useState(false);
+  const [presentMode,     setPresentMode]     = useState(false);
+  const [presentIndex,    setPresentIndex]    = useState(0);
+  const [selectedItemId,  setSelectedItemId]  = useState(null);
   const [formatPanelOpen, setFormatPanelOpen] = useState(false);
 
   const selectedItem = useMemo(() =>
@@ -518,27 +856,11 @@ export default function Dashboard() {
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
   };
 
-  // Build tile inline style from tileStyle settings
-  const tileInlineStyle = (item) => {
-    const ts = item.tileStyle || {};
-    return {
-      background:    ts.bgColor      || T.s2,
-      borderColor:   ts.borderEnabled !== false ? (ts.borderColor || T.border) : "transparent",
-      borderRadius:  ts.borderRadius  ?? 16,
-      boxShadow:     ts.shadow !== false ? "0 2px 16px rgba(0,0,0,0.14)" : "none",
-      opacity:       ts.transparency  ?? 1,
-      fontFamily:    ts.fontFamily    || "inherit",
-      fontSize:      ts.fontSize      ? ts.fontSize + "px" : undefined,
-      fontWeight:    ts.fontWeight    || undefined,
-      color:         ts.textColor     || T.text,
-      border:        `${ts.borderEnabled !== false ? 1 : 0}px solid ${ts.borderEnabled !== false ? (ts.borderColor || T.border) : "transparent"}`,
-    };
-  };
-
-  // ── Presentation Mode ──
+  // ── Presentation mode ──
   if (presentMode) {
     const currentDash = dashboards[presentIndex] || dashboards[0];
     if (!currentDash) return null;
+    const minH = Math.max(560, ...currentDash.items.map((i) => (i.layout?.y || 0) + (i.layout?.h || 300) + 24));
     return (
       <div className="fixed inset-0 z-50 flex flex-col" style={{ background: T.bg }}>
         <div className="flex items-center justify-between gap-4 border-b px-6 py-3" style={{ background: T.surface, borderColor: T.border }}>
@@ -555,29 +877,35 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="relative flex-1 overflow-auto p-4">
-          {!currentDash.items.length ? (
-            <div className="flex h-full items-center justify-center text-sm" style={{ color: T.dim }}>No visuals on this dashboard</div>
-          ) : (
-            <div className="relative" style={{ minHeight: Math.max(560, ...currentDash.items.map((i) => (i.layout?.y || 0) + (i.layout?.h || 300) + 24)) }}>
-              {currentDash.items.map((item) => (
-                item.type === "textbox" ? (
-                  <div key={item.id} className="absolute" style={{ ...tileInlineStyle(item), left: item.layout.x, top: item.layout.y, width: item.layout.w, height: item.layout.h, padding: item.tileStyle?.padding ?? 12, overflow: "auto" }}>
-                    <span style={{ color: (item.textStyle?.color) || T.text }}>{item.text}</span>
+          <div className="relative" style={{ minHeight: minH }}>
+            {currentDash.items.map((item) => (
+              item.type === "textbox" ? (
+                <div key={item.id} className="absolute" style={{
+                  left: item.layout.x, top: item.layout.y,
+                  width: item.layout.w, height: item.layout.h,
+                  padding: item.tileStyle?.padding ?? 12, overflow: "auto",
+                  background: item.tileStyle?.bgColor || "transparent",
+                  borderRadius: item.tileStyle?.borderRadius ?? 8,
+                }}>
+                  <span style={{ color: (item.textStyle?.color) || T.text }}>{item.text}</span>
+                </div>
+              ) : (
+                <div key={item.id} className="absolute flex flex-col" style={{
+                  left: item.layout.x, top: item.layout.y,
+                  width: item.layout.w, height: item.layout.h,
+                  background: T.s2, borderRadius: 8,
+                  border: `1px solid ${T.border}`, overflow: "hidden",
+                }}>
+                  <div className="border-b px-4 py-2 shrink-0" style={{ borderColor: T.border }}>
+                    <div className="truncate text-sm font-semibold" style={{ color: T.text }}>{item.visualConfig?.title}</div>
                   </div>
-                ) : (
-                  <div key={item.id} className="absolute rounded-2xl border shadow-sm"
-                    style={{ left: item.layout.x, top: item.layout.y, width: item.layout.w, height: item.layout.h, background: T.s2, borderColor: T.border }}>
-                    <div className="border-b px-4 py-2" style={{ borderColor: T.border }}>
-                      <div className="truncate text-sm font-semibold" style={{ color: T.text }}>{item.visualConfig?.title}</div>
-                    </div>
-                    <div className="h-[calc(100%-40px)] p-3">
-                      <VisualRenderer visual={item.visualConfig} rawData={effectiveRows} filters={filters} compact />
-                    </div>
+                  <div className="flex-1 min-h-0">
+                    <ResponsiveChart visual={item.visualConfig} rawData={effectiveRows} filters={filters} />
                   </div>
-                )
-              ))}
-            </div>
-          )}
+                </div>
+              )
+            ))}
+          </div>
         </div>
         {dashboards.length > 1 && (
           <div className="flex items-center justify-center gap-2 py-3">
@@ -591,7 +919,7 @@ export default function Dashboard() {
     );
   }
 
-  // ── Normal Dashboard View ──
+  // ── Normal view ──
   const canvasMinHeight = activeDashboard?.items?.length
     ? Math.max(560,
         ...activeDashboard.items.map((i) => (i.layout?.y || 0) + (i.layout?.h || 300) + 24),
@@ -623,8 +951,8 @@ export default function Dashboard() {
               <div className="text-base font-semibold" style={{ color: T.text }}>{activeDashboard?.name || "Dashboard"}</div>
               <div className="text-sm" style={{ color: T.dim }}>No visuals added yet.</div>
               <div className="text-sm" style={{ color: T.dim }}>
-                Go to <span style={{ color: T.accent, fontWeight: 600 }}>Report Builder</span> and click
-                <span style={{ color: T.accent, fontWeight: 600 }}> Add to Dashboard</span>.
+                Go to <span style={{ color: T.accent, fontWeight: 600 }}>Report Builder</span> and click{" "}
+                <span style={{ color: T.accent, fontWeight: 600 }}>Add to Dashboard</span>.
               </div>
             </div>
           ) : (
@@ -632,7 +960,6 @@ export default function Dashboard() {
               {activeDashboard.items.map((item) => {
                 const isSelected = selectedItemId === item.id;
 
-                // ── Textbox item ──
                 if (item.type === "textbox") {
                   return (
                     <TextboxItem
@@ -648,69 +975,24 @@ export default function Dashboard() {
                   );
                 }
 
-                // ── Visual item ──
-                const ts = item.tileStyle || {};
                 return (
-                  <VirtualDashboardItem
+                  <VisualTile
                     key={item.id}
-                    title={item.visualConfig?.title}
-                    className="absolute"
-                    style={{
-                      left: item.layout.x, top: item.layout.y,
-                      width: item.layout.w, height: item.layout.h,
-                      borderRadius: ts.borderRadius ?? 16,
-                      border: `${ts.borderEnabled !== false ? 1 : 0}px solid ${ts.borderEnabled !== false ? (ts.borderColor || T.border) : "transparent"}`,
-                      background: ts.bgColor || T.s2,
-                      boxShadow: isSelected
-                        ? `0 0 0 2px ${T.accent}, ${ts.shadow !== false ? "0 4px 18px rgba(0,0,0,0.18)" : "none"}`
-                        : ts.shadow !== false ? "0 4px 16px rgba(0,0,0,0.12)" : "none",
-                      opacity: ts.transparency ?? 1,
-                      fontFamily: ts.fontFamily || "inherit",
-                      fontSize: ts.fontSize ? ts.fontSize + "px" : undefined,
-                      fontWeight: ts.fontWeight || undefined,
-                      color: ts.textColor || T.text,
-                      zIndex: isSelected ? 5 : 2,
-                    }}
-                    onClick={(e) => { e.stopPropagation(); setSelectedItemId(item.id); }}
-                  >
-                    <div className="flex h-full flex-col" style={{ padding: ts.padding ?? 0 }}>
-                      <div
-                        className="flex shrink-0 cursor-move items-center justify-between gap-3 border-b px-3 py-2"
-                        style={{ borderColor: ts.borderColor || T.border }}
-                        onMouseDown={(e) => beginMove(e, item)}
-                      >
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold" style={{ color: ts.textColor || T.text }}>
-                            {item.visualConfig?.title}
-                          </div>
-                          <div className="text-[10px]" style={{ color: T.muted }}>Drag to move</div>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); removeDashboardItem({ dashboardId: activeDashboard.id, itemId: item.id }); }}
-                          className="rounded-lg border px-2.5 py-1 text-xs shrink-0"
-                          style={{ background: T.surface, borderColor: T.border, color: T.dim }}>
-                          Remove
-                        </button>
-                      </div>
-                      <div className="flex-1 min-h-0 p-2">
-                        <VisualRenderer
-                          visual={item.visualConfig}
-                          rawData={effectiveRows}
-                          filters={filters}
-                          compact
-                        />
-                      </div>
-                      <button
-                        className="absolute bottom-1.5 right-1.5 h-4 w-4 cursor-se-resize rounded-sm"
-                        style={{ borderRight: `2px solid ${T.accent}`, borderBottom: `2px solid ${T.accent}`, opacity: 0.6 }}
-                        onMouseDown={(e) => beginResize(e, item)}
-                        title="Resize" />
-                    </div>
-                  </VirtualDashboardItem>
+                    item={item}
+                    isSelected={isSelected}
+                    dashboardId={activeDashboard.id}
+                    snapEnabled={snapEnabled}
+                    effectiveRows={effectiveRows}
+                    filters={filters}
+                    onSelect={() => setSelectedItemId(item.id)}
+                    onBeginMove={(e) => beginMove(e, item)}
+                    onBeginResize={(e) => beginResize(e, item)}
+                    onRemove={() => removeDashboardItem({ dashboardId: activeDashboard.id, itemId: item.id })}
+                    T={T}
+                  />
                 );
               })}
 
-              {/* Annotations */}
               {(activeDashboard.annotations || []).map((ann) => (
                 <Annotation key={ann.id} ann={ann} dashboardId={activeDashboard.id} snapEnabled={snapEnabled} T={T} />
               ))}
@@ -726,7 +1008,7 @@ export default function Dashboard() {
               return (
                 <div key={dashboard.id}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
-                  style={{ background: isActive ? T.accentDim : T.s2, borderColor: isActive ? "rgba(245,158,11,0.28)" : T.border, transition: "all 150ms ease" }}>
+                  style={{ background: isActive ? T.accentDim : T.s2, borderColor: isActive ? "rgba(245,158,11,0.28)" : T.border }}>
                   {editingTabId === dashboard.id ? (
                     <input autoFocus value={draftTabName} onChange={(e) => setDraftTabName(e.target.value)}
                       onBlur={handleCommitRename}
@@ -734,9 +1016,8 @@ export default function Dashboard() {
                       className="rounded-lg border px-2 py-0.5 text-xs outline-none"
                       style={{ background: T.surface, borderColor: T.border, color: T.text, width: 100 }} />
                   ) : (
-                    <button onClick={() => setActiveDashboard(dashboard.id)} className="text-xs font-semibold" style={{ color: isActive ? T.accent : T.text }}>
-                      {dashboard.name}
-                    </button>
+                    <button onClick={() => setActiveDashboard(dashboard.id)} className="text-xs font-semibold"
+                      style={{ color: isActive ? T.accent : T.text }}>{dashboard.name}</button>
                   )}
                   <button onClick={() => { setEditingTabId(dashboard.id); setDraftTabName(dashboard.name); }}
                     className="rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity" style={{ color: T.dim }}><Pencil size={11} /></button>
@@ -749,46 +1030,37 @@ export default function Dashboard() {
             })}
 
             <button onClick={createDashboard}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold btn-primary"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold"
               style={{ background: T.accent, color: "#000" }}>
               <Plus size={12} /> New
             </button>
-
             <div className="mx-0.5 h-5 w-px" style={{ background: T.border }} />
-
             <button onClick={() => activeDashboard && addDashboardAnnotation({ dashboardId: activeDashboard.id })}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-              style={{ background: T.s2, borderColor: T.border, color: T.dim }} title="Add sticky note">
+              style={{ background: T.s2, borderColor: T.border, color: T.dim }}>
               <StickyNote size={12} /> Note
             </button>
-
             <button onClick={() => activeDashboard && addTextboxToDashboard(activeDashboard.id)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-              style={{ background: T.s2, borderColor: T.border, color: T.dim }} title="Add text box">
+              style={{ background: T.s2, borderColor: T.border, color: T.dim }}>
               <TypeIcon size={12} /> Text Box
             </button>
-
             <button onClick={() => setSnapEnabled((s) => !s)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
               style={{ background: snapEnabled ? T.accentDim : T.s2, borderColor: snapEnabled ? "rgba(245,158,11,0.28)" : T.border, color: snapEnabled ? T.accent : T.dim }}>
               <Grid3x3 size={12} /> Snap
             </button>
-
-            <button onClick={() => { setFormatPanelOpen((o) => !o); }}
+            <button onClick={() => setFormatPanelOpen((o) => !o)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-              style={{ background: formatPanelOpen ? T.accentDim : T.s2, borderColor: formatPanelOpen ? "rgba(245,158,11,0.28)" : T.border, color: formatPanelOpen ? T.accent : T.dim }}
-              title="Format panel">
+              style={{ background: formatPanelOpen ? T.accentDim : T.s2, borderColor: formatPanelOpen ? "rgba(245,158,11,0.28)" : T.border, color: formatPanelOpen ? T.accent : T.dim }}>
               <Palette size={12} /> Format
             </button>
-
             <button onClick={handleExportPNG}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
               style={{ background: T.s2, borderColor: T.border, color: T.dim }}>
               <Download size={12} /> Export
             </button>
-
-            <button
-              onClick={() => { setPresentIndex(dashboards.findIndex((d) => d.id === activeDashboard?.id) || 0); setPresentMode(true); }}
+            <button onClick={() => { setPresentIndex(dashboards.findIndex((d) => d.id === activeDashboard?.id) || 0); setPresentMode(true); }}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
               style={{ background: T.s2, borderColor: T.border, color: T.dim }}>
               <Maximize2 size={12} /> Present
@@ -797,17 +1069,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Format Panel (right sidebar) ── */}
+      {/* ── Format Panel ── */}
       {formatPanelOpen && (
-        <div
-          className="shrink-0 rounded-xl border shadow-sm overflow-hidden flex flex-col"
-          style={{ width: 240, background: T.surface, borderColor: T.border }}
-        >
-          <TileFormatPanel
-            item={selectedItem}
-            dashboardId={activeDashboard?.id}
-            T={T}
-          />
+        <div className="shrink-0 rounded-xl border shadow-sm overflow-hidden flex flex-col"
+          style={{ width: 252, background: T.surface, borderColor: T.border }}>
+          <TileFormatPanel item={selectedItem} dashboardId={activeDashboard?.id} T={T} />
         </div>
       )}
     </div>

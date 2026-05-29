@@ -120,7 +120,10 @@ export const getWorkbookVersions = async (workbookId) => {
 
 // ── Workspaces ────────────────────────────────────────────────────────────────
 
-/** Pass userId, or omit to auto-detect from auth */
+/**
+ * Return only workspaces where the current user is an explicit member.
+ * Pass userId, or omit to auto-detect from auth.
+ */
 export const getMyWorkspaces = async (userId) => {
   if (!supabase) return [];
   const uid = userId ?? (await supabase.auth.getUser()).data.user?.id;
@@ -129,7 +132,10 @@ export const getMyWorkspaces = async (userId) => {
     .from("workspace_members")
     .select("role, workspaces(id, name, owner_id)")
     .eq("user_id", uid);
-  return (data ?? []).map((m) => ({ ...m.workspaces, role: m.role }));
+  // Filter out nulls (RLS may block some rows) and return with role attached
+  return (data ?? [])
+    .filter((m) => m.workspaces != null)
+    .map((m) => ({ ...m.workspaces, role: m.role }));
 };
 
 /** Pass (userId, name) or just (name) */
@@ -153,10 +159,11 @@ export const createWorkspace = async (userIdOrName, maybeName) => {
 
 export const inviteMember = async (workspaceId, email, role = "viewer") => {
   if (!supabase) return null;
+  // Always compare emails lowercase
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("email", email)
+    .eq("email", email.toLowerCase().trim())
     .single();
   if (!profile) return null;
   const { error } = await supabase.from("workspace_members").upsert({

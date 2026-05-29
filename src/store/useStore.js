@@ -47,14 +47,19 @@ export const DEFAULT_TILE_STYLE = {
   bgColor:       null,   // null → theme default
   borderColor:   null,   // null → theme default
   borderEnabled: true,
-  borderRadius:  16,
+  borderWidth:   1,
+  borderRadius:  8,      // Power BI-style tight radius
   shadow:        true,
   transparency:  1,
-  padding:       12,
+  padding:       0,
   fontFamily:    "inherit",
   fontSize:      null,   // null → inherit
   fontWeight:    null,   // null → inherit
   textColor:     null,   // null → theme default
+  showTitle:     true,
+  titleSize:     13,
+  titleColor:    null,
+  titleAlign:    "left",
 };
 
 const createDefaultDashboard = () => ({
