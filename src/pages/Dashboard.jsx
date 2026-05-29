@@ -1,12 +1,13 @@
 import {
   Plus, Pencil, Trash2, LayoutDashboard, Grid3x3, Maximize2, X,
   ChevronLeft, ChevronRight, StickyNote, Download, Type as TypeIcon,
-  Palette, Hash, AlignLeft, Settings2, Sparkles, ChevronDown, ChevronUp,
-  Loader2, RefreshCw, AlertCircle, Eye, EyeOff,
+  Palette, Hash, AlignLeft, Settings2, Sparkles,
+  Loader2, RefreshCw, AlertCircle,
 } from "lucide-react";
 import {
   useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect,
 } from "react";
+import { createPortal } from "react-dom";
 import html2canvas        from "html2canvas";
 import { useStore }       from "../store/useStore";
 import { DEFAULT_TILE_STYLE } from "../store/useStore";
@@ -60,9 +61,11 @@ function ResponsiveChart({ visual, rawData, filters, crossFilter }) {
   );
 }
 
-// ── Inline AI Insights for a single dashboard tile ────────────────────────────
-function TileAIInsights({ visual, chartData, T }) {
+// ── AI Insights popup button (corner icon → fixed popup) ─────────────────────
+function TileAIInsightsButton({ visual, chartData, T }) {
+  const btnRef     = useRef(null);
   const [open,     setOpen]     = useState(false);
+  const [pos,      setPos]      = useState({ top: 0, right: 0 });
   const [insights, setInsights] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
@@ -81,7 +84,6 @@ function TileAIInsights({ visual, chartData, T }) {
     setLoading(true);
     setError("");
     try {
-      const trimmedData = (chartData || []).slice(0, 30);
       const result = await callAI({
         task: "insights",
         payload: {
@@ -89,7 +91,7 @@ function TileAIInsights({ visual, chartData, T }) {
           xAxis:       visual?.xFields?.join(", ") || "",
           yAxis:       visual?.yFields?.join(", ") || "",
           aggregation: visual?.aggregation || "sum",
-          data:        trimmedData,
+          data:        (chartData || []).slice(0, 30),
         },
       });
       setInsights(result);
@@ -101,64 +103,149 @@ function TileAIInsights({ visual, chartData, T }) {
     }
   }, [cacheKey, chartData, visual, insights]);
 
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (!e.target.closest("[data-ai-popup]") && !e.target.closest("[data-ai-btn]")) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
   if (!AI_ENABLED || !chartData?.length) return null;
 
-  const handleToggle = () => {
-    const willOpen = !open;
-    setOpen(willOpen);
-    if (willOpen && !insights && !loading) fetchInsights();
+  const handleClick = (e) => {
+    e.stopPropagation();
+    if (!open) {
+      const rect = btnRef.current?.getBoundingClientRect();
+      if (rect) {
+        setPos({
+          top:   rect.bottom + 6,
+          right: window.innerWidth - rect.right,
+        });
+      }
+      if (!insights && !loading) fetchInsights();
+    }
+    setOpen((o) => !o);
   };
 
   return (
-    <div className="border-t" style={{ borderColor: T.border, background: "rgba(0,0,0,0.04)" }}>
+    <>
+      {/* Sparkle button */}
       <button
-        onClick={(e) => { e.stopPropagation(); handleToggle(); }}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-[11px] font-semibold"
-        style={{ color: T.dim }}
+        ref={btnRef}
+        data-ai-btn="1"
+        onClick={handleClick}
+        title="AI Insights"
+        className="flex h-6 w-6 items-center justify-center rounded-md border transition hover:opacity-90"
+        style={{
+          background: open ? T.accent + "22" : T.s2,
+          borderColor: open ? T.accent : T.border,
+          color: T.accent,
+          flexShrink: 0,
+        }}
       >
-        <span className="flex items-center gap-1.5">
-          <Sparkles size={10} style={{ color: T.accent }} />
-          AI Insights
-        </span>
-        {open ? <ChevronUp size={10} style={{ color: T.dim }} /> : <ChevronDown size={10} style={{ color: T.dim }} />}
+        <Sparkles size={11} />
       </button>
-      {open && (
+
+      {/* Floating popup — rendered in document.body via portal */}
+      {open && createPortal(
         <div
-          className="border-t px-3 py-2"
-          style={{ borderColor: T.border, maxHeight: 140, overflowY: "auto" }}
-          onClick={(e) => e.stopPropagation()}
+          data-ai-popup="1"
+          className="fixed z-[9999] rounded-xl border shadow-2xl flex flex-col"
+          style={{
+            top:       pos.top,
+            right:     pos.right,
+            width:     320,
+            maxHeight: 420,
+            background: T.surface,
+            borderColor: T.border,
+          }}
         >
-          {loading && (
-            <div className="flex items-center gap-1.5 text-[11px]" style={{ color: T.muted }}>
-              <Loader2 size={10} className="animate-spin" /> Generating…
+          {/* Popup header */}
+          <div
+            className="flex items-center justify-between gap-2 px-4 py-2.5 border-b shrink-0"
+            style={{ borderColor: T.border }}
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles size={13} style={{ color: T.accent }} />
+              <span className="text-xs font-semibold" style={{ color: T.text }}>
+                AI Insights
+              </span>
+              {visual?.title && (
+                <span className="text-[10px] truncate max-w-[120px]" style={{ color: T.muted }}>
+                  · {visual.title}
+                </span>
+              )}
             </div>
-          )}
-          {error && (
-            <div className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px]"
-              style={{ background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)", color: "#ef4444" }}>
-              <AlertCircle size={10} /> {error}
-            </div>
-          )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setOpen(false); }}
+              className="rounded-md p-0.5 opacity-50 hover:opacity-100 transition-opacity"
+              style={{ color: T.text }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+
+          {/* Popup body */}
+          <div className="flex-1 overflow-y-auto px-4 py-3">
+            {loading && (
+              <div className="flex items-center gap-2 text-xs" style={{ color: T.muted }}>
+                <Loader2 size={12} className="animate-spin" />
+                Generating insights…
+              </div>
+            )}
+            {error && !loading && (
+              <div
+                className="flex items-start gap-2 rounded-lg border px-3 py-2 text-xs"
+                style={{ background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.25)", color: "#ef4444" }}
+              >
+                <AlertCircle size={11} className="mt-0.5 shrink-0" />
+                {error}
+              </div>
+            )}
+            {insights && !loading && (
+              <div className="space-y-1.5">
+                {insights.split("\n").filter(Boolean).map((line, i) => (
+                  <p key={i} className="text-xs leading-relaxed" style={{ color: T.dim }}>{line}</p>
+                ))}
+              </div>
+            )}
+            {!insights && !loading && !error && (
+              <div className="text-center py-4">
+                <p className="text-xs mb-3" style={{ color: T.muted }}>
+                  Get AI-powered observations about this chart.
+                </p>
+                <button
+                  onClick={() => fetchInsights()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold"
+                  style={{ background: T.accentDim, borderColor: T.accent + "44", color: T.accent }}
+                >
+                  <Sparkles size={11} /> Generate Insights
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Popup footer — refresh */}
           {insights && !loading && (
-            <div className="space-y-1">
-              {insights.split("\n").filter(Boolean).map((line, i) => (
-                <p key={i} className="text-[11px] leading-relaxed" style={{ color: T.dim }}>{line}</p>
-              ))}
-              <button onClick={() => fetchInsights(true)}
-                className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: T.accent }}>
-                <RefreshCw size={9} /> Refresh
+            <div className="px-4 py-2 border-t shrink-0" style={{ borderColor: T.border }}>
+              <button
+                onClick={() => fetchInsights(true)}
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium"
+                style={{ color: T.accent }}
+              >
+                <RefreshCw size={10} /> Refresh
               </button>
             </div>
           )}
-          {!insights && !loading && !error && (
-            <button onClick={() => fetchInsights()}
-              className="inline-flex items-center gap-1.5 text-[11px] font-medium" style={{ color: T.accent }}>
-              <Sparkles size={10} /> Generate insights
-            </button>
-          )}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
@@ -677,12 +764,11 @@ function VisualTile({
   const ts = item.tileStyle || {};
   const vc = item.visualConfig || {};
 
-  // Compute display chartData for AI insights (use filtered rows directly)
-  const chartData = useMemo(() => {
-    if (!effectiveRows?.length) return [];
-    // Lightweight sample: limit to 30 points for AI
-    return effectiveRows.slice(0, 30);
-  }, [effectiveRows]);
+  // Sample of rows for AI insights (30 max, cheap to compute)
+  const chartSample = useMemo(() =>
+    (effectiveRows || []).slice(0, 30),
+    [effectiveRows]
+  );
 
   const titleSize  = ts.titleSize ?? 13;
   const titleColor = ts.titleColor || T.text;
@@ -707,36 +793,43 @@ function VisualTile({
         fontWeight: ts.fontWeight   || undefined,
         color:      ts.textColor    || T.text,
         zIndex: isSelected ? 5 : 2,
-        display: "flex",
-        flexDirection: "column",
         overflow: "hidden",
       }}
       title={vc.title}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
-      {/* Header — drag handle */}
+      {/* Header — drag handle + title + buttons */}
       {showTitle && (
         <div
-          className="flex shrink-0 cursor-move items-center justify-between gap-3 border-b px-3 py-2"
+          className="flex shrink-0 cursor-move items-center gap-2 border-b px-3 py-2"
           style={{ borderColor: ts.borderColor || T.border }}
           onMouseDown={(e) => onBeginMove(e)}
         >
+          {/* Title — takes up remaining space */}
           <div
-            className="min-w-0 truncate font-semibold"
-            style={{ fontSize: titleSize, color: titleColor, textAlign: titleAlign, flex: 1 }}
+            className="min-w-0 flex-1 truncate font-semibold"
+            style={{ fontSize: titleSize, color: titleColor, textAlign: titleAlign }}
           >
             {vc.title}
           </div>
+
+          {/* AI Insights button — stops drag propagation */}
+          <div onMouseDown={(e) => e.stopPropagation()}>
+            <TileAIInsightsButton visual={vc} chartData={chartSample} T={T} />
+          </div>
+
+          {/* Remove button */}
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="rounded-lg border px-2 py-0.5 text-[11px] shrink-0"
+            onMouseDown={(e) => e.stopPropagation()}
+            className="rounded-md border px-2 py-0.5 text-[11px] shrink-0"
             style={{ background: T.surface, borderColor: T.border, color: T.dim }}>
-            Remove
+            ✕
           </button>
         </div>
       )}
 
-      {/* Chart area — flex-1 so it fills whatever is left */}
+      {/* Chart area — grows to fill tile */}
       <div className="flex-1 min-h-0 relative" style={{ padding: ts.padding ?? 0 }}>
         <ResponsiveChart
           visual={vc}
@@ -745,15 +838,13 @@ function VisualTile({
         />
       </div>
 
-      {/* AI Insights strip */}
-      <TileAIInsights visual={vc} chartData={chartData} T={T} />
-
       {/* Resize handle */}
       <button
         className="absolute bottom-1.5 right-1.5 h-4 w-4 cursor-se-resize rounded-sm"
         style={{ borderRight: `2px solid ${T.accent}`, borderBottom: `2px solid ${T.accent}`, opacity: 0.6 }}
-        onMouseDown={(e) => onBeginResize(e)}
-        title="Resize" />
+        onMouseDown={(e) => { e.stopPropagation(); onBeginResize(e); }}
+        title="Resize"
+      />
     </VirtualDashboardItem>
   );
 }

@@ -63,11 +63,15 @@ export default function VirtualDashboardItem({
         /*
          * Once seen, keep children mounted (avoids chart re-init on scroll back).
          * Just toggle visibility so off-screen charts don't paint.
+         * IMPORTANT: display:flex + flexDirection:column must be forwarded so that
+         * flex-1 children (the chart area) can correctly claim remaining height.
          */
         <div
           style={{
             width: "100%",
             height: "100%",
+            display: "flex",
+            flexDirection: "column",
             visibility: visible ? "visible" : "hidden",
             contentVisibility: visible ? "visible" : "hidden",
           }}
