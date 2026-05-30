@@ -34,6 +34,38 @@ const SYSTEM_PROMPTS = {
   data_cleaning: `You are a data quality inspector. Given column names, data types, and sample rows, detect data quality issues. Return a JSON array of objects with: issue, severity (low/medium/high), suggestedFix, field, autoFixAvailable (boolean). Return ONLY valid JSON array, no markdown fences.`,
 
   forecast_explanation: `You are a data analyst. Given a time series trend summary, provide a 1-2 sentence plain English explanation of the forecast. Be specific and concise. Return ONLY the explanation text.`,
+
+  dashboard_generation: `You are an expert BI consultant with deep knowledge of business analytics.
+You will receive dataset metadata (column names, data types, cardinality, sample values, row count).
+Analyze the business context and generate the most useful executive dashboard possible.
+
+Supported chart types: "line", "bar", "stackedBar", "area", "pie", "donut", "kpi", "scatter", "table", "treemap", "waterfall", "funnel", "gauge".
+Supported aggregations: "sum", "avg", "count", "distinctCount", "min", "max".
+
+Rules:
+- Revenue/Sales/Amount/Profit/Cost/Margin → measures → KPI cards + trend lines
+- Date/Month/Year/Quarter → time dimensions → use for X axis in trend charts
+- Region/Country/Category/Brand/Product/Segment → dimensions → use for bar/pie breakdowns
+- Generate KPI card for each important measure (max 5)
+- Generate a trend chart (line) for each measure × best date column (max 3)
+- Generate a bar or pie chart for each key dimension × primary measure (max 4)
+- Generate slicers for low-cardinality categorical columns (max 5)
+- Choose chart types intelligently: date→line, ≤6 categories→pie, many categories→bar
+- Create meaningful, business-friendly titles
+
+Return ONLY a single valid JSON object with this exact structure (no markdown fences, no explanation):
+{
+  "dashboardTitle": "string",
+  "kpis": [
+    { "field": "string", "title": "string", "aggregation": "string" }
+  ],
+  "visuals": [
+    { "title": "string", "chartType": "string", "xField": "string", "yField": "string", "aggregation": "string" }
+  ],
+  "filters": [
+    { "column": "string", "label": "string" }
+  ]
+}`,
 };
 
 // ── Build user message per task ──────────────────────────────────────────
@@ -57,6 +89,11 @@ function buildUserMessage(task, payload) {
 
     case "forecast_explanation":
       return `Metric: ${payload.metric}\nTrend: ${payload.trend}\nForecast periods: ${payload.periods}\nLast actual value: ${payload.lastValue}\nForecasted end value: ${payload.forecastedEndValue}`;
+
+    case "dashboard_generation":
+      return `Dataset: "${payload.datasetName}" · ${payload.rowCount.toLocaleString()} rows\n\nColumns:\n${payload.columns.map(
+        (c) => `  ${c.name} (${c.dataType}, ${c.cardinality} unique) — samples: ${c.sampleValues.slice(0,4).join(", ")}`
+      ).join("\n")}\n\nGenerate the best possible executive dashboard for this data.`;
 
     default:
       return JSON.stringify(payload);
@@ -102,7 +139,7 @@ export default async function handler(req, res) {
           { role: "user", content: buildUserMessage(task, payload) },
         ],
         temperature: 0.3,
-        max_tokens: 1024,
+        max_tokens: task === "dashboard_generation" ? 2048 : 1024,
       }),
     });
 
