@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   HashRouter, NavLink, Navigate, Route, Routes, useLocation,
 } from "react-router-dom";
 import {
   Database, BarChart3, Table2, Layers3, LayoutDashboard,
-  Sun, Moon, Sparkles, Save, FolderOpen, Wand2,
+  Sun, Moon, Sparkles, Save, FolderOpen, FilePlus, Wand2,
   Share2, History, MessageSquare, Building2, CalendarClock,
   Cloud, ClipboardList, Settings, GitBranch, Sigma,
+  PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import DataSource    from "./pages/DataSource";
 import DataTable     from "./pages/DataTable";
@@ -38,6 +39,15 @@ import { usePresence }   from "./hooks/usePresence";
 import { CLOUD_ENABLED } from "./lib/supabase";
 import { ROLES, OWNER_EMAIL } from "./hooks/useRBAC";
 
+// ── Constants ──────────────────────────────────────────────────────────────
+const SIDEBAR_MIN      = 64;
+const SIDEBAR_DEFAULT  = 220;
+const SIDEBAR_MAX      = 320;
+const SIDEBAR_COLLAPSE_THRESHOLD = 88; // auto-collapse below this
+
+const STORAGE_W = "dc.sidebarWidth";
+const STORAGE_C = "dc.sidebarCollapsed";
+
 // ── Nav items ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { to: "/source",       icon: Database,        label: "Data Source"    },
@@ -50,36 +60,16 @@ const NAV_ITEMS = [
   { to: "/hierarchies",  icon: Layers3,         label: "Hierarchies"    },
 ];
 
-// ── Sidebar ────────────────────────────────────────────────────────────────
-function Sidebar({
-  onOpenScenario,
-  onOpenShare,
-  onOpenHistory,
-  onOpenComments,
-  onOpenWorkspace,
-  onOpenScheduled,
-  onOpenAuditLog,
-  onOpenSettings,
-  onSignIn,
-  user,
-  localUser,
-  isSaving,
-  lastSaved,
-  online,
-}) {
-  const T              = useTheme();
-  const themeMode      = useStore((s) => s.themeMode);
-  const toggleTheme    = useStore((s) => s.toggleThemeMode);
-  const scenarios      = useStore((s) => s.scenarios);
-  const activeScenarioId = useStore((s) => s.activeScenarioId);
-  const loadWorkbook   = useStore((s) => s.loadWorkbook);
-  const datasets       = useStore((s) => s.datasets);
-  const activeDatasetId = useStore((s) => s.activeDatasetId);
-  const cloudWorkbookId = useStore((s) => s.cloudWorkbookId);
-  const fileInputRef   = useRef(null);
+// ── Top Workbook Action Bar ────────────────────────────────────────────────
+function TopBar({ T }) {
+  const loadWorkbook = useStore((s) => s.loadWorkbook);
+  const fileInputRef = useRef(null);
 
-  const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || null;
-  const activeDataset  = datasets.find((d) => d.id === activeDatasetId) || null;
+  const handleNew = () => {
+    if (window.confirm("Start a new workbook? Unsaved changes will be lost.")) {
+      loadWorkbook({});
+    }
+  };
 
   const handleSave = () => {
     const s = useStore.getState();
@@ -90,13 +80,18 @@ function Sidebar({
       datasets: s.datasets, activeDatasetId: s.activeDatasetId,
       apiConnectors: s.apiConnectors,
       filters: s.filters, visuals: s.visuals, activeVisualId: s.activeVisualId,
-      hierarchies: s.hierarchies, dashboards: s.dashboards, activeDashboardId: s.activeDashboardId,
+      hierarchies: s.hierarchies, dashboards: s.dashboards,
+      activeDashboardId: s.activeDashboardId,
       themeMode: s.themeMode, calculatedFields: s.calculatedFields,
       scenarios: s.scenarios, activeScenarioId: s.activeScenarioId,
-      filterBookmarks: s.filterBookmarks,
+      filterBookmarks: s.filterBookmarks, relationships: s.relationships,
+      modelLayout: s.modelLayout, measures: s.measures,
     }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement("a"), { href: url, download: `datacanvas-${Date.now()}.json` }).click();
+    Object.assign(document.createElement("a"), {
+      href: url,
+      download: `datacanvas-${Date.now()}.json`,
+    }).click();
     URL.revokeObjectURL(url);
   };
 
@@ -112,61 +107,140 @@ function Sidebar({
     e.target.value = "";
   };
 
-  const isDark = themeMode === "dark";
+  return (
+    <div className="topbar">
+      {/* Brand micro-text */}
+      <span className="text-[11px] font-bold mr-2 select-none" style={{ color: T.muted, letterSpacing: "0.04em" }}>
+        DataCanvas
+      </span>
+      <div className="topbar-divider" />
+
+      <button className="topbar-btn" onClick={handleNew} title="New Workbook">
+        <FilePlus size={13} />
+        <span>New</span>
+      </button>
+
+      <button className="topbar-btn" onClick={() => fileInputRef.current?.click()} title="Open Workbook">
+        <FolderOpen size={13} />
+        <span>Open</span>
+      </button>
+      <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleOpenFile} />
+
+      <button className="topbar-btn topbar-btn-primary" onClick={handleSave} title="Save Workbook">
+        <Save size={13} />
+        <span>Save</span>
+      </button>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Cloud workbook name (if any) */}
+      {/* Reserved for cloud state indicator */}
+    </div>
+  );
+}
+
+// ── Sidebar ────────────────────────────────────────────────────────────────
+function Sidebar({
+  width,
+  collapsed,
+  onResizeStart,
+  onToggleCollapse,
+  onOpenScenario,
+  onOpenShare,
+  onOpenHistory,
+  onOpenComments,
+  onOpenWorkspace,
+  onOpenScheduled,
+  onOpenAuditLog,
+  onOpenSettings,
+  onSignIn,
+  user,
+  localUser,
+  isSaving,
+  lastSaved,
+  online,
+}) {
+  const T               = useTheme();
+  const themeMode       = useStore((s) => s.themeMode);
+  const toggleTheme     = useStore((s) => s.toggleThemeMode);
+  const scenarios       = useStore((s) => s.scenarios);
+  const activeScenarioId = useStore((s) => s.activeScenarioId);
+  const datasets        = useStore((s) => s.datasets);
+  const activeDatasetId = useStore((s) => s.activeDatasetId);
+  const cloudWorkbookId = useStore((s) => s.cloudWorkbookId);
+
+  const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || null;
+  const activeDataset  = datasets.find((d) => d.id === activeDatasetId && !d.isSystemTable) || null;
+
+  const isDark  = themeMode === "dark";
+  const isLight = themeMode === "light";
 
   return (
     <aside
-      className="flex flex-col shrink-0"
+      className={`sidebar flex flex-col shrink-0 relative ${collapsed ? "sidebar-collapsed" : ""}`}
       style={{
-        width: 196,
+        width,
         height: "100vh",
         background: T.sidebarBg,
         borderRight: `1px solid ${T.border}`,
         overflowY: "auto",
         overflowX: "hidden",
+        // Glassmorphism for light mode
+        backdropFilter: isLight ? "blur(20px)" : undefined,
+        WebkitBackdropFilter: isLight ? "blur(20px)" : undefined,
       }}
     >
-      {/* ── Logo ── */}
-      <div className="px-3 pt-4 pb-3">
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-            style={{
-              background: T.accent,
-              boxShadow: "0 2px 14px rgba(245,158,11,0.38)",
-            }}
-          >
-            <Database size={17} color="#000" strokeWidth={2.2} />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[13.5px] font-bold tracking-tight leading-none" style={{ color: T.text }}>
+      {/* ── Resize handle ── */}
+      <div
+        className="sidebar-resize-handle"
+        onMouseDown={onResizeStart}
+        title="Drag to resize sidebar"
+      />
+
+      {/* ── Logo row ── */}
+      <div className="px-3 pt-3 pb-2 flex items-center" style={{ minHeight: 52 }}>
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
+          style={{ background: T.accent, boxShadow: "0 2px 12px rgba(245,158,11,0.36)" }}
+        >
+          <Database size={15} color="#000" strokeWidth={2.2} />
+        </div>
+
+        {!collapsed && (
+          <div className="sidebar-logo-text ml-2.5 min-w-0 flex-1">
+            <div className="text-[13px] font-bold tracking-tight leading-none truncate" style={{ color: T.text }}>
               DataCanvas
             </div>
-            <div className="mt-0.5 text-[10.5px] leading-none" style={{ color: T.muted }}>
+            <div className="mt-0.5 text-[10px] leading-none truncate" style={{ color: T.muted }}>
               BI Workspace
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Collapse / expand toggle */}
+        <button
+          onClick={onToggleCollapse}
+          className="sidebar-toggle-btn ml-auto"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          style={{ marginLeft: collapsed ? "auto" : 6 }}
+        >
+          {collapsed ? <ChevronRight size={13} /> : <PanelLeftClose size={13} />}
+        </button>
       </div>
 
       {/* ── Active dataset pill ── */}
-      {activeDataset && (
-        <div className="mx-3 mb-3">
-          <div
-            className="rounded-xl border px-3 py-2"
-            style={{ background: T.s2, borderColor: T.border }}
-          >
-            <div
-              className="mb-1 text-[9.5px] font-semibold uppercase tracking-widest"
-              style={{ color: T.muted }}
-            >
+      {activeDataset && !collapsed && (
+        <div className="sidebar-dataset-pill mx-2.5 mb-2">
+          <div className="rounded-xl border px-2.5 py-1.5" style={{ background: T.s2, borderColor: T.border }}>
+            <div className="text-[9.5px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
               Active Dataset
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="truncate text-[12px] font-medium" style={{ color: T.text }}>
+            <div className="flex items-center justify-between gap-1.5 mt-0.5">
+              <span className="truncate text-[11.5px] font-medium" style={{ color: T.text }}>
                 {activeDataset.name}
               </span>
-              <span className="mono shrink-0 text-[10px]" style={{ color: T.muted }}>
+              <span className="mono shrink-0 text-[9.5px]" style={{ color: T.muted }}>
                 {activeDataset.rows.length.toLocaleString()}r
               </span>
             </div>
@@ -174,186 +248,184 @@ function Sidebar({
         </div>
       )}
 
-      {/* ── Section label ── */}
-      <div className="mx-4 mb-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
-          Navigation
-        </span>
-      </div>
+      {/* ── Nav section label ── */}
+      {!collapsed && (
+        <div className="sidebar-label mx-3.5 mb-1">
+          <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+            Navigation
+          </span>
+        </div>
+      )}
 
       {/* ── Nav items ── */}
-      <nav className="flex-1 px-2 space-y-0.5 anim-slide-left stagger">
+      <nav className={`flex-1 px-1.5 space-y-0.5 ${collapsed ? "" : "anim-slide-left stagger"}`}>
         {NAV_ITEMS.map(({ to, icon: Icon, label, accent }) => (
           <NavLink
             key={to}
             to={to}
+            data-label={label}
             className={({ isActive }) =>
-              `nav-link anim-fade-in ${isActive ? "active" : ""} ${accent ? "nav-link-ai" : ""}`
+              `nav-link anim-fade-in ${isActive ? "active" : ""}`
             }
+            style={accent ? ({ isActive }) => ({
+              ...(isActive ? {
+                background: "rgba(245,158,11,0.12)",
+                borderColor: "rgba(245,158,11,0.22)",
+                color: "#f59e0b",
+              } : {
+                borderColor: "transparent",
+                color: "rgba(245,158,11,0.85)",
+              })
+            }) : undefined}
           >
-            <Icon size={15} strokeWidth={1.8} style={accent ? { color: T.accent } : undefined} />
-            <span className="truncate" style={accent ? { color: T.accent } : undefined}>{label}</span>
-            {accent && (
-              <span className="ml-auto rounded-md px-1.5 py-0.5 text-[9px] font-bold shrink-0"
-                style={{ background: T.accent, color: "#000" }}>AI</span>
+            <Icon size={15} strokeWidth={1.8} style={accent ? { color: "#f59e0b", flexShrink: 0 } : { flexShrink: 0 }} />
+            {!collapsed && (
+              <>
+                <span className="nav-label truncate flex-1">{label}</span>
+                {accent && (
+                  <span className="nav-ai-badge ml-auto rounded-md px-1.5 py-0.5 text-[9px] font-bold shrink-0"
+                    style={{ background: "#f59e0b", color: "#000" }}>AI</span>
+                )}
+              </>
             )}
           </NavLink>
         ))}
       </nav>
 
       {/* ── Divider ── */}
-      <div className="mx-3 my-2 border-t" style={{ borderColor: T.border }} />
+      <div className="mx-2.5 my-1.5 border-t" style={{ borderColor: T.border }} />
 
-      {/* ── Bottom actions ── */}
-      <div className="px-2 pb-2 space-y-0.5">
-        <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
-          Workspace
-        </div>
-
-        <button onClick={handleSave} className="nav-link w-full text-left">
-          <Save size={14} strokeWidth={1.8} />
-          <span>Save Workbook</span>
-        </button>
-
-        <button onClick={() => fileInputRef.current?.click()} className="nav-link w-full text-left">
-          <FolderOpen size={14} strokeWidth={1.8} />
-          <span>Open Workbook</span>
-        </button>
-        <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleOpenFile} />
+      {/* ── Bottom section ── */}
+      <div className="px-1.5 pb-2 space-y-0.5">
+        {!collapsed && (
+          <div className="sidebar-label mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+            Tools
+          </div>
+        )}
 
         <button
           onClick={onOpenScenario}
+          data-label={activeScenario ? activeScenario.name : "Scenarios"}
           className={`nav-link w-full text-left ${activeScenario ? "active" : ""}`}
         >
-          <Sparkles size={14} strokeWidth={1.8} />
-          <span className="flex-1 truncate">
-            {activeScenario ? activeScenario.name : "Scenarios"}
-          </span>
-          {activeScenario && (
-            <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: T.accent }} />
+          <Sparkles size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+          {!collapsed && (
+            <>
+              <span className="nav-label flex-1 truncate">
+                {activeScenario ? activeScenario.name : "Scenarios"}
+              </span>
+              {activeScenario && (
+                <span className="pulse-dot h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: T.accent }} />
+              )}
+            </>
           )}
         </button>
 
         {/* ── Cloud section ── */}
         {CLOUD_ENABLED && (
           <>
-            <div className="mx-2 my-2 border-t" style={{ borderColor: T.border }} />
-            <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
-              Cloud
-            </div>
+            <div className="mx-1 my-1.5 border-t" style={{ borderColor: T.border }} />
+            {!collapsed && (
+              <div className="sidebar-label mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+                Cloud
+              </div>
+            )}
 
-            {/* Cloud sync status */}
-            {user && (
-              <div
-                className="mx-2 mb-1.5 flex items-center gap-2 rounded-lg border px-2.5 py-1.5"
-                style={{ background: T.s2, borderColor: T.border }}
-              >
+            {/* Cloud sync status — hidden when collapsed */}
+            {user && !collapsed && (
+              <div className="sidebar-label mx-1 mb-1 flex items-center gap-2 rounded-lg border px-2 py-1.5"
+                style={{ background: T.s2, borderColor: T.border }}>
                 {isSaving ? (
-                  <>
-                    <span className="h-1.5 w-1.5 shrink-0 animate-spin rounded-full border border-current border-t-transparent" style={{ color: T.accent }} />
-                    <span className="text-[10px]" style={{ color: T.accent }}>Saving...</span>
-                  </>
+                  <><span className="h-1.5 w-1.5 shrink-0 animate-spin rounded-full border border-current border-t-transparent" style={{ color: T.accent }} />
+                  <span className="text-[10px]" style={{ color: T.accent }}>Saving...</span></>
                 ) : lastSaved ? (
-                  <>
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "#22c55e" }} />
-                    <span className="text-[10px]" style={{ color: T.dim }}>
-                      Saved {new Date(lastSaved).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </>
+                  <><span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "#22c55e" }} />
+                  <span className="text-[10px]" style={{ color: T.dim }}>
+                    Saved {new Date(lastSaved).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span></>
                 ) : (
-                  <>
-                    <Cloud size={10} style={{ color: T.muted }} />
-                    <span className="text-[10px]" style={{ color: T.muted }}>Not saved to cloud</span>
-                  </>
+                  <><Cloud size={10} style={{ color: T.muted }} />
+                  <span className="text-[10px]" style={{ color: T.muted }}>Not saved to cloud</span></>
                 )}
               </div>
             )}
 
             {/* Presence bar */}
-            {online?.length > 0 && (
-              <div className="mx-2 mb-1.5">
+            {online?.length > 0 && !collapsed && (
+              <div className="sidebar-label mx-1 mb-1">
                 <PresenceBar online={online} />
               </div>
             )}
 
-            <button onClick={onOpenShare} className="nav-link w-full text-left">
-              <Share2 size={14} strokeWidth={1.8} />
-              <span>Share Dashboard</span>
-            </button>
-
-            <button onClick={onOpenHistory} className="nav-link w-full text-left">
-              <History size={14} strokeWidth={1.8} />
-              <span>Version History</span>
-            </button>
-
-            <button onClick={onOpenComments} className="nav-link w-full text-left">
-              <MessageSquare size={14} strokeWidth={1.8} />
-              <span>Comments</span>
-            </button>
-
-            <button onClick={onOpenWorkspace} className="nav-link w-full text-left">
-              <Building2 size={14} strokeWidth={1.8} />
-              <span>Workspaces</span>
-            </button>
-
-            <button onClick={onOpenScheduled} className="nav-link w-full text-left">
-              <CalendarClock size={14} strokeWidth={1.8} />
-              <span>Scheduled Reports</span>
-            </button>
-
-            <button onClick={onOpenAuditLog} className="nav-link w-full text-left">
-              <ClipboardList size={14} strokeWidth={1.8} />
-              <span>Audit Log</span>
-            </button>
+            {[
+              { icon: Share2,       label: "Share Dashboard",  onClick: onOpenShare },
+              { icon: History,      label: "Version History",  onClick: onOpenHistory },
+              { icon: MessageSquare,label: "Comments",         onClick: onOpenComments },
+              { icon: Building2,    label: "Workspaces",       onClick: onOpenWorkspace },
+              { icon: CalendarClock,label: "Scheduled Reports",onClick: onOpenScheduled },
+              { icon: ClipboardList,label: "Audit Log",        onClick: onOpenAuditLog },
+            ].map(({ icon: Icon, label, onClick }) => (
+              <button key={label} onClick={onClick} data-label={label}
+                className="nav-link w-full text-left">
+                <Icon size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+                {!collapsed && <span className="nav-label truncate">{label}</span>}
+              </button>
+            ))}
           </>
         )}
 
         {/* ── Theme toggle ── */}
-        <div
-          className="mt-3 flex items-center rounded-xl border p-1"
-          style={{ background: T.s2, borderColor: T.border }}
-        >
-          {[
-            { mode: "dark",  Icon: Moon, label: "Dark"  },
-            { mode: "light", Icon: Sun,  label: "Light" },
-          ].map(({ mode, Icon, label }) => (
-            <button
-              key={mode}
-              onClick={() => themeMode !== mode && toggleTheme()}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-[9px] py-1.5 text-xs font-medium"
-              style={{
-                background: themeMode === mode ? T.s3 : "transparent",
-                color:      themeMode === mode ? T.text : T.muted,
-                boxShadow:  themeMode === mode ? "0 1px 4px rgba(0,0,0,0.18)" : "none",
-                transition: "all 150ms ease",
-              }}
-            >
-              <Icon size={11} strokeWidth={2} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* ── Auth Gate (cloud mode) ── */}
-        {CLOUD_ENABLED && (
-          <div className="mt-2">
-            <AuthGate user={user} onSignIn={onSignIn} />
+        {collapsed ? (
+          <button
+            onClick={toggleTheme}
+            data-label={isDark ? "Light theme" : "Dark theme"}
+            className="nav-link w-full text-left justify-center"
+            title={isDark ? "Switch to light theme" : "Switch to dark theme"}
+          >
+            {isDark ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
+          </button>
+        ) : (
+          <div className="mt-2 flex items-center rounded-xl border p-1 mx-0.5"
+            style={{ background: T.s2, borderColor: T.border }}>
+            {[
+              { mode: "dark",  Icon: Moon, label: "Dark"  },
+              { mode: "light", Icon: Sun,  label: "Light" },
+            ].map(({ mode, Icon, label }) => (
+              <button key={mode} onClick={() => themeMode !== mode && toggleTheme()}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-[9px] py-1.5 text-xs font-medium"
+                style={{
+                  background: themeMode === mode ? T.s3    : "transparent",
+                  color:      themeMode === mode ? T.text  : T.muted,
+                  boxShadow:  themeMode === mode ? "0 1px 4px rgba(0,0,0,0.18)" : "none",
+                  transition: "all 150ms ease",
+                }}>
+                <Icon size={11} strokeWidth={2} />
+                {label}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* ── Settings button ── */}
-        <button
-          onClick={onOpenSettings}
-          className="nav-link w-full text-left mt-1"
-        >
-          <Settings size={14} strokeWidth={1.8} />
-          <span>Settings</span>
+        {/* ── Auth Gate ── */}
+        {CLOUD_ENABLED && (
+          <div className={`mt-1 ${collapsed ? "flex justify-center" : ""}`}>
+            <AuthGate user={user} onSignIn={onSignIn} compact={collapsed} />
+          </div>
+        )}
+
+        {/* ── Settings ── */}
+        <button onClick={onOpenSettings} data-label="Settings"
+          className="nav-link w-full text-left">
+          <Settings size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+          {!collapsed && <span className="nav-label truncate">Settings</span>}
         </button>
 
         {/* Version */}
-        <div className="px-2 pb-1 pt-2 text-[10px] font-medium" style={{ color: T.muted }}>
-          DataCanvas · v7.0
-        </div>
+        {!collapsed && (
+          <div className="sidebar-version px-2 pb-1 pt-1 text-[10px] font-medium" style={{ color: T.muted }}>
+            DataCanvas · v7.0
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -363,7 +435,7 @@ function Sidebar({
 function AnimatedRoutes() {
   const location = useLocation();
   return (
-    <div key={location.pathname} className="page-enter flex-1 flex flex-col min-h-0">
+    <div key={location.pathname} className="page-enter flex-1 flex flex-col min-h-0 overflow-hidden">
       <Routes location={location}>
         <Route path="/"             element={<Navigate to="/source" replace />} />
         <Route path="/source"      element={<DataSource />} />
@@ -385,65 +457,114 @@ export default function App() {
   const themeMode = useStore((s) => s.themeMode);
   const setCloudMeta = useStore((s) => s.setCloudMeta);
 
-  // Phase 5 — cloud hooks
+  // Cloud hooks
   const { user, loading: authLoading } = useAuth();
   const { isSaving, lastSaved, workbookId } = useCloudSync(user);
   const cloudWorkbookId = useStore((s) => s.cloudWorkbookId);
   const online = usePresence(cloudWorkbookId, user);
 
-  // Local auth (for when CLOUD_ENABLED is false)
-  const localUser = useLocalAuth((s) => s.currentUser);
-  const localLogout = useLocalAuth((s) => s.logout);
-
-  // Force re-render when local login happens
+  // Local auth
+  const localUser   = useLocalAuth((s) => s.currentUser);
   const [, forceUpdate] = useState(0);
 
   // Modal states
-  const [scenarioOpen,   setScenarioOpen]   = useState(false);
-  const [shareOpen,      setShareOpen]      = useState(false);
-  const [historyOpen,    setHistoryOpen]    = useState(false);
-  const [commentsOpen,   setCommentsOpen]   = useState(false);
-  const [workspaceOpen,  setWorkspaceOpen]  = useState(false);
-  const [scheduledOpen,  setScheduledOpen]  = useState(false);
-  const [auditOpen,      setAuditOpen]      = useState(false);
-  const [settingsOpen,   setSettingsOpen]   = useState(false);
+  const [scenarioOpen,  setScenarioOpen]  = useState(false);
+  const [shareOpen,     setShareOpen]     = useState(false);
+  const [historyOpen,   setHistoryOpen]   = useState(false);
+  const [commentsOpen,  setCommentsOpen]  = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [scheduledOpen, setScheduledOpen] = useState(false);
+  const [auditOpen,     setAuditOpen]     = useState(false);
+  const [settingsOpen,  setSettingsOpen]  = useState(false);
+
+  // ── Sidebar resize & collapse state ──────────────────────────────────────
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = parseInt(localStorage.getItem(STORAGE_W) || "", 10);
+    return isNaN(saved) ? SIDEBAR_DEFAULT : Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, saved));
+  });
+  const [collapsed, setCollapsed] = useState(() => {
+    return localStorage.getItem(STORAGE_C) === "true";
+  });
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Effective display width
+  const effectiveWidth = collapsed ? SIDEBAR_MIN : sidebarWidth;
+
+  // Persist sidebar state
+  useEffect(() => {
+    localStorage.setItem(STORAGE_W, String(sidebarWidth));
+  }, [sidebarWidth]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_C, String(collapsed));
+  }, [collapsed]);
+
+  // Resize handle drag
+  const handleResizeStart = useCallback((e) => {
+    e.preventDefault();
+    const startX  = e.clientX;
+    const startW  = sidebarWidth;
+    setIsDragging(true);
+    document.body.style.cursor    = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (mv) => {
+      const newW = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, startW + mv.clientX - startX));
+      setSidebarWidth(newW);
+      // Auto-collapse when dragged to minimum
+      if (newW <= SIDEBAR_COLLAPSE_THRESHOLD) {
+        setCollapsed(true);
+      } else {
+        setCollapsed(false);
+      }
+    };
+
+    const onUp = () => {
+      document.body.style.cursor     = "";
+      document.body.style.userSelect = "";
+      setIsDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+  }, [sidebarWidth]);
+
+  const handleToggleCollapse = useCallback(() => {
+    if (collapsed) {
+      setCollapsed(false);
+      // If previously was at minimum, restore to default
+      if (sidebarWidth <= SIDEBAR_COLLAPSE_THRESHOLD) {
+        setSidebarWidth(SIDEBAR_DEFAULT);
+      }
+    } else {
+      setCollapsed(true);
+    }
+  }, [collapsed, sidebarWidth]);
 
   useEffect(() => {
     applyThemeToDocument(themeMode);
   }, [themeMode]);
 
-  // Sync workbook id from cloud sync hook -> store
   useEffect(() => {
     if (workbookId) setCloudMeta({ cloudWorkbookId: workbookId });
   }, [workbookId]);
 
   // ── Login gate ────────────────────────────────────────────────────────────
-  // When cloud is configured, block behind Supabase auth.
-  // When cloud is NOT configured, block behind local auth.
-  // The /share/:token route is always public.
-
   if (CLOUD_ENABLED && authLoading) {
     return (
-      <div
-        className="flex items-center justify-center min-h-screen"
-        style={{ background: T.bg }}
-      >
+      <div className="flex items-center justify-center min-h-screen" style={{ background: T.bg }}>
         <div className="flex flex-col items-center gap-3">
-          <div
-            className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: T.accent, boxShadow: "0 4px 20px rgba(245,158,11,0.4)" }}
-          >
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl"
+            style={{ background: T.accent, boxShadow: "0 4px 20px rgba(245,158,11,0.4)" }}>
             <Database size={22} color="#000" strokeWidth={2.2} />
           </div>
-          <div className="text-[13px] font-medium" style={{ color: T.muted }}>
-            Loading...
-          </div>
+          <div className="text-[13px] font-medium" style={{ color: T.muted }}>Loading…</div>
         </div>
       </div>
     );
   }
 
-  // Cloud mode — no user
   if (CLOUD_ENABLED && !user) {
     return (
       <HashRouter>
@@ -455,27 +576,19 @@ export default function App() {
     );
   }
 
-  // Local mode — no user
   if (!CLOUD_ENABLED && !localUser) {
     return (
       <HashRouter>
         <Routes>
           <Route path="/share/:token" element={<SharedView />} />
-          <Route
-            path="*"
-            element={
-              <Auth
-                hideLocalMode
-                onLocalLogin={() => forceUpdate((n) => n + 1)}
-              />
-            }
-          />
+          <Route path="*" element={
+            <Auth hideLocalMode onLocalLogin={() => forceUpdate((n) => n + 1)} />
+          } />
         </Routes>
       </HashRouter>
     );
   }
 
-  // Determine the effective user object for settings/display
   const effectiveUser = CLOUD_ENABLED
     ? user
     : localUser
@@ -501,7 +614,12 @@ export default function App() {
               className="flex overflow-hidden"
               style={{ height: "100vh", background: T.bg }}
             >
+              {/* ── Sidebar ── */}
               <Sidebar
+                width={effectiveWidth}
+                collapsed={collapsed}
+                onResizeStart={handleResizeStart}
+                onToggleCollapse={handleToggleCollapse}
                 onOpenScenario={() => setScenarioOpen(true)}
                 onOpenShare={() => setShareOpen(true)}
                 onOpenHistory={() => setHistoryOpen(true)}
@@ -518,53 +636,31 @@ export default function App() {
                 online={online}
               />
 
+              {/* ── Main area: TopBar + Content ── */}
               <main
                 className="flex-1 min-w-0 flex flex-col overflow-hidden"
                 style={{ background: T.bg }}
               >
+                {/* Top workbook action bar */}
+                <TopBar T={T} />
+
+                {/* Page content */}
                 <AnimatedRoutes />
               </main>
 
               {/* Modals & panels */}
-              <ScenarioPanel
-                open={scenarioOpen}
-                onClose={() => setScenarioOpen(false)}
-              />
-              <ShareModal
-                open={shareOpen}
-                onClose={() => setShareOpen(false)}
-              />
-              <WorkbookHistory
-                open={historyOpen}
-                onClose={() => setHistoryOpen(false)}
-              />
-              <CommentsPanel
-                open={commentsOpen}
-                onClose={() => setCommentsOpen(false)}
-                workbookId={cloudWorkbookId}
-                user={effectiveUser}
-              />
-              <WorkspaceManager
-                open={workspaceOpen}
-                onClose={() => setWorkspaceOpen(false)}
-                user={effectiveUser}
-              />
-              <ScheduledReports
-                open={scheduledOpen}
-                onClose={() => setScheduledOpen(false)}
-                user={effectiveUser}
-              />
-              <AuditLog
-                open={auditOpen}
-                onClose={() => setAuditOpen(false)}
-              />
-              <SettingsModal
-                open={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                user={effectiveUser}
-              />
-
-              {/* AI Command Bar (Cmd+K) */}
+              <ScenarioPanel     open={scenarioOpen}  onClose={() => setScenarioOpen(false)} />
+              <ShareModal        open={shareOpen}     onClose={() => setShareOpen(false)} />
+              <WorkbookHistory   open={historyOpen}   onClose={() => setHistoryOpen(false)} />
+              <CommentsPanel     open={commentsOpen}  onClose={() => setCommentsOpen(false)}
+                workbookId={cloudWorkbookId} user={effectiveUser} />
+              <WorkspaceManager  open={workspaceOpen} onClose={() => setWorkspaceOpen(false)}
+                user={effectiveUser} />
+              <ScheduledReports  open={scheduledOpen} onClose={() => setScheduledOpen(false)}
+                user={effectiveUser} />
+              <AuditLog          open={auditOpen}     onClose={() => setAuditOpen(false)} />
+              <SettingsModal     open={settingsOpen}  onClose={() => setSettingsOpen(false)}
+                user={effectiveUser} />
               <CommandBar />
             </div>
           }

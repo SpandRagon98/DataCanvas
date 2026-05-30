@@ -51,27 +51,34 @@ export const T_DARK = {
 
 export const T_LIGHT = {
   ...SHARED,
-  bg:               "#f4f4f5",
+  // ── Glassmorphism-inspired light theme ──
+  // Soft gradient background so the frosted sidebar glass actually shows depth
+  bg:               "linear-gradient(145deg, #eef2f8 0%, #e6eaf2 100%)",
+  bgSolid:          "#eef2f8",   // use where gradient won't work
   surface:          "#ffffff",
-  sidebarBg:        "#f8f8f9",
-  s2:               "#f3f4f6",
-  s3:               "#e5e7eb",
-  s4:               "#d1d5db",
-  border:           "#e4e4e7",
-  borderHover:      "#d4d4d8",
-  text:             "#18181b",
-  muted:            "#71717a",
-  dim:              "#52525b",
-  scrollbarThumb:      "#d4d4d8",
-  scrollbarThumbHover: "#a1a1aa",
-  navBg: "rgba(248,248,249,0.92)",
+  // Semi-transparent sidebar to enable backdrop-filter blur
+  sidebarBg:        "rgba(255,255,255,0.86)",
+  s2:               "rgba(246,248,252,0.92)",
+  s3:               "#eef1f7",
+  s4:               "#e2e8f0",
+  border:           "rgba(15,23,42,0.08)",
+  borderHover:      "rgba(15,23,42,0.15)",
+  text:             "#0f172a",
+  muted:            "#64748b",
+  dim:              "#475569",
+  scrollbarThumb:      "#cbd5e1",
+  scrollbarThumbHover: "#94a3b8",
+  navBg: "rgba(255,255,255,0.92)",
 
-  // Lighter shadows for light mode
-  shadowSm:  "0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)",
-  shadow:    "0 2px 8px rgba(0,0,0,0.09), 0 1px 3px rgba(0,0,0,0.05)",
-  shadowMd:  "0 4px 16px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)",
-  shadowLg:  "0 12px 36px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.07)",
-  shadowXl:  "0 24px 60px rgba(0,0,0,0.16), 0 8px 20px rgba(0,0,0,0.10)",
+  // Softer, premium shadows
+  shadowSm:  "0 1px 4px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04)",
+  shadow:    "0 4px 14px rgba(15,23,42,0.08), 0 1px 4px rgba(15,23,42,0.05)",
+  shadowMd:  "0 8px 28px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.06)",
+  shadowLg:  "0 16px 48px rgba(15,23,42,0.11), 0 4px 14px rgba(15,23,42,0.06)",
+  shadowXl:  "0 28px 72px rgba(15,23,42,0.14), 0 8px 24px rgba(15,23,42,0.08)",
+
+  // Brighter glow for light mode
+  glowAccent: "0 0 0 1px rgba(245,158,11,0.2), 0 4px 24px rgba(245,158,11,0.18)",
 };
 
 // Static fallback (for non-React modules that import `T` directly).

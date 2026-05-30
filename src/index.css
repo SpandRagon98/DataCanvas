@@ -271,3 +271,233 @@ input, select, textarea {
 .ag-theme-quartz .ag-cell { display: flex; align-items: center; }
 
 .dashboard-grid-wrap { min-height: 520px; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR RESIZE HANDLE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.sidebar-resize-handle {
+  position: absolute;
+  right: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 200;
+  background: transparent;
+  border-radius: 4px;
+  transition: background 200ms ease;
+  /* Invisible zone wider than the visual line for easy grabbing */
+}
+.sidebar-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 48px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background 200ms ease, height 200ms ease;
+}
+.sidebar-resize-handle:hover::after,
+.sidebar-resize-handle.is-dragging::after {
+  background: rgba(245,158,11,0.55);
+  height: 64px;
+}
+.sidebar-resize-handle.is-dragging {
+  background: rgba(245,158,11,0.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR COLLAPSE BEHAVIOUR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Collapsed sidebar: icon-only navigation */
+.sidebar-collapsed .nav-link {
+  justify-content: center;
+  padding: 9px;
+  gap: 0;
+  overflow: visible;
+  position: relative;
+}
+.sidebar-collapsed .nav-label {
+  display: none !important;
+}
+.sidebar-collapsed .nav-ai-badge {
+  display: none !important;
+}
+
+/* Tooltip on hover when collapsed */
+.sidebar-collapsed .nav-link::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--dc-s4, #27272a);
+  color: var(--dc-text, #e4e4ec);
+  padding: 5px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease, transform 150ms ease;
+  border: 1px solid var(--dc-border, #27272d);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  z-index: 9999;
+  transform: translateY(-50%) translateX(-4px);
+}
+.sidebar-collapsed .nav-link:hover::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+}
+
+/* Sidebar section labels + logo text — hidden when collapsed */
+.sidebar-collapsed .sidebar-label,
+.sidebar-collapsed .sidebar-version,
+.sidebar-collapsed .sidebar-logo-text,
+.sidebar-collapsed .sidebar-dataset-pill {
+  display: none !important;
+}
+
+/* Sidebar collapse smooth transition */
+aside.sidebar {
+  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: width;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOP WORKBOOK ACTION BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 44px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--dc-border);
+  background: var(--dc-surface);
+  position: relative;
+  z-index: 10;
+}
+.topbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--dc-border);
+  margin: 0 2px;
+}
+.topbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dc-dim);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+}
+.topbar-btn:hover {
+  background: var(--dc-s2);
+  color: var(--dc-text);
+  border-color: var(--dc-border);
+}
+.topbar-btn.topbar-btn-primary {
+  background: var(--dc-s2);
+  border-color: var(--dc-border);
+  color: var(--dc-text);
+}
+.topbar-btn.topbar-btn-primary:hover {
+  background: var(--dc-s3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME GLASSMORPHISM ENHANCEMENTS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] .sidebar {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 1px 0 0 rgba(15,23,42,0.07), 4px 0 16px rgba(15,23,42,0.04);
+}
+
+/* Light mode top bar gets a subtle bottom separator with no harsh line */
+[data-theme="light"] .topbar {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: rgba(15,23,42,0.07);
+  box-shadow: 0 1px 3px rgba(15,23,42,0.05);
+}
+
+/* Light mode cards / panels — softer shadows + subtle glass */
+[data-theme="light"] .rounded-xl,
+[data-theme="light"] .rounded-2xl {
+  /* Avoid overriding all rounded elements, use specific selectors below */
+}
+
+/* Light mode nav links */
+[data-theme="light"] .nav-link:hover {
+  background: rgba(15,23,42,0.04);
+}
+[data-theme="light"] .nav-link.active {
+  background: rgba(245,158,11,0.12);
+  border-color: rgba(245,158,11,0.22);
+}
+
+/* Light mode collapse tooltip colors */
+[data-theme="light"] .sidebar-collapsed .nav-link::after {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: rgba(15,23,42,0.12);
+  box-shadow: 0 4px 16px rgba(15,23,42,0.10);
+}
+
+/* Light mode button hover states */
+[data-theme="light"] .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 20px rgba(245,158,11,0.28), 0 1px 4px rgba(245,158,11,0.18);
+}
+
+/* Light mode scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Light mode drag chips */
+[data-theme="light"] .drag-chip:hover {
+  box-shadow: 0 2px 10px rgba(15,23,42,0.12);
+}
+
+/* Sidebar expand/collapse button */
+.sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dc-muted);
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  flex-shrink: 0;
+}
+.sidebar-toggle-btn:hover {
+  background: var(--dc-s2);
+  color: var(--dc-text);
+  border-color: var(--dc-border);
+}
