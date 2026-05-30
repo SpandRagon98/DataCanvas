@@ -2,12 +2,14 @@ import {
   Plus, Pencil, Trash2, LayoutDashboard, Grid3x3, Maximize2, X,
   ChevronLeft, ChevronRight, StickyNote, Download, Type as TypeIcon,
   Palette, Hash, AlignLeft, Settings2, Sparkles,
-  Loader2, RefreshCw, AlertCircle,
+  Loader2, RefreshCw, AlertCircle, Filter, MousePointer,
 } from "lucide-react";
 import {
   useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect,
 } from "react";
 import { createPortal } from "react-dom";
+import DashboardSlicer from "../components/dashboard/DashboardSlicer";
+import DashboardButton from "../components/dashboard/DashboardButton";
 import html2canvas        from "html2canvas";
 import { useStore }       from "../store/useStore";
 import { DEFAULT_TILE_STYLE } from "../store/useStore";
@@ -437,13 +439,15 @@ function TileFormatPanel({ item, dashboardId, T }) {
     </div>
   );
 
-  const tile = item.tileStyle || {};
-  const ts   = item.textStyle  || {};
+  const tile = item.tileStyle   || {};
+  const ts   = item.textStyle   || {};
   const vc   = item.visualConfig || {};
-  const nf   = vc.numFormat || {};
+  const nf   = vc.numFormat     || {};
+  const bc   = item.buttonConfig || {};
 
   const patchTile   = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { tileStyle: { ...DEFAULT_TILE_STYLE, ...tile, ...patch } } });
   const patchText   = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { textStyle: { ...ts, ...patch } } });
+  const patchButton = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch: { buttonConfig: { ...bc, ...patch } } });
   const patchVisual = (patch) => {
     if (item.type !== "visual") return;
     updateDashboardItem({ dashboardId, itemId: item.id, patch: { visualConfig: { ...vc, ...patch } } });
@@ -706,8 +710,61 @@ function TileFormatPanel({ item, dashboardId, T }) {
           </section>
         )}
 
+        {/* ── Button settings ── */}
+        {item.type === "dbutton" && (
+          <section>
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
+              style={{ color: T.muted }}><MousePointer size={10} /> Button</div>
+            <div className="space-y-2.5">
+              <div>
+                <label style={iLabel}>Label</label>
+                <input value={bc.label || ""} onChange={(e) => patchButton({ label: e.target.value })}
+                  className="w-full rounded-lg border px-2 py-1.5 text-xs outline-none"
+                  style={{ background: T.s2, borderColor: T.border, color: T.text }} />
+              </div>
+              <div>
+                <label style={iLabel}>Background</label>
+                <ColorPickerInput value={bc.bgColor || "#f59e0b"} onChange={(c) => patchButton({ bgColor: c })} />
+              </div>
+              <div>
+                <label style={iLabel}>Text Color</label>
+                <ColorPickerInput value={bc.textColor || "#000000"} onChange={(c) => patchButton({ textColor: c })} />
+              </div>
+              <div>
+                <label style={iLabel}>Corner Radius: {bc.borderRadius ?? 8}px</label>
+                <input type="range" min={0} max={24} value={bc.borderRadius ?? 8}
+                  onChange={(e) => patchButton({ borderRadius: +e.target.value })}
+                  style={{ width: "100%", accentColor: T.accent }} />
+              </div>
+              <div>
+                <label style={iLabel}>Font Size: {bc.fontSize ?? 13}px</label>
+                <input type="range" min={10} max={24} value={bc.fontSize ?? 13}
+                  onChange={(e) => patchButton({ fontSize: +e.target.value })}
+                  style={{ width: "100%", accentColor: T.accent }} />
+              </div>
+              <div>
+                <label style={iLabel}>Action</label>
+                <select value={bc.action || "none"} onChange={(e) => patchButton({ action: e.target.value })} style={iSelect}>
+                  <option value="none">None</option>
+                  <option value="toggle-visual">Toggle Visual</option>
+                  <option value="navigate-page">Navigate Page</option>
+                </select>
+              </div>
+              {(bc.action === "toggle-visual" || bc.action === "navigate-page") && (
+                <div>
+                  <label style={iLabel}>{bc.action === "toggle-visual" ? "Target Item ID" : "Target Page ID"}</label>
+                  <input value={bc.targetId || ""} onChange={(e) => patchButton({ targetId: e.target.value })}
+                    placeholder="Paste item / dashboard id"
+                    className="w-full rounded-lg border px-2 py-1.5 text-xs outline-none"
+                    style={{ background: T.s2, borderColor: T.border, color: T.text }} />
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ── Number Format (visual tiles) ── */}
-        {item.type !== "textbox" && (
+        {item.type !== "textbox" && item.type !== "dbutton" && item.type !== "slicer" && (
           <section>
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
               style={{ color: T.muted }}><Hash size={10} /> Number Format</div>
@@ -864,6 +921,9 @@ export default function Dashboard() {
   const removeDashboardItem        = useStore((s) => s.removeDashboardItem);
   const addDashboardAnnotation     = useStore((s) => s.addDashboardAnnotation);
   const addTextboxToDashboard      = useStore((s) => s.addTextboxToDashboard);
+  const addSlicerToDashboard       = useStore((s) => s.addSlicerToDashboard);
+  const addButtonToDashboard       = useStore((s) => s.addButtonToDashboard);
+  const datasets                   = useStore((s) => s.datasets);
 
   const activeDashboard = useMemo(() =>
     dashboards?.length
@@ -881,11 +941,68 @@ export default function Dashboard() {
   const [presentIndex,    setPresentIndex]    = useState(0);
   const [selectedItemId,  setSelectedItemId]  = useState(null);
   const [formatPanelOpen, setFormatPanelOpen] = useState(false);
+  // Slicer add modal
+  const [slicerModalOpen, setSlicerModalOpen] = useState(false);
+  const [slicerColumn,    setSlicerColumn]    = useState("");
+  const [slicerMulti,     setSlicerMulti]     = useState(false);
+  const [slicerMode,      setSlicerMode]      = useState("dropdown");
+  // Hidden visual ids (button toggle-visual action)
+  const [hiddenVisualIds, setHiddenVisualIds] = useState(new Set());
 
   const selectedItem = useMemo(() =>
     activeDashboard?.items?.find((item) => item.id === selectedItemId) || null,
     [activeDashboard, selectedItemId]
   );
+
+  // ── Slicer-driven dashboard filters (merged with global filters) ──────────
+  const slicerFilters = useMemo(() => {
+    if (!activeDashboard?.items?.length) return {};
+    const result = {};
+    for (const item of activeDashboard.items) {
+      if (item.type === "slicer" && item.selectedValues?.length > 0) {
+        const col = item.slicerConfig?.column;
+        if (col) result[col] = item.selectedValues; // array → multi-select via applyGlobalFilters
+      }
+    }
+    return result;
+  }, [activeDashboard]);
+
+  // Merge global store filters + slicer filters for visuals
+  const mergedFilters = useMemo(
+    () => ({ ...filters, ...slicerFilters }),
+    [filters, slicerFilters]
+  );
+
+  // Toggle visibility of a visual tile from a button action
+  const handleToggleVisual = useCallback((targetItemId) => {
+    setHiddenVisualIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(targetItemId)) next.delete(targetItemId);
+      else next.add(targetItemId);
+      return next;
+    });
+  }, []);
+
+  // Available columns for slicer (non-system datasets)
+  const slicerColumns = useMemo(() => {
+    const cols = new Set();
+    (datasets || []).filter((d) => !d.isSystemTable).forEach((d) =>
+      (d.columns || []).forEach((c) => cols.add(c))
+    );
+    return [...cols].sort();
+  }, [datasets]);
+
+  const handleAddSlicer = () => {
+    if (!slicerColumn || !activeDashboard) return;
+    addSlicerToDashboard(activeDashboard.id, {
+      column:      slicerColumn,
+      label:       slicerColumn,
+      mode:        slicerMode,
+      multiSelect: slicerMulti,
+    });
+    setSlicerModalOpen(false);
+    setSlicerColumn("");
+  };
 
   useEffect(() => {
     if (!presentMode) return;
@@ -1066,6 +1183,9 @@ export default function Dashboard() {
                   );
                 }
 
+                // Hidden by button action
+                if (hiddenVisualIds.has(item.id)) return null;
+
                 return (
                   <VisualTile
                     key={item.id}
@@ -1074,7 +1194,7 @@ export default function Dashboard() {
                     dashboardId={activeDashboard.id}
                     snapEnabled={snapEnabled}
                     effectiveRows={effectiveRows}
-                    filters={filters}
+                    filters={mergedFilters}
                     onSelect={() => setSelectedItemId(item.id)}
                     onBeginMove={(e) => beginMove(e, item)}
                     onBeginResize={(e) => beginResize(e, item)}
@@ -1083,6 +1203,35 @@ export default function Dashboard() {
                   />
                 );
               })}
+
+              {/* Slicer items */}
+              {activeDashboard.items.filter((i) => i.type === "slicer").map((item) => (
+                <DashboardSlicer
+                  key={item.id}
+                  item={item}
+                  dashboardId={activeDashboard.id}
+                  isSelected={selectedItemId === item.id}
+                  onSelect={() => setSelectedItemId(item.id)}
+                  snapEnabled={snapEnabled}
+                  canvasRef={canvasRef}
+                  T={T}
+                />
+              ))}
+
+              {/* Button items */}
+              {activeDashboard.items.filter((i) => i.type === "dbutton").map((item) => (
+                <DashboardButton
+                  key={item.id}
+                  item={item}
+                  dashboardId={activeDashboard.id}
+                  isSelected={selectedItemId === item.id}
+                  onSelect={() => setSelectedItemId(item.id)}
+                  snapEnabled={snapEnabled}
+                  canvasRef={canvasRef}
+                  onToggleVisual={handleToggleVisual}
+                  T={T}
+                />
+              ))}
 
               {(activeDashboard.annotations || []).map((ann) => (
                 <Annotation key={ann.id} ann={ann} dashboardId={activeDashboard.id} snapEnabled={snapEnabled} T={T} />
@@ -1136,6 +1285,18 @@ export default function Dashboard() {
               style={{ background: T.s2, borderColor: T.border, color: T.dim }}>
               <TypeIcon size={12} /> Text Box
             </button>
+            <button onClick={() => setSlicerModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
+              style={{ background: T.s2, borderColor: T.border, color: T.dim }}
+              title="Add filter slicer">
+              <Filter size={12} /> Slicer
+            </button>
+            <button onClick={() => activeDashboard && addButtonToDashboard(activeDashboard.id)}
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
+              style={{ background: T.s2, borderColor: T.border, color: T.dim }}
+              title="Add button">
+              <MousePointer size={12} /> Button
+            </button>
             <button onClick={() => setSnapEnabled((s) => !s)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
               style={{ background: snapEnabled ? T.accentDim : T.s2, borderColor: snapEnabled ? "rgba(245,158,11,0.28)" : T.border, color: snapEnabled ? T.accent : T.dim }}>
@@ -1166,6 +1327,68 @@ export default function Dashboard() {
           style={{ width: 252, background: T.surface, borderColor: T.border }}>
           <TileFormatPanel item={selectedItem} dashboardId={activeDashboard?.id} T={T} />
         </div>
+      )}
+
+      {/* ── Add Slicer Modal ── */}
+      {slicerModalOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => e.target === e.currentTarget && setSlicerModalOpen(false)}
+        >
+          <div className="w-80 rounded-xl border shadow-2xl overflow-hidden"
+            style={{ background: T.surface, borderColor: T.border }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: T.border }}>
+              <div className="flex items-center gap-2">
+                <Filter size={13} style={{ color: T.accent }} />
+                <span className="text-sm font-semibold" style={{ color: T.text }}>Add Filter Slicer</span>
+              </div>
+              <button onClick={() => setSlicerModalOpen(false)} style={{ color: T.muted }}>
+                <X size={14} />
+              </button>
+            </div>
+            <div className="px-4 py-4 space-y-3">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: T.dim }}>Dataset Column</label>
+                <select value={slicerColumn} onChange={(e) => setSlicerColumn(e.target.value)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ background: T.s2, borderColor: T.border, color: T.text }}>
+                  <option value="">— select column —</option>
+                  {slicerColumns.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium mb-1" style={{ color: T.dim }}>Mode</label>
+                  <select value={slicerMode} onChange={(e) => setSlicerMode(e.target.value)}
+                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                    style={{ background: T.s2, borderColor: T.border, color: T.text }}>
+                    <option value="dropdown">Dropdown</option>
+                    <option value="list">List</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 pt-5">
+                  <button
+                    onClick={() => setSlicerMulti((m) => !m)}
+                    className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                    style={{ background: slicerMulti ? T.accent : T.border }}>
+                    <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                      style={{ transform: slicerMulti ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                  </button>
+                  <span className="text-xs" style={{ color: T.text }}>Multi</span>
+                </div>
+              </div>
+              <button
+                onClick={handleAddSlicer}
+                disabled={!slicerColumn}
+                className="w-full rounded-lg py-2 text-sm font-semibold"
+                style={{ background: T.accent, color: "#000", opacity: slicerColumn ? 1 : 0.5 }}>
+                Add Slicer
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

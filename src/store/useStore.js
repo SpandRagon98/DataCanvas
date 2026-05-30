@@ -703,6 +703,76 @@ export const useStore = create(
           };
         }),
 
+      addSlicerToDashboard: (dashboardId, slicerConfig) =>
+        set((state) => {
+          const targetId = dashboardId || state.activeDashboardId;
+          const dash = state.dashboards.find((d) => d.id === targetId);
+          if (!dash) return state;
+          const nextY = dash.items.reduce(
+            (max, item) => Math.max(max, (item.layout?.y || 0) + (item.layout?.h || 48) + 12), 0
+          );
+          return {
+            dashboards: state.dashboards.map((d) =>
+              d.id !== targetId ? d : {
+                ...d,
+                items: [...d.items, {
+                  id: createId("slicer"),
+                  type: "slicer",
+                  layout: { x: 16, y: nextY + 12, w: 240, h: 48, minW: 120, minH: 40 },
+                  slicerConfig: slicerConfig || { column: "", label: "", mode: "dropdown", multiSelect: false },
+                  selectedValues: [],
+                }],
+              }
+            ),
+          };
+        }),
+
+      addButtonToDashboard: (dashboardId, buttonConfig) =>
+        set((state) => {
+          const targetId = dashboardId || state.activeDashboardId;
+          const dash = state.dashboards.find((d) => d.id === targetId);
+          if (!dash) return state;
+          const nextY = dash.items.reduce(
+            (max, item) => Math.max(max, (item.layout?.y || 0) + (item.layout?.h || 44) + 12), 0
+          );
+          return {
+            dashboards: state.dashboards.map((d) =>
+              d.id !== targetId ? d : {
+                ...d,
+                items: [...d.items, {
+                  id: createId("dbutton"),
+                  type: "dbutton",
+                  layout: { x: 16, y: nextY + 12, w: 140, h: 44, minW: 60, minH: 32 },
+                  buttonConfig: buttonConfig || {
+                    label: "Button",
+                    bgColor: "#f59e0b",
+                    textColor: "#000000",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    borderColor: "transparent",
+                    borderWidth: 0,
+                    action: "none",
+                    targetId: "",
+                  },
+                }],
+              }
+            ),
+          };
+        }),
+
+      updateSlicerValues: (dashboardId, itemId, values) =>
+        set((state) => ({
+          dashboards: state.dashboards.map((d) =>
+            d.id !== dashboardId ? d : {
+              ...d,
+              items: d.items.map((item) =>
+                item.id !== itemId ? item : { ...item, selectedValues: values }
+              ),
+            }
+          ),
+        })),
+
       getActiveVisual: () => {
         const state = get();
         return state.visuals.find((v) => v.id === state.activeVisualId) || null;

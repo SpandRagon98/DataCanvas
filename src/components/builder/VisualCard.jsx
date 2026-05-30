@@ -286,6 +286,153 @@ export default function VisualCard({ visual, onCollapse }) {
         {advancedOpen && (
           <div className="space-y-5 border-t px-4 pb-4 pt-4" style={{ borderColor: T.border }}>
 
+            {/* ─ Chart Style ─ */}
+            {["line","area","bar","stackedBar"].includes(visual.chartType) && (
+              <div>
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>Chart Style</div>
+                <div className="grid grid-cols-2 gap-3">
+
+                  {/* Gridlines */}
+                  <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                    <span className="text-xs" style={{ color: T.text }}>Gridlines</span>
+                    <button onClick={() => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), showGridlines: (visual.chartStyle?.showGridlines ?? true) ? false : true } })}
+                      className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                      style={{ background: (visual.chartStyle?.showGridlines ?? true) ? T.accent : T.border }}>
+                      <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                        style={{ transform: (visual.chartStyle?.showGridlines ?? true) ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                    </button>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                    <span className="text-xs" style={{ color: T.text }}>Legend</span>
+                    <button onClick={() => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), showLegend: (visual.chartStyle?.showLegend ?? true) ? false : true } })}
+                      className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                      style={{ background: (visual.chartStyle?.showLegend ?? true) ? T.accent : T.border }}>
+                      <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                        style={{ transform: (visual.chartStyle?.showLegend ?? true) ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                    </button>
+                  </div>
+
+                  {/* Axis Labels */}
+                  <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                    <span className="text-xs" style={{ color: T.text }}>Axis Labels</span>
+                    <button onClick={() => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), showAxisLabels: (visual.chartStyle?.showAxisLabels ?? true) ? false : true } })}
+                      className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                      style={{ background: (visual.chartStyle?.showAxisLabels ?? true) ? T.accent : T.border }}>
+                      <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                        style={{ transform: (visual.chartStyle?.showAxisLabels ?? true) ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                    </button>
+                  </div>
+
+                  {/* Markers (line/area) */}
+                  {["line","area"].includes(visual.chartType) && (
+                    <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                      <span className="text-xs" style={{ color: T.text }}>Markers</span>
+                      <button onClick={() => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), showMarkers: !(visual.chartStyle?.showMarkers) } })}
+                        className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                        style={{ background: visual.chartStyle?.showMarkers ? T.accent : T.border }}>
+                        <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                          style={{ transform: visual.chartStyle?.showMarkers ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Area fill */}
+                  {visual.chartType === "area" && (
+                    <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                      <span className="text-xs" style={{ color: T.text }}>Area Fill</span>
+                      <button onClick={() => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), areaFill: (visual.chartStyle?.areaFill ?? true) ? false : true } })}
+                        className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                        style={{ background: (visual.chartStyle?.areaFill ?? true) ? T.accent : T.border }}>
+                        <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                          style={{ transform: (visual.chartStyle?.areaFill ?? true) ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Smooth line */}
+                  {["line","area"].includes(visual.chartType) && (
+                    <div className="flex items-center justify-between rounded-xl border px-3 py-2" style={{ background: T.surface, borderColor: T.border }}>
+                      <span className="text-xs" style={{ color: T.text }}>Smooth Curve</span>
+                      <button onClick={() => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), lineSmooth: (visual.chartStyle?.lineSmooth ?? true) ? false : true } })}
+                        className="relative inline-flex h-5 w-9 items-center rounded-full transition"
+                        style={{ background: (visual.chartStyle?.lineSmooth ?? true) ? T.accent : T.border }}>
+                        <span className="inline-block h-3 w-3 rounded-full bg-white transition"
+                          style={{ transform: (visual.chartStyle?.lineSmooth ?? true) ? "translateX(1.25rem)" : "translateX(0.25rem)" }} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {["line","area"].includes(visual.chartType) && (
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    {/* Line style */}
+                    <div>
+                      <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Line Style</div>
+                      <select value={visual.chartStyle?.lineStyle || "solid"}
+                        onChange={(e) => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), lineStyle: e.target.value } })}
+                        className="w-full rounded-xl border px-2 py-1.5 text-sm outline-none" style={selectStyle}>
+                        <option value="solid">Solid ———</option>
+                        <option value="dashed">Dashed - - -</option>
+                        <option value="dotted">Dotted · · ·</option>
+                      </select>
+                    </div>
+                    {/* Line thickness */}
+                    <div>
+                      <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Line Width: {visual.chartStyle?.lineWidth ?? 2}px</div>
+                      <input type="range" min={1} max={8} value={visual.chartStyle?.lineWidth ?? 2}
+                        onChange={(e) => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), lineWidth: +e.target.value } })}
+                        style={{ width: "100%", accentColor: T.accent }} />
+                    </div>
+                    {/* Marker size (when markers on) */}
+                    {visual.chartStyle?.showMarkers && (
+                      <div>
+                        <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Marker Size: {visual.chartStyle?.markerSize ?? 4}px</div>
+                        <input type="range" min={2} max={12} value={visual.chartStyle?.markerSize ?? 4}
+                          onChange={(e) => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), markerSize: +e.target.value } })}
+                          style={{ width: "100%", accentColor: T.accent }} />
+                      </div>
+                    )}
+                    {/* Area fill opacity */}
+                    {visual.chartType === "area" && (visual.chartStyle?.areaFill ?? true) && (
+                      <div>
+                        <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Fill Opacity: {Math.round((visual.chartStyle?.areaFillOpacity ?? 0.18) * 100)}%</div>
+                        <input type="range" min={5} max={80} value={Math.round((visual.chartStyle?.areaFillOpacity ?? 0.18) * 100)}
+                          onChange={(e) => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), areaFillOpacity: +e.target.value / 100 } })}
+                          style={{ width: "100%", accentColor: T.accent }} />
+                      </div>
+                    )}
+                    {/* Axis font size */}
+                    <div>
+                      <div className="mb-1 text-[11px]" style={{ color: T.dim }}>Axis Font: {visual.chartStyle?.axisFontSize ?? 11}px</div>
+                      <input type="range" min={8} max={18} value={visual.chartStyle?.axisFontSize ?? 11}
+                        onChange={(e) => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), axisFontSize: +e.target.value } })}
+                        style={{ width: "100%", accentColor: T.accent }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Series color overrides */}
+                {visual.yFields?.length > 0 && (
+                  <div className="mt-3">
+                    <div className="mb-1.5 text-[11px] font-medium" style={{ color: T.dim }}>Series Colors</div>
+                    <div className="space-y-1.5">
+                      {visual.yFields.map((field, i) => (
+                        <div key={field} className="flex items-center gap-2">
+                          <ColorPickerInput
+                            value={(visual.chartStyle?.seriesColors?.[field]) || getPalette(visual.colorPalette)[i % getPalette(visual.colorPalette).length]}
+                            onChange={(c) => updateVisual(visual.id, { chartStyle: { ...(visual.chartStyle||{}), seriesColors: { ...(visual.chartStyle?.seriesColors||{}), [field]: c } } })}
+                          />
+                          <span className="text-xs truncate" style={{ color: T.text }}>{field}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ─ Color Palette ─ */}
             <div>
               <div className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: T.muted }}>Color Palette</div>

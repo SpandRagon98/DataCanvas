@@ -215,6 +215,26 @@ export default function VisualRenderer({
   const numFmt      = visual.numFormat || {};
   const fmtVal      = (v) => typeof v === "number" ? formatValue(v, numFmt) : v;
 
+  // ── Chart Style ──────────────────────────────────────────────────────────
+  const cs               = visual.chartStyle || {};
+  const lineSmooth       = cs.lineSmooth     !== false;
+  const lineStyle        = cs.lineStyle      || "solid";
+  const showMarkers      = cs.showMarkers    === true;
+  const markerSize       = cs.markerSize     ?? 4;
+  const lineWidth        = cs.lineWidth      ?? 2;
+  const areaFill         = cs.areaFill       !== false;
+  const areaFillOpacity  = cs.areaFillOpacity ?? 0.18;
+  const showGridlines    = cs.showGridlines  !== false && visual.showGridlines  !== false;
+  const showLegend       = cs.showLegend     !== false && visual.showLegend     !== false;
+  const showAxisLabels   = cs.showAxisLabels !== false && visual.showAxisLabels !== false;
+  const axisFontSz       = cs.axisFontSize   ?? visual.axisFontSize ?? (compact ? 10 : 11);
+  const seriesColors     = cs.seriesColors   || {};   // { [seriesKey]: "#hex" }
+
+  const lineDash = lineStyle === "dashed" ? "8 4" : lineStyle === "dotted" ? "3 3" : undefined;
+  const lineType = lineSmooth ? "monotone" : "linear";
+
+  const getSeriesColor = (key, paletteColor) => seriesColors[key] || paletteColor;
+
   const tooltipStyle = {
     contentStyle: {
       background: T.s2, border: `1px solid ${T.border}`,
@@ -223,7 +243,7 @@ export default function VisualRenderer({
     formatter: (value, name) => [fmtVal(value), name],
   };
   const axisStyle = {
-    tick: { fill: T.dim, fontSize: compact ? 10 : 11 },
+    tick: showAxisLabels ? { fill: T.dim, fontSize: axisFontSz } : false,
     stroke: T.border,
     tickFormatter: fmtVal,
   };
@@ -355,7 +375,7 @@ export default function VisualRenderer({
       <div style={{ height: chartHeight, minHeight: minChartH }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={waterfallData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            {showGridlines && <CartesianGrid strokeDasharray="3 3" stroke={T.border} />}
             <XAxis dataKey="x" {...axisStyle} />
             <YAxis {...axisStyle} />
             <Tooltip {...tooltipStyle}
@@ -562,15 +582,18 @@ export default function VisualRenderer({
       <div style={{ height: chartHeight, minHeight: minChartH }}>
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={radarData}>
-            <PolarGrid stroke={T.border} />
-            <PolarAngleAxis dataKey="subject" tick={{ fill: T.dim, fontSize: compact?10:11 }} />
-            <PolarRadiusAxis tick={{ fill: T.dim, fontSize: 9 }} />
+            {showGridlines && <PolarGrid stroke={T.border} />}
+            <PolarAngleAxis dataKey="subject" tick={showAxisLabels ? { fill: T.dim, fontSize: axisFontSz } : false} />
+            <PolarRadiusAxis tick={showAxisLabels ? { fill: T.dim, fontSize: 9 } : false} />
             <Tooltip {...tooltipStyle} />
-            <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-            {legendKeys.map((k, i) => (
-              <Radar key={k} name={k} dataKey={k}
-                stroke={palette[i%palette.length]} fill={palette[i%palette.length]} fillOpacity={0.25} />
-            ))}
+            {showLegend && <Legend wrapperStyle={{ color: T.dim, fontSize: axisFontSz }} />}
+            {legendKeys.map((k, i) => {
+              const color = getSeriesColor(k, palette[i % palette.length]);
+              return (
+                <Radar key={k} name={k} dataKey={k}
+                  stroke={color} fill={color} fillOpacity={0.25} />
+              );
+            })}
           </RadarChart>
         </ResponsiveContainer>
       </div>
@@ -579,51 +602,47 @@ export default function VisualRenderer({
 
   // ── Line ──
   if (visual.chartType === "line") {
-    const lineData = forecastResult ? extendedChartData : chartData;
+    const lineData  = forecastResult ? extendedChartData : chartData;
     const actualLen = chartData.length;
     return (
       <div style={{ height: chartHeight, minHeight: minChartH }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={lineData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            {showGridlines && <CartesianGrid strokeDasharray="3 3" stroke={T.border} />}
             <XAxis dataKey="x" {...axisStyle} />
             <YAxis {...axisStyle} />
             <Tooltip {...tooltipStyle} />
-            <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-            {legendKeys.map((k, i) => (
-              <Line key={k} type="monotone" dataKey={k} stroke={palette[i%palette.length]}
-                strokeWidth={2}
-                dot={(props) => {
-                  const { cx, cy, index, payload } = props;
-                  // Forecast dots — dashed style
-                  if (payload?._isForecast) {
-                    return (
-                      <circle key={`fc-${index}`} cx={cx} cy={cy} r={4}
-                        fill={T.surface} stroke={palette[i%palette.length]}
-                        strokeWidth={2} strokeDasharray="3 2" />
-                    );
+            {showLegend && <Legend wrapperStyle={{ color: T.dim, fontSize: axisFontSz }} />}
+            {legendKeys.map((k, i) => {
+              const color = getSeriesColor(k, palette[i % palette.length]);
+              return (
+                <Line key={k} type={lineType} dataKey={k}
+                  stroke={color} strokeWidth={lineWidth}
+                  strokeDasharray={lineDash}
+                  dot={showMarkers
+                    ? { r: markerSize, fill: color, strokeWidth: 0 }
+                    : (props) => {
+                        const { cx, cy, index, payload } = props;
+                        if (payload?._isForecast) return (
+                          <circle key={`fc-${index}`} cx={cx} cy={cy} r={4}
+                            fill={T.surface} stroke={color} strokeWidth={2} strokeDasharray="3 2" />
+                        );
+                        if (anomalyResult?.points?.[index]?.isAnomaly) return (
+                          <circle key={`an-${index}`} cx={cx} cy={cy} r={6}
+                            fill="rgba(239,68,68,0.25)" stroke="#ef4444" strokeWidth={2} />
+                        );
+                        return null;
+                      }
                   }
-                  // Anomaly dots — red highlight
-                  if (anomalyResult?.points?.[index]?.isAnomaly) {
-                    return (
-                      <circle key={`an-${index}`} cx={cx} cy={cy} r={6}
-                        fill="rgba(239,68,68,0.25)" stroke="#ef4444"
-                        strokeWidth={2} />
-                    );
-                  }
-                  return null;
-                }}
-                strokeDasharray={undefined}
-              />
-            ))}
-            {/* Forecast confidence band as reference area */}
+                  activeDot={showMarkers ? { r: markerSize + 2 } : { r: 4 }}
+                />
+              );
+            })}
             {forecastResult?.upper && forecastResult.upper.map((_, i) => {
               const idx = actualLen + i;
               if (!lineData[idx]) return null;
-              return (
-                <ReferenceLine key={`fu-${i}`} y={forecastResult.upper[i]}
-                  stroke="transparent" strokeDasharray="0" ifOverflow="extendDomain" />
-              );
+              return <ReferenceLine key={`fu-${i}`} y={forecastResult.upper[i]}
+                stroke="transparent" strokeDasharray="0" ifOverflow="extendDomain" />;
             })}
             {trendLine}
             {referenceLines.map((rl, i) => (
@@ -650,15 +669,23 @@ export default function VisualRenderer({
       <div style={{ height: chartHeight, minHeight: minChartH }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={areaData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+            {showGridlines && <CartesianGrid strokeDasharray="3 3" stroke={T.border} />}
             <XAxis dataKey="x" {...axisStyle} />
             <YAxis {...axisStyle} />
             <Tooltip {...tooltipStyle} />
-            <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-            {legendKeys.map((k, i) => (
-              <Area key={k} type="monotone" dataKey={k}
-                stroke={palette[i%palette.length]} fill={palette[i%palette.length]} fillOpacity={0.18} />
-            ))}
+            {showLegend && <Legend wrapperStyle={{ color: T.dim, fontSize: axisFontSz }} />}
+            {legendKeys.map((k, i) => {
+              const color = getSeriesColor(k, palette[i % palette.length]);
+              return (
+                <Area key={k} type={lineType} dataKey={k}
+                  stroke={color} strokeWidth={lineWidth}
+                  strokeDasharray={lineDash}
+                  fill={color}
+                  fillOpacity={areaFill ? areaFillOpacity : 0}
+                  dot={showMarkers ? { r: markerSize, fill: color, strokeWidth: 0 } : false}
+                />
+              );
+            })}
             {trendLine}
             {referenceLines.map((rl, i) => (
               <ReferenceLine key={i} y={rl.value} stroke={rl.color||T.accent} strokeDasharray="4 3"
@@ -681,31 +708,33 @@ export default function VisualRenderer({
     <div style={{ height: chartHeight, minHeight: minChartH }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={chartData}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+          {showGridlines && <CartesianGrid strokeDasharray="3 3" stroke={T.border} />}
           <XAxis dataKey="x" {...axisStyle} />
           <YAxis {...axisStyle} />
           <Tooltip {...tooltipStyle} />
-          <Legend wrapperStyle={{ color: T.dim, fontSize: 11 }} />
-          {legendKeys.map((k, i) => (
-            <Bar key={k} dataKey={k} fill={palette[i%palette.length]}
-              stackId={visual.chartType==="stackedBar"?"a":undefined}
-              radius={[4,4,0,0]}
-              onClick={(data) => onCrossFilter && onCrossFilter(visual.xFields[0], data.x)}
-              style={{ cursor: onCrossFilter?"pointer":"default" }}>
-              {(conditionalRules.length > 0 || anomalyResult) && chartData.map((entry, idx) => {
-                const isAnomaly = anomalyResult?.points?.[idx]?.isAnomaly;
-                const baseColor = getCellColor(entry, palette[i%palette.length], conditionalRules);
-                return (
-                  <Cell
-                    key={idx}
-                    fill={isAnomaly ? "#ef4444" : baseColor}
-                    stroke={isAnomaly ? "#dc2626" : undefined}
-                    strokeWidth={isAnomaly ? 2 : 0}
-                  />
-                );
-              })}
-            </Bar>
-          ))}
+          {showLegend && <Legend wrapperStyle={{ color: T.dim, fontSize: axisFontSz }} />}
+          {legendKeys.map((k, i) => {
+            const color = getSeriesColor(k, palette[i % palette.length]);
+            return (
+              <Bar key={k} dataKey={k} fill={color}
+                stackId={visual.chartType === "stackedBar" ? "a" : undefined}
+                radius={[4, 4, 0, 0]}
+                onClick={(data) => onCrossFilter && onCrossFilter(visual.xFields[0], data.x)}
+                style={{ cursor: onCrossFilter ? "pointer" : "default" }}>
+                {(conditionalRules.length > 0 || anomalyResult) && chartData.map((entry, idx) => {
+                  const isAnomaly = anomalyResult?.points?.[idx]?.isAnomaly;
+                  const baseColor = getCellColor(entry, color, conditionalRules);
+                  return (
+                    <Cell key={idx}
+                      fill={isAnomaly ? "#ef4444" : baseColor}
+                      stroke={isAnomaly ? "#dc2626" : undefined}
+                      strokeWidth={isAnomaly ? 2 : 0}
+                    />
+                  );
+                })}
+              </Bar>
+            );
+          })}
           {trendLine}
           {referenceLines.map((rl, i) => (
             <ReferenceLine key={i} y={rl.value} stroke={rl.color||T.accent} strokeDasharray="4 3"
