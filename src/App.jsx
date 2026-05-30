@@ -4,12 +4,13 @@ import {
 } from "react-router-dom";
 import {
   Database, BarChart3, Table2, Layers3, LayoutDashboard,
-  Sun, Moon, Sparkles, Save, FolderOpen,
+  Sun, Moon, Sparkles, Save, FolderOpen, Wand2,
   Share2, History, MessageSquare, Building2, CalendarClock,
   Cloud, ClipboardList, Settings, GitBranch, Sigma,
 } from "lucide-react";
 import DataSource    from "./pages/DataSource";
 import DataTable     from "./pages/DataTable";
+import AIDashboard  from "./pages/AIDashboard";
 import ReportBuilder from "./pages/ReportBuilder";
 import Hierarchies   from "./pages/Hierarchies";
 import Dashboard     from "./pages/Dashboard";
@@ -39,13 +40,14 @@ import { ROLES, OWNER_EMAIL } from "./hooks/useRBAC";
 
 // ── Nav items ──────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { to: "/source",      icon: Database,        label: "Data Source"    },
-  { to: "/table",       icon: Table2,          label: "Data Table"     },
-  { to: "/report",      icon: BarChart3,       label: "Report Builder" },
-  { to: "/model",       icon: GitBranch,       label: "Data Model"     },
-  { to: "/measures",    icon: Sigma,           label: "Measures"       },
-  { to: "/dashboard",   icon: LayoutDashboard, label: "Dashboard"      },
-  { to: "/hierarchies", icon: Layers3,         label: "Hierarchies"    },
+  { to: "/source",       icon: Database,        label: "Data Source"    },
+  { to: "/table",        icon: Table2,          label: "Data Table"     },
+  { to: "/ai-dashboard", icon: Wand2,           label: "AI Dashboard",  accent: true },
+  { to: "/report",       icon: BarChart3,       label: "Report Builder" },
+  { to: "/model",        icon: GitBranch,       label: "Data Model"     },
+  { to: "/measures",     icon: Sigma,           label: "Measures"       },
+  { to: "/dashboard",    icon: LayoutDashboard, label: "Dashboard"      },
+  { to: "/hierarchies",  icon: Layers3,         label: "Hierarchies"    },
 ];
 
 // ── Sidebar ────────────────────────────────────────────────────────────────
@@ -181,14 +183,20 @@ function Sidebar({
 
       {/* ── Nav items ── */}
       <nav className="flex-1 px-2 space-y-0.5 anim-slide-left stagger">
-        {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+        {NAV_ITEMS.map(({ to, icon: Icon, label, accent }) => (
           <NavLink
             key={to}
             to={to}
-            className={({ isActive }) => `nav-link anim-fade-in ${isActive ? "active" : ""}`}
+            className={({ isActive }) =>
+              `nav-link anim-fade-in ${isActive ? "active" : ""} ${accent ? "nav-link-ai" : ""}`
+            }
           >
-            <Icon size={15} strokeWidth={1.8} />
-            <span className="truncate">{label}</span>
+            <Icon size={15} strokeWidth={1.8} style={accent ? { color: T.accent } : undefined} />
+            <span className="truncate" style={accent ? { color: T.accent } : undefined}>{label}</span>
+            {accent && (
+              <span className="ml-auto rounded-md px-1.5 py-0.5 text-[9px] font-bold shrink-0"
+                style={{ background: T.accent, color: "#000" }}>AI</span>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -357,9 +365,10 @@ function AnimatedRoutes() {
   return (
     <div key={location.pathname} className="page-enter flex-1 flex flex-col min-h-0">
       <Routes location={location}>
-        <Route path="/"            element={<Navigate to="/source" replace />} />
+        <Route path="/"             element={<Navigate to="/source" replace />} />
         <Route path="/source"      element={<DataSource />} />
         <Route path="/table"       element={<DataTable />} />
+        <Route path="/ai-dashboard" element={<AIDashboard />} />
         <Route path="/report"      element={<ReportBuilder />} />
         <Route path="/model"       element={<DataModelling />} />
         <Route path="/measures"    element={<Measures />} />
