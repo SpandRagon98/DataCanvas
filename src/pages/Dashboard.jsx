@@ -1474,7 +1474,7 @@ export default function Dashboard() {
                 <Grid3x3 size={12} /> Metric
               </button>
               {metricAssetOpen && (
-                <div className="absolute left-0 z-50 mt-1.5 w-60 rounded-xl border shadow-2xl overflow-hidden"
+                <div className="absolute left-0 bottom-full z-[60] mb-1.5 w-60 rounded-xl border shadow-2xl overflow-hidden"
                   style={{ background: T.surface, borderColor: T.border }}
                   onMouseLeave={() => setMetricAssetOpen(false)}>
                   <div className="px-3 py-2 border-b text-[10px] font-semibold uppercase tracking-widest"
