@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   Database, Upload, ChevronDown, ChevronUp, AlertTriangle,
-  Table2, GitMerge, Wifi, Pencil, Check, X,
+  Table2, GitMerge, Wifi, Pencil, Check, X, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { useStore }         from "../store/useStore";
 import ImportModal          from "../components/import/ImportModal";
@@ -109,6 +109,7 @@ export default function DataSource() {
   const activeIsSystem  = !!activeDataset?.isSystemTable;
 
   const [paneCollapsed, setPaneCollapsed] = useState(false);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
   const [importOpen,   setImportOpen]   = useState(false);
   const [expandedCol,  setExpandedCol]  = useState(null);
   const [rightTab,     setRightTab]     = useState("preview");
@@ -201,20 +202,45 @@ export default function DataSource() {
           />
         )}
 
-        {/* ── Main 2-column grid ── */}
-        <div className="grid gap-4" style={{ gridTemplateColumns: "minmax(260px,320px) 1fr" }}>
+        {/* ── Main flex layout (collapsible Active Dataset + workspace) ── */}
+        <div className="flex gap-4 items-start">
 
-          {/* ── Left: summary + calc fields ── */}
-          <div className="space-y-4 min-w-0">
+          {/* ── Collapsed rail ── */}
+          {summaryCollapsed && (
+            <button
+              onClick={() => setSummaryCollapsed(false)}
+              title="Expand Active Dataset"
+              className="shrink-0 flex flex-col items-center gap-2 rounded-xl border py-3 transition hover:opacity-90"
+              style={{ width: 40, background: T.surface, borderColor: T.border, color: T.muted }}
+            >
+              <PanelLeftOpen size={15} />
+              <Database size={14} style={{ color: T.accent }} />
+              <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 10, color: T.dim, letterSpacing: "0.04em" }}>
+                Active Dataset
+              </span>
+            </button>
+          )}
+
+          {/* ── Left: summary + calc fields (hidden when collapsed) ── */}
+          {!summaryCollapsed && (
+          <div className="space-y-4 shrink-0" style={{ width: 300 }}>
             <div className="rounded-xl border p-4 shadow-sm" style={{ background: T.surface, borderColor: T.border }}>
               <div className="mb-3 flex items-center gap-2.5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl shrink-0" style={{ background: T.accentDim }}>
                   <Database size={14} color={T.accent} />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <h2 className="text-[13px] font-semibold leading-none" style={{ color: T.text }}>Active Dataset</h2>
                   <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>Auto-detected columns & types</p>
                 </div>
+                <button
+                  onClick={() => setSummaryCollapsed(true)}
+                  title="Collapse — give preview more space"
+                  className="shrink-0 rounded-lg p-1.5 transition hover:opacity-80"
+                  style={{ color: T.muted }}
+                >
+                  <PanelLeftClose size={15} />
+                </button>
               </div>
 
               <div className="space-y-2 mb-4">
@@ -329,9 +355,10 @@ export default function DataSource() {
 
             <CalcFieldManager />
           </div>
+          )}
 
           {/* ── Right: tabbed panel ── */}
-          <div className="rounded-xl border shadow-sm min-w-0 flex flex-col" style={{ background: T.surface, borderColor: T.border }}>
+          <div className="flex-1 rounded-xl border shadow-sm min-w-0 flex flex-col" style={{ background: T.surface, borderColor: T.border }}>
             {/* Tab bar */}
             <div className="flex gap-1 border-b px-4 pt-3 shrink-0" style={{ borderColor: T.border }}>
               {RIGHT_TABS.map(({ id, label, icon: Icon }) => (

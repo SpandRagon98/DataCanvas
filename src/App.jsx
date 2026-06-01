@@ -89,6 +89,8 @@ function TopBar({ T }) {
       scenarios: s.scenarios, activeScenarioId: s.activeScenarioId,
       filterBookmarks: s.filterBookmarks, relationships: s.relationships,
       modelLayout: s.modelLayout, measures: s.measures,
+      metrics: s.metrics, modelPages: s.modelPages, activeModelPageId: s.activeModelPageId,
+      columnAliases: s.columnAliases, columnFormats: s.columnFormats, themeAccent: s.themeAccent,
     }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     Object.assign(document.createElement("a"), {
@@ -174,7 +176,7 @@ function Sidebar({
   const cloudWorkbookId = useStore((s) => s.cloudWorkbookId);
 
   const activeScenario = scenarios.find((s) => s.id === activeScenarioId) || null;
-  const activeDataset  = datasets.find((d) => d.id === activeDatasetId && !d.isSystemTable) || null;
+  const activeDataset  = datasets.find((d) => d.id === activeDatasetId) || null;
 
   const isDark  = themeMode === "dark";
   const isLight = themeMode === "light";

@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { createEmptyScenario } from "../utils/scenarioEngine";
 import { log, A } from "../lib/auditLog";
 import { ensureCalendarTable, CALENDAR_DATASET_ID } from "../utils/calendarTable";
+import { richToBase } from "../utils/columnTypes";
 
 const DEMO_DATA = [
   { Date: "2026-01-01", Region: "North", Product: "Laptop", Category: "Electronics", Revenue: 120000, Cost: 90000, Profit: 30000, Units: 12, Salesperson: "Aman" },
@@ -175,6 +176,11 @@ export const useStore = create(
       // Maps originalKey → display label. Internal keys never change.
       columnAliases: {},
 
+      // ── Column rich types (display/format) — persisted ──
+      // Maps column → rich type id (dimension|text|number|decimal|whole|
+      // percent|currency|date|datetime|boolean). Engine base type lives in dataTypes.
+      columnFormats: {},
+
       // ── Data Modelling — relationships & canvas layout ──
       relationships: initialRelationships,
       modelLayout: {},   // { [datasetId]: { x, y } } — legacy single-view layout
@@ -223,6 +229,24 @@ export const useStore = create(
           const next = { ...state.columnAliases };
           delete next[originalKey];
           return { columnAliases: next };
+        }),
+
+      // Change a column's data type (rich type → engine base type).
+      // Updates the active dataset's dataTypes + the mirrored top-level dataTypes,
+      // and records the rich type for display/formatting. Non-destructive to values.
+      setColumnType: (column, richType) =>
+        set((state) => {
+          const base = richToBase(richType);
+          const datasets = state.datasets.map((d) =>
+            d.id === state.activeDatasetId
+              ? { ...d, dataTypes: { ...d.dataTypes, [column]: base } }
+              : d
+          );
+          return {
+            datasets,
+            dataTypes:     { ...state.dataTypes, [column]: base },
+            columnFormats: { ...state.columnFormats, [column]: richType },
+          };
         }),
 
       setData: (data, columns, types, name) => {
@@ -312,6 +336,7 @@ export const useStore = create(
           activeDashboardId: wb.activeDashboardId ?? fallback.id,
           themeMode: wb.themeMode ?? "dark",
           themeAccent: wb.themeAccent ?? get().themeAccent ?? "teal",
+          columnFormats: wb.columnFormats ?? get().columnFormats ?? {},
           calculatedFields: wb.calculatedFields ?? [],
           scenarios: wb.scenarios ?? [],
           activeScenarioId: wb.activeScenarioId ?? null,
@@ -1260,6 +1285,7 @@ export const useStore = create(
         activeScenarioId: state.activeScenarioId,
         filterBookmarks: state.filterBookmarks,
         columnAliases: state.columnAliases,
+        columnFormats: state.columnFormats,
         relationships: state.relationships,
         modelLayout: state.modelLayout,
         modelPages: state.modelPages,

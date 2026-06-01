@@ -1,11 +1,12 @@
 import { AgGridReact } from "ag-grid-react";
 import { useEffect, useMemo, useState } from "react";
-import { Database, Download, Undo2, Redo2, Search, X } from "lucide-react";
+import { Database, Download, Undo2, Redo2, Search, X, SlidersHorizontal } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useStore }          from "../store/useStore";
 import { useEffectiveData }  from "../hooks/useEffectiveData";
 import { useTheme }          from "../styles/theme";
-import CheckboxSetFilter     from "../components/datatable/CheckboxSetFilter";
+import DatasetPane           from "../components/datasource/DatasetPane";
+import { RICH_TYPES, baseToRich } from "../utils/columnTypes";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -121,6 +122,64 @@ function FindReplaceModal({ open, onClose, rows, columns, dataTypes, updateCell,
   );
 }
 
+// ── Dimension pill cell renderer (light theme-color tag) ───────────────────
+function DimensionPill(params) {
+  const v = params.value;
+  if (v === null || v === undefined || v === "") return "";
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "1px 9px",
+        borderRadius: 9999,
+        background: "rgba(var(--dc-accent-rgb),0.12)",
+        color: "var(--dc-accent)",
+        fontSize: 12,
+        fontWeight: 500,
+        lineHeight: "20px",
+        maxWidth: "100%",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {String(v)}
+    </span>
+  );
+}
+
+// ── Column Types panel ──────────────────────────────────────────────────────
+function ColumnTypesPanel({ columns, dataTypes, columnFormats, calcFieldNames, columnAliases, onChange, T }) {
+  return (
+    <div className="shrink-0 rounded-xl border px-4 py-3 shadow-sm" style={{ background: T.surface, borderColor: T.border }}>
+      <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+        Column Data Types
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {columns.filter((c) => !calcFieldNames?.has(c)).map((col) => {
+          const current = columnFormats[col] || baseToRich(dataTypes[col]);
+          return (
+            <div key={col} className="flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
+              style={{ background: T.s2, borderColor: T.border }}>
+              <span className="text-xs font-medium max-w-[140px] truncate" style={{ color: T.text }}>
+                {columnAliases?.[col] || col}
+              </span>
+              <select
+                value={current}
+                onChange={(e) => onChange(col, e.target.value)}
+                className="rounded-lg border px-1.5 py-1 text-[11px] outline-none"
+                style={{ background: T.surface, borderColor: T.border, color: T.accent }}
+              >
+                {RICH_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Main DataTable ────────────────────────────────────────────────────────
 export default function DataTable() {
   const T             = useTheme();
@@ -130,11 +189,14 @@ export default function DataTable() {
   const redoEdit      = useStore((s) => s.redoEdit);
   const undoStack     = useStore((s) => s.undoStack);
   const redoStack     = useStore((s) => s.redoStack);
-  const rawData       = useStore((s) => s.rawData);          // unfiltered, for filter values
   const columnAliases = useStore((s) => s.columnAliases);
+  const columnFormats = useStore((s) => s.columnFormats);
+  const setColumnType = useStore((s) => s.setColumnType);
 
   const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false, joinCalendar: false });
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
+  const [paneCollapsed,   setPaneCollapsed]   = useState(false);
+  const [typesOpen,       setTypesOpen]       = useState(false);
 
   /* ── Keyboard shortcuts ── */
   useEffect(() => {
@@ -178,18 +240,39 @@ export default function DataTable() {
     XLSX.writeFile(wb, "vizora-export.xlsx");
   };
 
-  /* ── Column definitions (with CheckboxSetFilter for string columns) ── */
+  /* ── Column definitions: per-type filters + dimension pills ── */
   const columnDefs = useMemo(() => {
     return columns.map((field) => {
-      const isCalc      = calcFieldNames?.has(field);
-      const type        = dataTypes[field];
-      const isString    = type !== "number" && type !== "date" && type !== "boolean";
-      const alias       = columnAliases[field] || field;
+      const isCalc   = calcFieldNames?.has(field);
+      const type     = dataTypes[field];
+      const rich     = columnFormats[field] || baseToRich(type);
+      const alias    = columnAliases[field] || field;
 
-      // Build unique values from UNFILTERED rawData for filter dropdown
-      const uniqueVals = isString
-        ? [...new Set(rawData.map((r) => String(r[field] ?? "")))].sort()
-        : [];
+      // Pick the right operator-based filter for the column type
+      let filter, filterParams = {}, filterValueGetter;
+      if (type === "number") {
+        filter = "agNumberColumnFilter";
+        filterValueGetter = (p) => {
+          const n = Number(p.data?.[field]);
+          return Number.isFinite(n) ? n : null;
+        };
+      } else if (type === "date") {
+        filter = "agDateColumnFilter";
+        filterParams = {
+          browserDatePicker: true,
+          comparator: (filterDate, cellValue) => {
+            if (cellValue == null || cellValue === "") return -1;
+            const d = new Date(cellValue);
+            if (isNaN(d.getTime())) return -1;
+            d.setHours(0, 0, 0, 0);
+            const c = d.getTime(), f = filterDate.getTime();
+            return c < f ? -1 : c > f ? 1 : 0;
+          },
+        };
+      } else {
+        // string / boolean / dimension → text filter (contains, equals, starts/ends, blank…)
+        filter = "agTextColumnFilter";
+      }
 
       return {
         field,
@@ -197,9 +280,11 @@ export default function DataTable() {
         editable:    !isCalc,
         sortable:    true,
         resizable:   true,
-        // Use custom CheckboxSetFilter for string columns; built-in for numeric
-        filter:      isString ? CheckboxSetFilter : "agNumberColumnFilter",
-        filterParams: isString ? { values: uniqueVals } : {},
+        filter,
+        filterParams,
+        ...(filterValueGetter ? { filterValueGetter } : {}),
+        floatingFilter: true,
+        ...(rich === "dimension" ? { cellRenderer: DimensionPill } : {}),
         cellStyle:   isCalc ? { fontStyle: "italic", opacity: 0.88 } : undefined,
         valueParser: (params) => {
           const ft  = dataTypes[field];
@@ -213,85 +298,118 @@ export default function DataTable() {
         },
       };
     });
-  }, [columns, dataTypes, calcFieldNames, columnAliases, rawData]);
+  }, [columns, dataTypes, calcFieldNames, columnAliases, columnFormats]);
 
-  const rowData       = useMemo(() => rows.map((row, idx) => ({ ...row, __rowIndex: idx })), [rows]);
+  const defaultColDef = useMemo(() => ({
+    filter: true,
+    suppressMenu: false,
+    minWidth: 110,
+  }), []);
+
+  const rowData        = useMemo(() => rows.map((row, idx) => ({ ...row, __rowIndex: idx })), [rows]);
   const gridThemeClass = themeMode === "light" ? "ag-theme-quartz" : "ag-theme-quartz-dark";
 
+  const handleTypeChange = (col, richType) => setColumnType(col, richType);
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden p-3 gap-2.5">
-      <FindReplaceModal
-        open={findReplaceOpen}
-        onClose={() => setFindReplaceOpen(false)}
-        rows={rows}
-        columns={columns.filter((c) => !calcFieldNames?.has(c))}
-        dataTypes={dataTypes}
-        updateCell={updateCell}
-        columnAliases={columnAliases}
-        T={T}
-      />
+    <div className="flex flex-1 overflow-hidden">
+      {/* ── Left: dataset pane ── */}
+      <DatasetPane collapsed={paneCollapsed} onToggleCollapse={() => setPaneCollapsed((c) => !c)} />
 
-      {/* ── Toolbar ── */}
-      <div className="shrink-0 rounded-xl border px-4 py-2 shadow-sm"
-        style={{ background: T.surface, borderColor: T.border }}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: T.accentDim }}>
-              <Database size={16} color={T.accent} />
+      {/* ── Right: table workspace ── */}
+      <div className="flex flex-1 min-w-0 flex-col overflow-hidden p-3 gap-2.5">
+        <FindReplaceModal
+          open={findReplaceOpen}
+          onClose={() => setFindReplaceOpen(false)}
+          rows={rows}
+          columns={columns.filter((c) => !calcFieldNames?.has(c))}
+          dataTypes={dataTypes}
+          updateCell={updateCell}
+          columnAliases={columnAliases}
+          T={T}
+        />
+
+        {/* ── Toolbar ── */}
+        <div className="shrink-0 rounded-xl border px-4 py-2 shadow-sm"
+          style={{ background: T.surface, borderColor: T.border }}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: T.accentDim }}>
+                <Database size={16} color={T.accent} />
+              </div>
+              <div>
+                <h1 className="text-[15px] font-bold leading-none" style={{ color: T.text }}>Data Table</h1>
+                <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>
+                  Edit cells · Filter via column funnels · Change column types · Ctrl+Z / Ctrl+Y
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-[15px] font-bold leading-none" style={{ color: T.text }}>Data Table</h1>
-              <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>
-                Edit cells · Click column header funnel to filter · Ctrl+Z / Ctrl+Y
-              </p>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button onClick={undoEdit} disabled={!undoStack.length}
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition"
+                style={{ borderColor: T.border, background: T.s2, color: undoStack.length ? T.text : T.muted, cursor: undoStack.length ? "pointer" : "not-allowed" }}
+                title="Undo (Ctrl+Z)"><Undo2 size={12} /> Undo</button>
+
+              <button onClick={redoEdit} disabled={!redoStack.length}
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition"
+                style={{ borderColor: T.border, background: T.s2, color: redoStack.length ? T.text : T.muted, cursor: redoStack.length ? "pointer" : "not-allowed" }}
+                title="Redo (Ctrl+Y)"><Redo2 size={12} /> Redo</button>
+
+              <div className="mx-1 h-4 w-px" style={{ background: T.border }} />
+
+              <button onClick={() => setTypesOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
+                style={{ borderColor: typesOpen ? T.accent : T.border, background: typesOpen ? T.accentDim : T.s2, color: typesOpen ? T.accent : T.text }}>
+                <SlidersHorizontal size={12} /> Column Types</button>
+
+              <button onClick={() => setFindReplaceOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
+                style={{ borderColor: T.border, background: T.s2, color: T.text }}><Search size={12} /> Find & Replace</button>
+
+              <button onClick={exportCSV}
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
+                style={{ borderColor: T.border, background: T.s2, color: T.text }}><Download size={12} /> CSV</button>
+
+              <button onClick={exportExcel}
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
+                style={{ borderColor: T.border, background: T.s2, color: T.text }}><Download size={12} /> Excel</button>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button onClick={undoEdit} disabled={!undoStack.length}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition"
-              style={{ borderColor: T.border, background: T.s2, color: undoStack.length ? T.text : T.muted, cursor: undoStack.length ? "pointer" : "not-allowed" }}
-              title="Undo (Ctrl+Z)"><Undo2 size={12} /> Undo</button>
-
-            <button onClick={redoEdit} disabled={!redoStack.length}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition"
-              style={{ borderColor: T.border, background: T.s2, color: redoStack.length ? T.text : T.muted, cursor: redoStack.length ? "pointer" : "not-allowed" }}
-              title="Redo (Ctrl+Y)"><Redo2 size={12} /> Redo</button>
-
-            <div className="mx-1 h-4 w-px" style={{ background: T.border }} />
-
-            <button onClick={() => setFindReplaceOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
-              style={{ borderColor: T.border, background: T.s2, color: T.text }}><Search size={12} /> Find & Replace</button>
-
-            <button onClick={exportCSV}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
-              style={{ borderColor: T.border, background: T.s2, color: T.text }}><Download size={12} /> CSV</button>
-
-            <button onClick={exportExcel}
-              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs"
-              style={{ borderColor: T.border, background: T.s2, color: T.text }}><Download size={12} /> Excel</button>
           </div>
         </div>
-      </div>
 
-      {/* ── AG Grid ── */}
-      <div className="flex-1 min-h-0 rounded-xl border p-3 shadow-sm"
-        style={{ background: T.surface, borderColor: T.border }}>
-        <div className={`${gridThemeClass} h-full w-full`}>
-          <AgGridReact
-            rowData={rowData}
-            columnDefs={columnDefs}
-            getRowId={(params) => String(params.data.__rowIndex)}
-            onCellValueChanged={(params) => {
-              if (calcFieldNames?.has(params.colDef.field)) return;
-              updateCell({
-                rowIndex: params.data.__rowIndex,
-                field:    params.colDef.field,
-                value:    params.newValue,
-              });
-            }}
+        {/* ── Column types panel ── */}
+        {typesOpen && (
+          <ColumnTypesPanel
+            columns={columns}
+            dataTypes={dataTypes}
+            columnFormats={columnFormats}
+            calcFieldNames={calcFieldNames}
+            columnAliases={columnAliases}
+            onChange={handleTypeChange}
+            T={T}
           />
+        )}
+
+        {/* ── AG Grid ── */}
+        <div className="flex-1 min-h-0 rounded-xl border p-3 shadow-sm"
+          style={{ background: T.surface, borderColor: T.border }}>
+          <div className={`${gridThemeClass} h-full w-full`}>
+            <AgGridReact
+              rowData={rowData}
+              columnDefs={columnDefs}
+              defaultColDef={defaultColDef}
+              getRowId={(params) => String(params.data.__rowIndex)}
+              onCellValueChanged={(params) => {
+                if (calcFieldNames?.has(params.colDef.field)) return;
+                updateCell({
+                  rowIndex: params.data.__rowIndex,
+                  field:    params.colDef.field,
+                  value:    params.newValue,
+                });
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>
