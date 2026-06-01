@@ -18,9 +18,10 @@ export default function DashboardButton({
   snapEnabled,
   canvasRef,
   onToggleVisual,
-  T: _T,
+  T: passedT,
 }) {
-  const T = _T || useTheme();
+  const themeT = useTheme();
+  const T = passedT || themeT;
   const updateDashboardItemLayout = useStore((s) => s.updateDashboardItemLayout);
   const removeDashboardItem       = useStore((s) => s.removeDashboardItem);
   const setActiveDashboard        = useStore((s) => s.setActiveDashboard);

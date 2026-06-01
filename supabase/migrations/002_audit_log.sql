@@ -21,6 +21,13 @@ CREATE INDEX IF NOT EXISTS idx_audit_action   ON audit_log (action,      ts DESC
 -- Row Level Security
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies first so this script is safely re-runnable
+DROP POLICY IF EXISTS "audit_select_own_workbooks"      ON audit_log;
+DROP POLICY IF EXISTS "audit_select_workspace_members"  ON audit_log;
+DROP POLICY IF EXISTS "audit_insert_own"                ON audit_log;
+DROP POLICY IF EXISTS "audit_no_update"                 ON audit_log;
+DROP POLICY IF EXISTS "audit_no_delete"                 ON audit_log;
+
 -- Users can read audit events for workbooks they own
 CREATE POLICY "audit_select_own_workbooks" ON audit_log
   FOR SELECT

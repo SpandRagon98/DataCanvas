@@ -28,7 +28,7 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'workspace_members' AND column_name = 'id'
   ) THEN
-    ALTER TABLE workspace_members ADD COLUMN id uuid DEFAULT gen_random_uuid() PRIMARY KEY;
+    ALTER TABLE workspace_members ADD COLUMN id uuid DEFAULT gen_random_uuid() UNIQUE;
   END IF;
 END $$;
 

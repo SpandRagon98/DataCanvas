@@ -24,7 +24,7 @@ import { evaluateFormula }  from "../utils/calcFields";
 import { applyScenario }    from "../utils/scenarioEngine";
 import { CALENDAR_DATASET_ID } from "../utils/calendarTable";
 
-export function useEffectiveData({ applyScenario: includeScenario = true } = {}) {
+export function useEffectiveData({ applyScenario: includeScenario = true, joinCalendar = true } = {}) {
   const rawData          = useStore((s) => s.rawData);
   const columns          = useStore((s) => s.columns);
   const dataTypes        = useStore((s) => s.dataTypes);
@@ -67,9 +67,10 @@ export function useEffectiveData({ applyScenario: includeScenario = true } = {})
 
     // ── Calendar join ──────────────────────────────────────────────────────
     // Find all active relationships: activeDataset → Calendar
-    const calendarDs = datasets.find(
-      (d) => d.id === CALENDAR_DATASET_ID && d.isSystemTable
-    );
+    // Skipped entirely when joinCalendar is false (e.g. raw Data Table view).
+    const calendarDs = joinCalendar
+      ? datasets.find((d) => d.id === CALENDAR_DATASET_ID && d.isSystemTable)
+      : null;
 
     if (calendarDs && calendarDs.rows.length > 0) {
       const calRels = (relationships || []).filter(
@@ -187,6 +188,6 @@ export function useEffectiveData({ applyScenario: includeScenario = true } = {})
   }, [
     rawData, columns, dataTypes, calculatedFields,
     scenarios, activeScenarioId, includeScenario, lastEditRowIndex,
-    datasets, relationships, activeDatasetId,
+    datasets, relationships, activeDatasetId, joinCalendar,
   ]);
 }

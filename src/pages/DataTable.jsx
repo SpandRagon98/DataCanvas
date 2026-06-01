@@ -133,7 +133,7 @@ export default function DataTable() {
   const rawData       = useStore((s) => s.rawData);          // unfiltered, for filter values
   const columnAliases = useStore((s) => s.columnAliases);
 
-  const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
+  const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false, joinCalendar: false });
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
 
   /* ── Keyboard shortcuts ── */

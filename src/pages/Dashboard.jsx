@@ -1086,18 +1086,59 @@ export default function Dashboard() {
         </div>
         <div className="relative flex-1 overflow-auto p-4">
           <div className="relative" style={{ minHeight: minH }}>
-            {currentDash.items.map((item) => (
-              item.type === "textbox" ? (
-                <div key={item.id} className="absolute" style={{
-                  left: item.layout.x, top: item.layout.y,
-                  width: item.layout.w, height: item.layout.h,
-                  padding: item.tileStyle?.padding ?? 12, overflow: "auto",
-                  background: item.tileStyle?.bgColor || "transparent",
-                  borderRadius: item.tileStyle?.borderRadius ?? 8,
-                }}>
-                  <span style={{ color: (item.textStyle?.color) || T.text }}>{item.text}</span>
-                </div>
-              ) : (
+            {currentDash.items.map((item) => {
+              // Textbox
+              if (item.type === "textbox") {
+                return (
+                  <div key={item.id} className="absolute" style={{
+                    left: item.layout.x, top: item.layout.y,
+                    width: item.layout.w, height: item.layout.h,
+                    padding: item.tileStyle?.padding ?? 12, overflow: "auto",
+                    background: item.tileStyle?.bgColor || "transparent",
+                    borderRadius: item.tileStyle?.borderRadius ?? 8,
+                  }}>
+                    <span style={{ color: (item.textStyle?.color) || T.text }}>{item.text}</span>
+                  </div>
+                );
+              }
+              // Slicer — static read-only display in present mode
+              if (item.type === "slicer") {
+                const sel = item.selectedValues || [];
+                return (
+                  <div key={item.id} className="absolute flex items-center gap-2 px-3" style={{
+                    left: item.layout.x, top: item.layout.y,
+                    width: item.layout.w, height: item.layout.h,
+                    background: T.surface, borderRadius: item.tileStyle?.borderRadius ?? 8,
+                    border: `1px solid ${T.border}`,
+                  }}>
+                    <Filter size={11} style={{ color: T.accent, flexShrink: 0 }} />
+                    <span className="text-[10px] font-semibold shrink-0" style={{ color: T.muted }}>
+                      {item.slicerConfig?.label || item.slicerConfig?.column}
+                    </span>
+                    <span className="text-xs truncate" style={{ color: T.text }}>
+                      {sel.length === 0 ? "All" : sel.length === 1 ? sel[0] : `${sel.length} selected`}
+                    </span>
+                  </div>
+                );
+              }
+              // Button
+              if (item.type === "dbutton") {
+                const bc = item.buttonConfig || {};
+                return (
+                  <div key={item.id} className="absolute flex items-center justify-center font-semibold" style={{
+                    left: item.layout.x, top: item.layout.y,
+                    width: item.layout.w, height: item.layout.h,
+                    background: bc.bgColor || "#f59e0b", color: bc.textColor || "#000",
+                    borderRadius: bc.borderRadius ?? 8, fontSize: bc.fontSize ?? 13,
+                    fontWeight: bc.fontWeight ?? 600,
+                    border: bc.borderWidth ? `${bc.borderWidth}px solid ${bc.borderColor || "transparent"}` : "none",
+                  }}>
+                    {bc.label || "Button"}
+                  </div>
+                );
+              }
+              // Visual
+              return (
                 <div key={item.id} className="absolute flex flex-col" style={{
                   left: item.layout.x, top: item.layout.y,
                   width: item.layout.w, height: item.layout.h,
@@ -1111,8 +1152,8 @@ export default function Dashboard() {
                     <ResponsiveChart visual={item.visualConfig} rawData={effectiveRows} filters={filters} />
                   </div>
                 </div>
-              )
-            ))}
+              );
+            })}
           </div>
         </div>
         {dashboards.length > 1 && (
@@ -1182,6 +1223,9 @@ export default function Dashboard() {
                     />
                   );
                 }
+
+                // Slicers and buttons are rendered in their own passes below.
+                if (item.type === "slicer" || item.type === "dbutton") return null;
 
                 // Hidden by button action
                 if (hiddenVisualIds.has(item.id)) return null;

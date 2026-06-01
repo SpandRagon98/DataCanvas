@@ -17,7 +17,7 @@ import { formatValue }                          from "../../utils/formatValue";
 import { applyGlobalFilters }                   from "../../utils/filterEngine";
 import {
   getLegendKeys, applyRunningTotal,
-  buildWaterfallData, pearsonCorr,
+  buildWaterfallData, pearsonCorr, aggregateValue,
 }                                               from "../../utils/chartEngine";
 import { getPalette, useTheme }                 from "../../styles/theme";
 import { useVisualData }                        from "../../hooks/useVisualData";
@@ -260,7 +260,9 @@ export default function VisualRenderer({
     </div>
   );
 
-  if (!visual.xFields?.length || !visual.yFields?.length) return emptyState;
+  // KPI and gauge cards only require a Y (measure) field — no X axis needed.
+  const xOptional = visual.chartType === "kpi" || visual.chartType === "gauge";
+  if ((!xOptional && !visual.xFields?.length) || !visual.yFields?.length) return emptyState;
 
   if (dbLoading) return <LoadingOverlay T={T} />;
 
@@ -338,11 +340,18 @@ export default function VisualRenderer({
 
   // ── KPI ──
   if (visual.chartType === "kpi") {
-    const total = chartData.reduce(
-      (sum, item) => sum + Object.keys(item).filter((k) => k !== "x")
-        .reduce((s, k) => s + Number(item[k] || 0), 0),
-      0
-    );
+    // Aggregate each Y field directly over the filtered rows so KPI cards work
+    // with OR without an X field (AI-generated KPIs have no X axis).
+    const total = (visual.xFields?.length)
+      ? chartData.reduce(
+          (sum, item) => sum + Object.keys(item).filter((k) => k !== "x")
+            .reduce((s, k) => s + Number(item[k] || 0), 0),
+          0
+        )
+      : (visual.yFields || []).reduce(
+          (sum, yf) => sum + aggregateValue(filteredRows, yf, visual.aggregation || "sum"),
+          0
+        );
     const sparkKey  = legendKeys[0];
     const sparkData = sparkKey ? chartData.map((d) => ({ x: d.x, v: Number(d[sparkKey] || 0) })) : [];
     const showSpark = !compact && sparkData.length > 1;
@@ -452,7 +461,11 @@ export default function VisualRenderer({
   if (visual.chartType === "gauge") {
     const gaugeData = visual.yFields.map((yField, i) => ({
       name: yField,
-      value: Math.round(chartData.reduce((s, d) => s + Number(d[yField]||0), 0)),
+      value: Math.round(
+        visual.xFields?.length
+          ? chartData.reduce((s, d) => s + Number(d[yField] || 0), 0)
+          : aggregateValue(filteredRows, yField, visual.aggregation || "sum")
+      ),
       fill: palette[i%palette.length],
     }));
     return (

@@ -44,8 +44,7 @@ create table if not exists workspaces (
   created_at timestamptz default now()
 );
 alter table workspaces enable row level security;
-create policy "members can view workspace" on workspaces for select
-  using (exists (select 1 from workspace_members where workspace_id = workspaces.id and user_id = auth.uid()));
+-- NOTE: policies that reference workspace_members are defined AFTER that table is created below
 create policy "owner can update workspace" on workspaces for update using (owner_id = auth.uid());
 
 -- ── Workspace Members ─────────────────────────────────────────────────────────
@@ -61,6 +60,10 @@ create policy "members can view members" on workspace_members for select
   using (exists (select 1 from workspace_members m2 where m2.workspace_id = workspace_members.workspace_id and m2.user_id = auth.uid()));
 create policy "admins can manage members" on workspace_members for all
   using (exists (select 1 from workspace_members m2 where m2.workspace_id = workspace_members.workspace_id and m2.user_id = auth.uid() and m2.role = 'admin'));
+
+-- Workspaces visibility policy (must come after workspace_members exists)
+create policy "members can view workspace" on workspaces for select
+  using (exists (select 1 from workspace_members where workspace_id = workspaces.id and user_id = auth.uid()));
 
 -- ── Workbooks ─────────────────────────────────────────────────────────────────
 create table if not exists workbooks (

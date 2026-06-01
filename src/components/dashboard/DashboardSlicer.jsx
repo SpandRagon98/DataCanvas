@@ -23,9 +23,10 @@ export default function DashboardSlicer({
   onSelect,
   snapEnabled,
   canvasRef,
-  T: _T,
+  T: passedT,
 }) {
-  const T                   = _T || useTheme();
+  const themeT = useTheme();
+  const T = passedT || themeT;
   const updateDashboardItemLayout = useStore((s) => s.updateDashboardItemLayout);
   const updateSlicerValues        = useStore((s) => s.updateSlicerValues);
   const removeDashboardItem       = useStore((s) => s.removeDashboardItem);
