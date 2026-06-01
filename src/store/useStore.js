@@ -374,10 +374,16 @@ export const useStore = create(
 
       removeDataset: (id) =>
         set((state) => {
+          // System datasets (e.g. the native Calendar) can never be removed.
+          const target = state.datasets.find((d) => d.id === id);
+          if (!target || target.isSystemTable) return state;
           if (state.datasets.length <= 1) return state;
           const datasets = state.datasets.filter((d) => d.id !== id);
           const isActive = state.activeDatasetId === id;
-          const newActive = isActive ? datasets[0] : null;
+          // Prefer a non-system dataset as the new active; fall back to first.
+          const newActive = isActive
+            ? (datasets.find((d) => !d.isSystemTable) || datasets[0])
+            : null;
           return {
             datasets,
             ...(isActive

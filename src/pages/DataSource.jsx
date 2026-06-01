@@ -6,7 +6,7 @@ import {
 import { useStore }         from "../store/useStore";
 import ImportModal          from "../components/import/ImportModal";
 import CalcFieldManager     from "../components/calcfields/CalcFieldManager";
-import DatasetSlots         from "../components/datasource/DatasetSlots";
+import DatasetPane          from "../components/datasource/DatasetPane";
 import JoinBuilder          from "../components/datasource/JoinBuilder";
 import ApiConnectorPanel    from "../components/datasource/ApiConnectorPanel";
 import DataCleaningPanel    from "../components/ai/DataCleaningPanel";
@@ -100,8 +100,15 @@ export default function DataSource() {
   const columnAliases   = useStore((s) => s.columnAliases);
   const renameColumn    = useStore((s) => s.renameColumn);
   const resetColumnAlias= useStore((s) => s.resetColumnAlias);
-  const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
+  const datasets        = useStore((s) => s.datasets);
+  const activeDatasetId  = useStore((s) => s.activeDatasetId);
+  // Preview/profiler reflect the active dataset's own columns (no Calendar join here).
+  const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false, joinCalendar: false });
 
+  const activeDataset   = datasets.find((d) => d.id === activeDatasetId) || null;
+  const activeIsSystem  = !!activeDataset?.isSystemTable;
+
+  const [paneCollapsed, setPaneCollapsed] = useState(false);
   const [importOpen,   setImportOpen]   = useState(false);
   const [expandedCol,  setExpandedCol]  = useState(null);
   const [rightTab,     setRightTab]     = useState("preview");
@@ -137,40 +144,52 @@ export default function DataSource() {
   const displayCol = (col) => columnAliases[col] || col;
 
   return (
-    <div className="flex-1 overflow-y-auto">
-      <div className="p-4 space-y-4">
-        <ImportModal
-          open={importOpen}
-          onClose={() => setImportOpen(false)}
-          onImport={({ rows, columns, types }) => {
-            setData(rows, columns, types);
-            setShowCleaning(true);
-          }}
-        />
+    <div className="flex flex-1 overflow-hidden">
+      {/* Global import modal (full Replace flow) */}
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={({ rows, columns, types }) => {
+          setData(rows, columns, types);
+          setShowCleaning(true);
+        }}
+      />
+
+      {/* ── Left: collapsible dataset pane ── */}
+      <DatasetPane
+        collapsed={paneCollapsed}
+        onToggleCollapse={() => setPaneCollapsed((c) => !c)}
+      />
+
+      {/* ── Right: Data Source workspace ── */}
+      <div className="flex-1 min-w-0 overflow-y-auto">
+        <div className="p-4 space-y-4">
 
         {/* ── Page header ── */}
         <div className="rounded-xl border px-4 py-3 shadow-sm flex items-center justify-between gap-4"
           style={{ background: T.surface, borderColor: T.border }}>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: T.accentDim }}>
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0" style={{ background: T.accentDim }}>
               <Database size={16} color={T.accent} />
             </div>
-            <div>
-              <h1 className="text-[15px] font-bold leading-none" style={{ color: T.text }}>Data Source</h1>
+            <div className="min-w-0">
+              <h1 className="text-[15px] font-bold leading-none truncate" style={{ color: T.text }}>
+                Data Source{activeDataset ? ` · ${activeDataset.name}` : ""}
+              </h1>
               <p className="mt-0.5 text-[11px]" style={{ color: T.dim }}>Manage datasets · Join · REST API · Column profiler</p>
             </div>
           </div>
-          <button
-            onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold btn-primary shrink-0"
-            style={{ background: T.accent, color: "#000" }}
-          >
-            <Upload size={13} /> Replace Dataset
-          </button>
+          {/* Replace applies to user datasets only — hidden for the native Calendar */}
+          {!activeIsSystem && (
+            <button
+              onClick={() => setImportOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold btn-primary shrink-0"
+              style={{ background: T.accent, color: "#000" }}
+            >
+              <Upload size={13} /> Replace Dataset
+            </button>
+          )}
         </div>
-
-        {/* ── Dataset slots ── */}
-        <DatasetSlots />
 
         {/* ── AI Data Cleaning Panel (shown after import) ── */}
         {showCleaning && columns.length > 0 && rows.length > 0 && (
@@ -393,6 +412,7 @@ export default function DataSource() {
               {rightTab === "api"  && <ApiConnectorPanel />}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>
