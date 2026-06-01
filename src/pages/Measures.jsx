@@ -32,7 +32,7 @@ export default function Measures() {
   const deleteMeasure  = useStore((s) => s.deleteMeasure);
   const duplicateMeasure = useStore((s) => s.duplicateMeasure);
   const filters        = useStore((s) => s.filters);
-  const { rawData }    = useEffectiveData({ applyScenario: false });
+  const { rows: rawData } = useEffectiveData({ applyScenario: false });
 
   const [selectedId,   setSelectedId]   = useState(measures[0]?.id ?? null);
   const [search,       setSearch]       = useState("");
