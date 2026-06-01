@@ -2,7 +2,7 @@ import {
   Plus, Pencil, Trash2, LayoutDashboard, Grid3x3, Maximize2, X,
   ChevronLeft, ChevronRight, StickyNote, Download, Type as TypeIcon,
   Palette, Hash, AlignLeft, Settings2, Sparkles,
-  Loader2, RefreshCw, AlertCircle, Filter, MousePointer,
+  Loader2, RefreshCw, AlertCircle, Filter, MousePointer, GripVertical,
 } from "lucide-react";
 import {
   useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect,
@@ -832,18 +832,20 @@ function VisualTile({
   const titleAlign = ts.titleAlign || "left";
   const showTitle  = ts.showTitle !== false;
 
+  const borderOn = ts.borderEnabled !== false;
+
   return (
     <VirtualDashboardItem
-      className="absolute"
+      className="absolute group dc-dash-tile"
       style={{
         left: item.layout.x, top: item.layout.y,
         width: item.layout.w, height: item.layout.h,
-        borderRadius: ts.borderRadius ?? 8,
-        border: `${ts.borderEnabled !== false ? (ts.borderWidth ?? 1) : 0}px solid ${ts.borderEnabled !== false ? (ts.borderColor || T.border) : "transparent"}`,
-        background:  ts.bgColor || T.s2,
+        borderRadius: ts.borderRadius ?? 12,
+        border: `${borderOn ? (ts.borderWidth ?? 1) : 0}px solid ${borderOn ? (ts.borderColor || T.border) : "transparent"}`,
+        background:  ts.bgColor || T.surface,
         boxShadow: isSelected
-          ? `0 0 0 2px ${T.accent}, ${ts.shadow !== false ? "0 4px 18px rgba(0,0,0,0.18)" : "none"}`
-          : ts.shadow !== false ? "0 4px 16px rgba(0,0,0,0.12)" : "none",
+          ? `0 0 0 2px ${T.accent}, 0 8px 28px rgba(0,0,0,0.16)`
+          : ts.shadow !== false ? "0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08)" : "none",
         opacity:    ts.transparency ?? 1,
         fontFamily: ts.fontFamily   || "inherit",
         fontSize:   ts.fontSize     ? ts.fontSize + "px" : undefined,
@@ -851,18 +853,30 @@ function VisualTile({
         color:      ts.textColor    || T.text,
         zIndex: isSelected ? 5 : 2,
         overflow: "hidden",
+        transition: "box-shadow 160ms ease, transform 160ms ease",
       }}
       title={vc.title}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
-      {/* Header — drag handle + title + buttons */}
+      {/* Header — drag handle + title + controls */}
       {showTitle && (
         <div
-          className="flex shrink-0 cursor-move items-center gap-2 border-b px-3 py-2"
-          style={{ borderColor: ts.borderColor || T.border }}
+          className="flex shrink-0 cursor-move items-center gap-1.5 px-3"
+          style={{
+            height: 38,
+            borderBottom: `1px solid ${borderOn ? (ts.borderColor || T.border) : T.border}`,
+            background: "linear-gradient(180deg, rgba(127,127,127,0.04), transparent)",
+          }}
           onMouseDown={(e) => onBeginMove(e)}
         >
-          {/* Title — takes up remaining space */}
+          {/* Grip — subtle, brightens on hover */}
+          <GripVertical
+            size={13}
+            className="shrink-0 opacity-30 group-hover:opacity-60 transition-opacity"
+            style={{ color: T.muted }}
+          />
+
+          {/* Title */}
           <div
             className="min-w-0 flex-1 truncate font-semibold"
             style={{ fontSize: titleSize, color: titleColor, textAlign: titleAlign }}
@@ -870,24 +884,28 @@ function VisualTile({
             {vc.title}
           </div>
 
-          {/* AI Insights button — stops drag propagation */}
+          {/* AI Insights button */}
           <div onMouseDown={(e) => e.stopPropagation()}>
             <TileAIInsightsButton visual={vc} chartData={chartSample} T={T} />
           </div>
 
-          {/* Remove button */}
+          {/* Remove — icon button, red on hover */}
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
             onMouseDown={(e) => e.stopPropagation()}
-            className="rounded-md border px-2 py-0.5 text-[11px] shrink-0"
-            style={{ background: T.surface, borderColor: T.border, color: T.dim }}>
-            ✕
+            title="Remove visual"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition opacity-0 group-hover:opacity-100"
+            style={{ color: T.muted }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(239,68,68,0.12)"; e.currentTarget.style.color = "#ef4444"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = T.muted; }}
+          >
+            <Trash2 size={12} />
           </button>
         </div>
       )}
 
       {/* Chart area — grows to fill tile */}
-      <div className="flex-1 min-h-0 relative" style={{ padding: ts.padding ?? 0 }}>
+      <div className="flex-1 min-h-0 relative" style={{ padding: ts.padding ?? 8 }}>
         <ResponsiveChart
           visual={vc}
           rawData={effectiveRows}
@@ -895,10 +913,10 @@ function VisualTile({
         />
       </div>
 
-      {/* Resize handle */}
+      {/* Resize handle — appears on hover/selection */}
       <button
-        className="absolute bottom-1.5 right-1.5 h-4 w-4 cursor-se-resize rounded-sm"
-        style={{ borderRight: `2px solid ${T.accent}`, borderBottom: `2px solid ${T.accent}`, opacity: 0.6 }}
+        className={`absolute bottom-1 right-1 h-4 w-4 cursor-se-resize rounded-sm transition-opacity ${isSelected ? "opacity-70" : "opacity-0 group-hover:opacity-60"}`}
+        style={{ borderRight: `2px solid ${T.accent}`, borderBottom: `2px solid ${T.accent}` }}
         onMouseDown={(e) => { e.stopPropagation(); onBeginResize(e); }}
         title="Resize"
       />

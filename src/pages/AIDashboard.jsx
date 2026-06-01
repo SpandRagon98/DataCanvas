@@ -56,115 +56,117 @@ const AGGREGATIONS = [
 
 // ── Layout helpers (converts AI spec → pixel positions) ──────────────────────
 
-const KPI_W = 180, KPI_H = 110, KPI_GAP = 16;
-const CHART_W = 520, CHART_H = 310, CHART_GAP = 16;
-const PAD = 20;
+// ── Layout grid constants ─────────────────────────────────────────────────────
+const PAD        = 24;   // outer padding
+const GAP        = 16;   // gap between tiles
+const CANVAS_W   = 1320; // target working width (fits a standard dashboard viewport)
+const SLICER_W   = 200, SLICER_H = 48;
+const KPI_H      = 116;
+const CHART_H    = 320;
 
-function kpiPos(i, total) {
-  return { x: PAD + i * (KPI_W + KPI_GAP), y: PAD, w: KPI_W, h: KPI_H, minW: 120, minH: 80 };
-}
-
-function chartPos(i, kpiH) {
-  const col  = i % 2;
-  const row  = Math.floor(i / 2);
-  const topY = PAD + kpiH + CHART_GAP;
-  return {
-    x: PAD + col * (CHART_W + CHART_GAP),
-    y: topY + row * (CHART_H + CHART_GAP),
-    w: CHART_W, h: CHART_H, minW: 200, minH: 160,
-  };
-}
-
-function slicerPos(i, kpiH, chartRows) {
-  const chartAreaH = chartRows * (CHART_H + CHART_GAP);
-  return {
-    x: PAD + i * (200 + 12),
-    y: PAD + kpiH + CHART_GAP + chartAreaH + 12,
-    w: 196, h: 46, minW: 100, minH: 36,
-  };
-}
-
-// Convert AI JSON → dashboard items ──────────────────────────────────────────
-
+/**
+ * Convert the AI JSON spec into dashboard items with an optimized,
+ * non-overlapping executive layout:
+ *
+ *   ┌──────────────────────────────────────────┐
+ *   │  [slicer] [slicer] [slicer]   ← filter bar │
+ *   │  [ KPI ] [ KPI ] [ KPI ] [ KPI ]           │
+ *   │  ┌──────────────┐ ┌──────────────┐         │
+ *   │  │    chart      │ │    chart      │  ← grid│
+ *   │  └──────────────┘ └──────────────┘         │
+ *   └──────────────────────────────────────────┘
+ *
+ * Everything is placed by a running Y cursor so tiles never overlap.
+ */
 function aiResponseToItems(aiData) {
   const { kpis = [], visuals = [], filters = [] } = aiData;
+  const items = [];
+  const innerW = CANVAS_W - PAD * 2;
+  let cursorY  = PAD;
 
-  const allItems = [];
-  const kpiH     = kpis.length > 0 ? KPI_H + KPI_GAP : 0;
-  const chartRows = Math.ceil((visuals.length) / 2);
-
-  // KPI cards
-  kpis.forEach((kpi, i) => {
-    allItems.push({
-      id:   uid("v"),
-      type: "visual",
-      layout: kpiPos(i, kpis.length),
-      visualConfig: {
-        id:          uid("vc"),
-        title:       kpi.title || kpi.field,
-        chartType:   "kpi",
-        xFields:     [],
-        yFields:     [kpi.field],
-        legendField: "",
-        tooltipFields: [],
-        aggregation:  kpi.aggregation || "sum",
-        sortDirection: "desc",
-        filters: {},
-        referenceLines: [],
-        conditionalRules: [],
-        colorPalette: "default",
-        showGridlines: true,
-        showLegend: false,
-        showAxisLabels: true,
-      },
+  // ── 1. Filter bar (slicers) ──
+  if (filters.length > 0) {
+    const perRow = Math.max(1, Math.floor((innerW + GAP) / (SLICER_W + GAP)));
+    filters.forEach((f, i) => {
+      const col = i % perRow;
+      const row = Math.floor(i / perRow);
+      items.push({
+        id:   uid("slicer"),
+        type: "slicer",
+        layout: {
+          x: PAD + col * (SLICER_W + GAP),
+          y: cursorY + row * (SLICER_H + GAP),
+          w: SLICER_W, h: SLICER_H, minW: 120, minH: 40,
+        },
+        slicerConfig: { column: f.column, label: f.label || f.column, mode: "dropdown", multiSelect: false },
+        selectedValues: [],
+      });
     });
-  });
+    const slicerRows = Math.ceil(filters.length / perRow);
+    cursorY += slicerRows * (SLICER_H + GAP) + GAP / 2;
+  }
 
-  // Chart visuals
-  visuals.forEach((vis, i) => {
-    allItems.push({
-      id:   uid("v"),
-      type: "visual",
-      layout: chartPos(i, kpiH),
-      visualConfig: {
-        id:          uid("vc"),
-        title:       vis.title || `${vis.yField} by ${vis.xField}`,
-        chartType:   vis.chartType || "bar",
-        xFields:     vis.xField ? [vis.xField] : [],
-        yFields:     vis.yField ? [vis.yField] : [],
-        legendField: "",
-        tooltipFields: [],
-        aggregation:   vis.aggregation || "sum",
-        sortDirection: "desc",
-        filters: {},
-        referenceLines: [],
-        conditionalRules: [],
-        colorPalette: "default",
-        showGridlines: true,
-        showLegend:    true,
-        showAxisLabels: true,
-        chartStyle: vis.chartType === "line" ? { lineSmooth: true, showMarkers: false, lineWidth: 2 } : undefined,
-      },
+  // ── 2. KPI row(s) — evenly distribute across the full width ──
+  if (kpis.length > 0) {
+    const perRow = Math.min(kpis.length, Math.max(1, Math.floor((innerW + GAP) / (200 + GAP))));
+    const kpiW   = Math.floor((innerW - (perRow - 1) * GAP) / perRow);
+    kpis.forEach((kpi, i) => {
+      const col = i % perRow;
+      const row = Math.floor(i / perRow);
+      items.push({
+        id:   uid("v"),
+        type: "visual",
+        layout: {
+          x: PAD + col * (kpiW + GAP),
+          y: cursorY + row * (KPI_H + GAP),
+          w: kpiW, h: KPI_H, minW: 120, minH: 80,
+        },
+        visualConfig: {
+          id: uid("vc"), title: kpi.title || kpi.field, chartType: "kpi",
+          xFields: [], yFields: [kpi.field], legendField: "", tooltipFields: [],
+          aggregation: kpi.aggregation || "sum", sortDirection: "desc", filters: {},
+          referenceLines: [], conditionalRules: [], colorPalette: "default",
+          showGridlines: true, showLegend: false, showAxisLabels: true,
+        },
+      });
     });
-  });
+    const kpiRows = Math.ceil(kpis.length / perRow);
+    cursorY += kpiRows * (KPI_H + GAP);
+  }
 
-  // Slicer filters
-  filters.forEach((f, i) => {
-    allItems.push({
-      id:   uid("slicer"),
-      type: "slicer",
-      layout: slicerPos(i, kpiH, chartRows),
-      slicerConfig: {
-        column:      f.column,
-        label:       f.label || f.column,
-        mode:        "dropdown",
-        multiSelect: false,
-      },
-      selectedValues: [],
+  // ── 3. Chart grid (2 columns; a lone chart spans full width) ──
+  if (visuals.length > 0) {
+    const cols      = visuals.length === 1 ? 1 : 2;
+    const chartW    = Math.floor((innerW - (cols - 1) * GAP) / cols);
+    visuals.forEach((vis, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      items.push({
+        id:   uid("v"),
+        type: "visual",
+        layout: {
+          x: PAD + col * (chartW + GAP),
+          y: cursorY + row * (CHART_H + GAP),
+          w: chartW, h: CHART_H, minW: 220, minH: 180,
+        },
+        visualConfig: {
+          id: uid("vc"),
+          title: vis.title || `${vis.yField} by ${vis.xField}`,
+          chartType:   vis.chartType || "bar",
+          xFields:     vis.xField ? [vis.xField] : [],
+          yFields:     vis.yField ? [vis.yField] : [],
+          legendField: "", tooltipFields: [],
+          aggregation:   vis.aggregation || "sum",
+          sortDirection: "desc", filters: {},
+          referenceLines: [], conditionalRules: [], colorPalette: "default",
+          showGridlines: true, showLegend: true, showAxisLabels: true,
+          chartStyle: vis.chartType === "line" ? { lineSmooth: true, showMarkers: false, lineWidth: 2 } : undefined,
+        },
+      });
     });
-  });
+  }
 
-  return allItems;
+  return items;
 }
 
 // ── Step progress indicator ───────────────────────────────────────────────────

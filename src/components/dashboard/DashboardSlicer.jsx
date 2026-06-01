@@ -10,7 +10,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { X, Filter, ChevronDown } from "lucide-react";
+import { X, Filter, ChevronDown, Trash2 } from "lucide-react";
 import { useStore }       from "../../store/useStore";
 import { useEffectiveData } from "../../hooks/useEffectiveData";
 import { getUniqueValues }  from "../../utils/filterEngine";
@@ -116,7 +116,18 @@ export default function DashboardSlicer({
       : `${sel.length} selected`;
 
   return (
-    <div className="absolute" style={containerStyle} onClick={(e) => { e.stopPropagation(); onSelect(); }}>
+    <div className="absolute group" style={containerStyle} onClick={(e) => { e.stopPropagation(); onSelect(); }}>
+
+      {/* Remove-from-dashboard button — shows when selected or on hover */}
+      <button
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); removeDashboardItem({ dashboardId, itemId: item.id }); }}
+        title="Remove slicer"
+        className={`absolute -top-2.5 -right-2.5 z-20 flex h-5 w-5 items-center justify-center rounded-full transition-opacity ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+        style={{ background: "#ef4444", color: "#fff", boxShadow: "0 2px 6px rgba(0,0,0,0.3)" }}
+      >
+        <Trash2 size={10} />
+      </button>
 
       {/* Header / drag handle */}
       <div

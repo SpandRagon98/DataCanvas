@@ -272,6 +272,14 @@ input, select, textarea {
 
 .dashboard-grid-wrap { min-height: 520px; }
 
+/* Dashboard tile subtle hover lift (not while a drag is in progress) */
+.dc-dash-tile:hover {
+  transform: translateY(-1px);
+}
+[data-theme="light"] .dc-dash-tile {
+  border-color: rgba(15,23,42,0.07);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    SIDEBAR RESIZE HANDLE
    ═══════════════════════════════════════════════════════════════════════════ */
