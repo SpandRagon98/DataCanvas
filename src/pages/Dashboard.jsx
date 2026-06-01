@@ -2,7 +2,7 @@ import {
   Plus, Pencil, Trash2, LayoutDashboard, Grid3x3, Maximize2, X,
   ChevronLeft, ChevronRight, StickyNote, Download, Type as TypeIcon,
   Palette, Hash, AlignLeft, Settings2, Sparkles,
-  Loader2, RefreshCw, AlertCircle, Filter, MousePointer, GripVertical,
+  Loader2, RefreshCw, AlertCircle, Filter, MousePointer, GripVertical, Layers,
 } from "lucide-react";
 import {
   useMemo, useRef, useState, useEffect, useCallback, useLayoutEffect,
@@ -10,6 +10,8 @@ import {
 import { createPortal } from "react-dom";
 import DashboardSlicer from "../components/dashboard/DashboardSlicer";
 import DashboardButton from "../components/dashboard/DashboardButton";
+import MetricVisual, { MetricBody } from "../components/dashboard/MetricVisual";
+import LayersPanel from "../components/dashboard/LayersPanel";
 import html2canvas        from "html2canvas";
 import { useStore }       from "../store/useStore";
 import { DEFAULT_TILE_STYLE } from "../store/useStore";
@@ -456,6 +458,7 @@ function TileFormatPanel({ item, dashboardId, T }) {
     if (item.type !== "visual") return;
     updateDashboardItem({ dashboardId, itemId: item.id, patch: { visualConfig: { ...vc, numFormat: { ...nf, ...patch } } } });
   };
+  const patchItem = (patch) => updateDashboardItem({ dashboardId, itemId: item.id, patch });
 
   const iLabel  = { display: "block", fontSize: 11, color: T.muted, marginBottom: 3 };
   const iSelect = { background: T.s2, borderColor: T.border, color: T.text, width: "100%", fontSize: 12, padding: "5px 8px", borderRadius: 8, border: `1px solid ${T.border}`, outline: "none" };
@@ -474,11 +477,47 @@ function TileFormatPanel({ item, dashboardId, T }) {
         style={{ background: T.surface, borderColor: T.border }}>
         <div className="font-semibold" style={{ color: T.text }}>Format Tile</div>
         <div className="text-[11px]" style={{ color: T.muted }}>
-          {item.type === "textbox" ? "Text Box" : (vc.title || "Visual")}
+          {item.type === "textbox" ? "Text Box"
+            : item.type === "metric" ? "Metric"
+            : item.type === "dbutton" ? "Button"
+            : item.type === "slicer" ? "Slicer"
+            : (vc.title || "Visual")}
         </div>
       </div>
 
       <div className="px-4 py-3 space-y-5">
+
+        {/* ── Metric display options ── */}
+        {item.type === "metric" && (
+          <section>
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
+              style={{ color: T.muted }}><Settings2 size={10} /> Metric Display</div>
+            <div className="space-y-2.5">
+              <div>
+                <label style={iLabel}>Display as</label>
+                <div className="flex gap-1.5">
+                  {["table", "chart"].map((d) => (
+                    <button key={d} onClick={() => patchItem({ displayAs: d })}
+                      className="flex-1 rounded-lg border py-1.5 text-xs capitalize transition"
+                      style={{ background: (item.displayAs || "table") === d ? T.accent : T.s2, color: (item.displayAs || "table") === d ? "#000" : T.text, borderColor: T.border }}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {item.displayAs === "chart" && (
+                <div>
+                  <label style={iLabel}>Chart type</label>
+                  <select value={item.chartType || "bar"} onChange={(e) => patchItem({ chartType: e.target.value })} style={iSelect}>
+                    <option value="column">Column</option>
+                    <option value="bar">Bar</option>
+                    <option value="line">Line</option>
+                  </select>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ── Tile Styling ── */}
         <section>
@@ -942,6 +981,11 @@ export default function Dashboard() {
   const addSlicerToDashboard       = useStore((s) => s.addSlicerToDashboard);
   const addButtonToDashboard       = useStore((s) => s.addButtonToDashboard);
   const datasets                   = useStore((s) => s.datasets);
+  const metrics                    = useStore((s) => s.metrics);
+  const addMetricVisualToDashboard = useStore((s) => s.addMetricVisualToDashboard);
+  const reorderDashboardItem       = useStore((s) => s.reorderDashboardItem);
+  const toggleDashboardItemVisibility = useStore((s) => s.toggleDashboardItemVisibility);
+  const themeMode                  = useStore((s) => s.themeMode);
 
   const activeDashboard = useMemo(() =>
     dashboards?.length
@@ -959,6 +1003,10 @@ export default function Dashboard() {
   const [presentIndex,    setPresentIndex]    = useState(0);
   const [selectedItemId,  setSelectedItemId]  = useState(null);
   const [formatPanelOpen, setFormatPanelOpen] = useState(false);
+  const [layersOpen,      setLayersOpen]      = useState(false);
+  // Metric add choice (after drop or asset-click)
+  const [metricChoice,    setMetricChoice]    = useState(null); // { metricId }
+  const [metricAssetOpen, setMetricAssetOpen] = useState(false);
   // Slicer add modal
   const [slicerModalOpen, setSlicerModalOpen] = useState(false);
   const [slicerColumn,    setSlicerColumn]    = useState("");
@@ -999,6 +1047,20 @@ export default function Dashboard() {
       else next.add(targetItemId);
       return next;
     });
+  }, []);
+
+  // Add a metric to the dashboard as table or chart
+  const handleAddMetric = useCallback((metricId, displayAs) => {
+    if (!activeDashboard) return;
+    addMetricVisualToDashboard({ dashboardId: activeDashboard.id, metricId, displayAs });
+    setMetricChoice(null);
+    setMetricAssetOpen(false);
+  }, [activeDashboard, addMetricVisualToDashboard]);
+
+  // Drop a metric chip onto the canvas → ask Table/Chart
+  const handleCanvasDrop = useCallback((e) => {
+    const metricId = e.dataTransfer.getData("metricId");
+    if (metricId) { e.preventDefault(); setMetricChoice({ metricId }); }
   }, []);
 
   // Available columns for slicer (non-system datasets)
@@ -1086,13 +1148,17 @@ export default function Dashboard() {
   if (presentMode) {
     const currentDash = dashboards[presentIndex] || dashboards[0];
     if (!currentDash) return null;
-    const minH = Math.max(560, ...currentDash.items.map((i) => (i.layout?.y || 0) + (i.layout?.h || 300) + 24));
+    const visibleItems = currentDash.items.filter((i) => !i.hidden);
+    const minH = Math.max(560, ...visibleItems.map((i) => (i.layout?.y || 0) + (i.layout?.h || 300) + 24));
+    // Pure white background in light mode; app background in dark.
+    const presentBg = themeMode === "light" ? "#ffffff" : T.bg;
     return (
-      <div className="fixed inset-0 z-50 flex flex-col" style={{ background: T.bg }}>
-        <div className="flex items-center justify-between gap-4 border-b px-6 py-3" style={{ background: T.surface, borderColor: T.border }}>
+      <div className="fixed inset-0 z-[60] flex flex-col" style={{ background: presentBg }}>
+        <div className="flex items-center justify-between gap-4 px-5 py-2.5"
+          style={{ background: presentBg, borderBottom: `1px solid ${T.border}` }}>
           <div className="text-base font-bold" style={{ color: T.text }}>{currentDash.name}</div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm" style={{ color: T.dim }}>{presentIndex + 1} / {dashboards.length}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm mr-1" style={{ color: T.dim }}>{presentIndex + 1} / {dashboards.length}</span>
             <button onClick={() => setPresentIndex((i) => (i - 1 + dashboards.length) % dashboards.length)} disabled={dashboards.length <= 1}
               className="rounded-xl border px-3 py-2" style={{ background: T.s2, borderColor: T.border, color: T.text }}><ChevronLeft size={16} /></button>
             <button onClick={() => setPresentIndex((i) => (i + 1) % dashboards.length)} disabled={dashboards.length <= 1}
@@ -1102,9 +1168,26 @@ export default function Dashboard() {
               style={{ background: T.s2, borderColor: T.border, color: T.text }}><X size={14} /> Exit</button>
           </div>
         </div>
-        <div className="relative flex-1 overflow-auto p-4">
-          <div className="relative" style={{ minHeight: minH }}>
-            {currentDash.items.map((item) => {
+        <div className="relative flex-1 overflow-auto" style={{ background: presentBg }}>
+          <div className="relative mx-auto" style={{ minHeight: minH, maxWidth: 1400 }}>
+            {visibleItems.map((item) => {
+              // Metric visual — read-only
+              if (item.type === "metric") {
+                return (
+                  <div key={item.id} className="absolute flex flex-col" style={{
+                    left: item.layout.x, top: item.layout.y, width: item.layout.w, height: item.layout.h,
+                    background: themeMode === "light" ? "#ffffff" : T.surface, borderRadius: 10,
+                    border: `1px solid ${T.border}`, overflow: "hidden",
+                  }}>
+                    <div className="border-b px-3 py-1.5 shrink-0" style={{ borderColor: T.border }}>
+                      <div className="truncate text-sm font-semibold" style={{ color: T.text }}>
+                        {item.name || metrics.find((m) => m.id === item.metricId)?.name || "Metric"}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-h-0 p-2"><MetricBody item={item} T={T} readOnly /></div>
+                  </div>
+                );
+              }
               // Textbox
               if (item.type === "textbox") {
                 return (
@@ -1160,14 +1243,14 @@ export default function Dashboard() {
                 <div key={item.id} className="absolute flex flex-col" style={{
                   left: item.layout.x, top: item.layout.y,
                   width: item.layout.w, height: item.layout.h,
-                  background: T.s2, borderRadius: 8,
+                  background: themeMode === "light" ? "#ffffff" : T.surface, borderRadius: 10,
                   border: `1px solid ${T.border}`, overflow: "hidden",
                 }}>
                   <div className="border-b px-4 py-2 shrink-0" style={{ borderColor: T.border }}>
                     <div className="truncate text-sm font-semibold" style={{ color: T.text }}>{item.visualConfig?.title}</div>
                   </div>
                   <div className="flex-1 min-h-0">
-                    <ResponsiveChart visual={item.visualConfig} rawData={effectiveRows} filters={filters} />
+                    <ResponsiveChart visual={item.visualConfig} rawData={effectiveRows} filters={mergedFilters} />
                   </div>
                 </div>
               );
@@ -1205,6 +1288,8 @@ export default function Dashboard() {
           ref={canvasRef}
           className="relative flex-1 overflow-auto rounded-xl border"
           onClick={() => setSelectedItemId(null)}
+          onDragOver={(e) => { if (e.dataTransfer.types.includes("metricId")) e.preventDefault(); }}
+          onDrop={handleCanvasDrop}
           style={{
             background: T.surface, borderColor: T.border, minHeight: 400,
             backgroundImage: snapEnabled ? `radial-gradient(circle, ${T.border} 1px, transparent 1px)` : "none",
@@ -1227,6 +1312,9 @@ export default function Dashboard() {
               {activeDashboard.items.map((item) => {
                 const isSelected = selectedItemId === item.id;
 
+                // Hidden via Layers panel — skip everywhere
+                if (item.hidden) return null;
+
                 if (item.type === "textbox") {
                   return (
                     <TextboxItem
@@ -1237,6 +1325,23 @@ export default function Dashboard() {
                       isSelected={isSelected}
                       onSelect={() => setSelectedItemId(item.id)}
                       canvasRef={canvasRef}
+                      T={T}
+                    />
+                  );
+                }
+
+                // Metric visual
+                if (item.type === "metric") {
+                  return (
+                    <MetricVisual
+                      key={item.id}
+                      item={item}
+                      dashboardId={activeDashboard.id}
+                      isSelected={isSelected}
+                      onSelect={() => setSelectedItemId(item.id)}
+                      onBeginMove={(e) => beginMove(e, item)}
+                      onBeginResize={(e) => beginResize(e, item)}
+                      onRemove={() => removeDashboardItem({ dashboardId: activeDashboard.id, itemId: item.id })}
                       T={T}
                     />
                   );
@@ -1267,7 +1372,7 @@ export default function Dashboard() {
               })}
 
               {/* Slicer items */}
-              {activeDashboard.items.filter((i) => i.type === "slicer").map((item) => (
+              {activeDashboard.items.filter((i) => i.type === "slicer" && !i.hidden).map((item) => (
                 <DashboardSlicer
                   key={item.id}
                   item={item}
@@ -1281,7 +1386,7 @@ export default function Dashboard() {
               ))}
 
               {/* Button items */}
-              {activeDashboard.items.filter((i) => i.type === "dbutton").map((item) => (
+              {activeDashboard.items.filter((i) => i.type === "dbutton" && !i.hidden).map((item) => (
                 <DashboardButton
                   key={item.id}
                   item={item}
@@ -1359,6 +1464,51 @@ export default function Dashboard() {
               title="Add button">
               <MousePointer size={12} /> Button
             </button>
+
+            {/* Metric asset dropdown */}
+            <div className="relative">
+              <button onClick={() => setMetricAssetOpen((o) => !o)}
+                className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
+                style={{ background: metricAssetOpen ? T.accentDim : T.s2, borderColor: metricAssetOpen ? "rgba(245,158,11,0.28)" : T.border, color: metricAssetOpen ? T.accent : T.dim }}
+                title="Add a metric">
+                <Grid3x3 size={12} /> Metric
+              </button>
+              {metricAssetOpen && (
+                <div className="absolute left-0 z-50 mt-1.5 w-60 rounded-xl border shadow-2xl overflow-hidden"
+                  style={{ background: T.surface, borderColor: T.border }}
+                  onMouseLeave={() => setMetricAssetOpen(false)}>
+                  <div className="px-3 py-2 border-b text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ borderColor: T.border, color: T.muted }}>Add metric to dashboard</div>
+                  <div className="max-h-64 overflow-y-auto p-1.5">
+                    {metrics.length === 0 ? (
+                      <div className="px-3 py-4 text-xs text-center" style={{ color: T.muted }}>
+                        No metrics yet — create one in the Measures tab
+                      </div>
+                    ) : metrics.map((m) => (
+                      <button key={m.id}
+                        draggable
+                        onDragStart={(e) => { e.dataTransfer.setData("metricId", m.id); e.dataTransfer.effectAllowed = "copy"; }}
+                        onClick={() => setMetricChoice({ metricId: m.id })}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition hover:opacity-80 cursor-grab"
+                        style={{ background: T.s2 }}
+                        title="Click to add, or drag onto the canvas">
+                        <Grid3x3 size={12} style={{ color: T.accent, flexShrink: 0 }} />
+                        <span className="flex-1 truncate text-xs font-medium" style={{ color: T.text }}>{m.name}</span>
+                        <span className="text-[10px]" style={{ color: T.muted }}>{m.isCalculated ? "calc" : "input"}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button onClick={() => setLayersOpen((o) => !o)}
+              className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
+              style={{ background: layersOpen ? T.accentDim : T.s2, borderColor: layersOpen ? "rgba(245,158,11,0.28)" : T.border, color: layersOpen ? T.accent : T.dim }}
+              title="Layers / Selection">
+              <Layers size={12} /> Layers
+            </button>
+
             <button onClick={() => setSnapEnabled((s) => !s)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
               style={{ background: snapEnabled ? T.accentDim : T.s2, borderColor: snapEnabled ? "rgba(245,158,11,0.28)" : T.border, color: snapEnabled ? T.accent : T.dim }}>
@@ -1383,12 +1533,58 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Layers Panel ── */}
+      {layersOpen && activeDashboard && (
+        <div className="shrink-0 rounded-xl border shadow-sm overflow-hidden flex flex-col"
+          style={{ width: 244, background: T.surface, borderColor: T.border }}>
+          <LayersPanel
+            dashboard={activeDashboard}
+            selectedItemId={selectedItemId}
+            onSelect={setSelectedItemId}
+            onClose={() => setLayersOpen(false)}
+            T={T}
+          />
+        </div>
+      )}
+
       {/* ── Format Panel ── */}
       {formatPanelOpen && (
         <div className="shrink-0 rounded-xl border shadow-sm overflow-hidden flex flex-col"
           style={{ width: 252, background: T.surface, borderColor: T.border }}>
           <TileFormatPanel item={selectedItem} dashboardId={activeDashboard?.id} T={T} />
         </div>
+      )}
+
+      {/* ── Metric display-type choice ── */}
+      {metricChoice && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)" }}
+          onClick={(e) => e.target === e.currentTarget && setMetricChoice(null)}>
+          <div className="w-72 rounded-xl border shadow-2xl overflow-hidden" style={{ background: T.surface, borderColor: T.border }}>
+            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: T.border }}>
+              <div className="flex items-center gap-2">
+                <Grid3x3 size={13} style={{ color: T.accent }} />
+                <span className="text-sm font-semibold" style={{ color: T.text }}>Add metric as…</span>
+              </div>
+              <button onClick={() => setMetricChoice(null)} style={{ color: T.muted }}><X size={14} /></button>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-3">
+              <button onClick={() => handleAddMetric(metricChoice.metricId, "table")}
+                className="flex flex-col items-center gap-2 rounded-xl border py-4 transition hover:opacity-80"
+                style={{ background: T.s2, borderColor: T.border, color: T.text }}>
+                <TypeIcon size={22} style={{ color: T.accent }} />
+                <span className="text-xs font-semibold">Table</span>
+              </button>
+              <button onClick={() => handleAddMetric(metricChoice.metricId, "chart")}
+                className="flex flex-col items-center gap-2 rounded-xl border py-4 transition hover:opacity-80"
+                style={{ background: T.s2, borderColor: T.border, color: T.text }}>
+                <Palette size={22} style={{ color: T.accent }} />
+                <span className="text-xs font-semibold">Chart</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Add Slicer Modal ── */}

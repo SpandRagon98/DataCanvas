@@ -1,4 +1,4 @@
-import { Search, Hash, Type, Calendar, ToggleLeft, Layers3, Sigma, AlertCircle } from "lucide-react";
+import { Search, Hash, Type, Calendar, ToggleLeft, Layers3, Sigma, AlertCircle, Grid3x3, Table2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore }          from "../../store/useStore";
 import { useEffectiveData }  from "../../hooks/useEffectiveData";
@@ -94,6 +94,7 @@ export default function FieldPane() {
   const hierarchies   = useStore((s) => s.hierarchies);
   const columnAliases = useStore((s) => s.columnAliases);
   const daxMeasures   = useStore((s) => s.measures);
+  const metrics       = useStore((s) => s.metrics);
   const [search, setSearch] = useState("");
 
   const displayCol = (col) => columnAliases[col] || col;
@@ -212,6 +213,33 @@ export default function FieldPane() {
                 )
                 .map((m) => (
                   <MeasureChip key={m.id} measure={m} T={T} />
+                ))}
+            </div>
+          </div>
+        )}
+
+        {metrics.length > 0 && (
+          <div>
+            <SectionLabel title="Metrics" icon={<Grid3x3 size={10} color={T.accent} />} T={T} />
+            <div className="space-y-1">
+              {metrics
+                .filter((m) => m.name.toLowerCase().includes(search.toLowerCase()))
+                .map((m) => (
+                  <div
+                    key={m.id}
+                    draggable
+                    onDragStart={(e) => { e.dataTransfer.setData("metricId", m.id); e.dataTransfer.effectAllowed = "copy"; }}
+                    title="Drag onto a dashboard"
+                    className="drag-chip rounded-xl border px-2.5 py-1.5"
+                    style={{ background: T.s2, borderColor: T.border, color: T.text }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {m.isCalculated
+                        ? <Sigma size={10} strokeWidth={2.2} color={T.purple} />
+                        : <Table2 size={10} strokeWidth={2.2} color={T.blue} />}
+                      <span className="truncate text-[12.5px]">{m.name}</span>
+                    </div>
+                  </div>
                 ))}
             </div>
           </div>
