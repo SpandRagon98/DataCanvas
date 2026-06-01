@@ -174,7 +174,12 @@ export const useStore = create(
 
       // ── Data Modelling — relationships & canvas layout ──
       relationships: initialRelationships,
-      modelLayout: {},   // { [datasetId]: { x, y } }
+      modelLayout: {},   // { [datasetId]: { x, y } } — legacy single-view layout
+
+      // ── Data Model pages (multiple layout views) ──
+      // Each: { id, name, datasetIds: [], positions: { [dsId]: {x,y} } }
+      modelPages: [],
+      activeModelPageId: null,
 
       // ── Measures (DAX) ──
       // Each: { id, name, formula, description, format }
@@ -249,6 +254,8 @@ export const useStore = create(
           filterBookmarks: [],
           relationships: autoRels,
           modelLayout: {},
+          modelPages: [],
+          activeModelPageId: null,
           measures: [],
           crossFilter: {},
           lastEditRowIndex: -1,
@@ -300,6 +307,8 @@ export const useStore = create(
           filterBookmarks: wb.filterBookmarks ?? [],
           relationships: relsWithCal,
           modelLayout: wb.modelLayout ?? {},
+          modelPages: wb.modelPages ?? [],
+          activeModelPageId: wb.activeModelPageId ?? null,
           measures: wb.measures ?? [],
           crossFilter: {},
           undoStack: [],
@@ -966,6 +975,82 @@ export const useStore = create(
           modelLayout: { ...state.modelLayout, [datasetId]: pos },
         })),
 
+      // ── Data Model Pages ──
+      seedDefaultModelPage: () =>
+        set((state) => {
+          if (state.modelPages.length > 0) return state;
+          const id = createId("modelpage");
+          const datasetIds = state.datasets.map((d) => d.id);
+          const positions = {};
+          datasetIds.forEach((dsId, i) => {
+            positions[dsId] =
+              state.modelLayout[dsId] || { x: 40 + (i % 3) * 300, y: 40 + Math.floor(i / 3) * 360 };
+          });
+          return {
+            modelPages: [{ id, name: "Model View", datasetIds, positions }],
+            activeModelPageId: id,
+          };
+        }),
+
+      addModelPage: (name) =>
+        set((state) => {
+          const id = createId("modelpage");
+          const page = {
+            id,
+            name: name || `Page ${state.modelPages.length + 1}`,
+            datasetIds: [],
+            positions: {},
+          };
+          return { modelPages: [...state.modelPages, page], activeModelPageId: id };
+        }),
+
+      removeModelPage: (id) =>
+        set((state) => {
+          if (state.modelPages.length <= 1) return state;
+          const pages = state.modelPages.filter((p) => p.id !== id);
+          return {
+            modelPages: pages,
+            activeModelPageId:
+              state.activeModelPageId === id ? pages[0]?.id ?? null : state.activeModelPageId,
+          };
+        }),
+
+      renameModelPage: (id, name) =>
+        set((state) => ({
+          modelPages: state.modelPages.map((p) =>
+            p.id === id ? { ...p, name: name || p.name } : p
+          ),
+        })),
+
+      setActiveModelPage: (id) => set({ activeModelPageId: id }),
+
+      addDatasetToModelPage: (pageId, datasetId, pos) =>
+        set((state) => ({
+          modelPages: state.modelPages.map((p) => {
+            if (p.id !== pageId) return p;
+            if (p.datasetIds.includes(datasetId)) return p;
+            return {
+              ...p,
+              datasetIds: [...p.datasetIds, datasetId],
+              positions: { ...p.positions, [datasetId]: pos || { x: 60, y: 60 } },
+            };
+          }),
+        })),
+
+      removeDatasetFromModelPage: (pageId, datasetId) =>
+        set((state) => ({
+          modelPages: state.modelPages.map((p) =>
+            p.id !== pageId ? p : { ...p, datasetIds: p.datasetIds.filter((d) => d !== datasetId) }
+          ),
+        })),
+
+      setModelPagePosition: (pageId, datasetId, pos) =>
+        set((state) => ({
+          modelPages: state.modelPages.map((p) =>
+            p.id !== pageId ? p : { ...p, positions: { ...p.positions, [datasetId]: pos } }
+          ),
+        })),
+
       // ── Measures (DAX) ──
       addMeasure: (measure) =>
         set((state) => ({
@@ -1056,6 +1141,8 @@ export const useStore = create(
         columnAliases: state.columnAliases,
         relationships: state.relationships,
         modelLayout: state.modelLayout,
+        modelPages: state.modelPages,
+        activeModelPageId: state.activeModelPageId,
         measures: state.measures,
         // undoStack, redoStack, crossFilter intentionally excluded
       }),
