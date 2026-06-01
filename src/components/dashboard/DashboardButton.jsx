@@ -108,7 +108,7 @@ export default function DashboardButton({
         onPointerDown={onButtonPointerDown}
         className="w-full h-full flex items-center justify-center font-semibold transition hover:brightness-105 active:brightness-95"
         style={{
-          background:   cfg.bgColor     || "#f59e0b",
+          background:   cfg.bgColor     || "#14b8a6",
           color:        cfg.textColor   || "#000",
           borderRadius: cfg.borderRadius ?? 8,
           fontSize:     cfg.fontSize     ?? 13,

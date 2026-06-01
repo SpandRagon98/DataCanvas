@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="Vizora">
+  <defs>
+    <linearGradient id="vBlade" x1="72" y1="78" x2="300" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0891b2"/>
+    </linearGradient>
+    <linearGradient id="vBars" x1="296" y1="120" x2="444" y2="400" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0d9488"/>
+    </linearGradient>
+  </defs>
+  <!-- Left blade of the V -->
+  <path d="M72 78 H168 L300 432 H236 Z" fill="url(#vBlade)"/>
+  <!-- Ascending bars forming the right arm -->
+  <rect x="296" y="250" width="40" height="150" rx="8" fill="url(#vBars)"/>
+  <rect x="350" y="195" width="40" height="205" rx="8" fill="url(#vBars)"/>
+  <rect x="404" y="140" width="40" height="260" rx="8" fill="url(#vBars)"/>
+  <!-- Trend line + dots -->
+  <polyline points="316,232 370,177 424,122" stroke="#1d4ed8" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="316" cy="232" r="16" fill="#2563eb"/>
+  <circle cx="370" cy="177" r="16" fill="#0ea5e9"/>
+  <circle cx="424" cy="122" r="16" fill="#14b8a6"/>
+</svg>

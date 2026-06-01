@@ -30,6 +30,9 @@ import AuthGate          from "./components/cloud/AuthGate";
 import AuditLog          from "./components/cloud/AuditLog";
 import SettingsModal     from "./components/cloud/SettingsModal";
 import CommandBar        from "./components/ai/CommandBar";
+import Logo              from "./components/Logo";
+import SplashScreen      from "./components/SplashScreen";
+import { APP_NAME, APP_TAGLINE, APP_VERSION } from "./branding";
 import { useStore }      from "./store/useStore";
 import { useLocalAuth }  from "./store/useLocalAuth";
 import { useTheme, applyThemeToDocument } from "./styles/theme";
@@ -90,7 +93,7 @@ function TopBar({ T }) {
     const url = URL.createObjectURL(blob);
     Object.assign(document.createElement("a"), {
       href: url,
-      download: `datacanvas-${Date.now()}.json`,
+      download: `vizora-${Date.now()}.json`,
     }).click();
     URL.revokeObjectURL(url);
   };
@@ -101,7 +104,7 @@ function TopBar({ T }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try { loadWorkbook(JSON.parse(ev.target.result)); }
-      catch { alert("Invalid DataCanvas workbook file."); }
+      catch { alert("Invalid Vizora workbook file."); }
     };
     reader.readAsText(file);
     e.target.value = "";
@@ -111,7 +114,7 @@ function TopBar({ T }) {
     <div className="topbar">
       {/* Brand micro-text */}
       <span className="text-[11px] font-bold mr-2 select-none" style={{ color: T.muted, letterSpacing: "0.04em" }}>
-        DataCanvas
+        Vizora
       </span>
       <div className="topbar-divider" />
 
@@ -201,19 +204,19 @@ function Sidebar({
       {/* ── Logo row ── */}
       <div className="px-3 pt-3 pb-2 flex items-center" style={{ minHeight: 52 }}>
         <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
-          style={{ background: T.accent, boxShadow: "0 2px 12px rgba(245,158,11,0.36)" }}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl overflow-hidden"
+          style={{ background: "rgba(20,184,166,0.10)", boxShadow: "0 2px 12px rgba(20,184,166,0.20)" }}
         >
-          <Database size={15} color="#000" strokeWidth={2.2} />
+          <Logo size={26} />
         </div>
 
         {!collapsed && (
           <div className="sidebar-logo-text ml-2.5 min-w-0 flex-1">
             <div className="text-[13px] font-bold tracking-tight leading-none truncate" style={{ color: T.text }}>
-              DataCanvas
+              {APP_NAME}
             </div>
             <div className="mt-0.5 text-[10px] leading-none truncate" style={{ color: T.muted }}>
-              BI Workspace
+              {APP_TAGLINE}
             </div>
           </div>
         )}
@@ -269,22 +272,22 @@ function Sidebar({
             }
             style={accent ? ({ isActive }) => ({
               ...(isActive ? {
-                background: "rgba(245,158,11,0.12)",
-                borderColor: "rgba(245,158,11,0.22)",
-                color: "#f59e0b",
+                background: "rgba(20,184,166,0.12)",
+                borderColor: "rgba(20,184,166,0.22)",
+                color: "#14b8a6",
               } : {
                 borderColor: "transparent",
-                color: "rgba(245,158,11,0.85)",
+                color: "rgba(20,184,166,0.85)",
               })
             }) : undefined}
           >
-            <Icon size={15} strokeWidth={1.8} style={accent ? { color: "#f59e0b", flexShrink: 0 } : { flexShrink: 0 }} />
+            <Icon size={15} strokeWidth={1.8} style={accent ? { color: "#14b8a6", flexShrink: 0 } : { flexShrink: 0 }} />
             {!collapsed && (
               <>
                 <span className="nav-label truncate flex-1">{label}</span>
                 {accent && (
                   <span className="nav-ai-badge ml-auto rounded-md px-1.5 py-0.5 text-[9px] font-bold shrink-0"
-                    style={{ background: "#f59e0b", color: "#000" }}>AI</span>
+                    style={{ background: "#14b8a6", color: "#000" }}>AI</span>
                 )}
               </>
             )}
@@ -423,7 +426,7 @@ function Sidebar({
         {/* Version */}
         {!collapsed && (
           <div className="sidebar-version px-2 pb-1 pt-1 text-[10px] font-medium" style={{ color: T.muted }}>
-            DataCanvas · v7.0
+            Vizora · v7.0
           </div>
         )}
       </div>
@@ -476,6 +479,15 @@ export default function App() {
   const [scheduledOpen, setScheduledOpen] = useState(false);
   const [auditOpen,     setAuditOpen]     = useState(false);
   const [settingsOpen,  setSettingsOpen]  = useState(false);
+
+  // ── First-load splash (once per browser session) ─────────────────────────
+  const [showSplash, setShowSplash] = useState(() => {
+    try { return !sessionStorage.getItem("vizora.splashed"); } catch { return true; }
+  });
+  const dismissSplash = () => {
+    try { sessionStorage.setItem("vizora.splashed", "1"); } catch { /* ignore */ }
+    setShowSplash(false);
+  };
 
   // ── Sidebar resize & collapse state ──────────────────────────────────────
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -555,11 +567,11 @@ export default function App() {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ background: T.bg }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: T.accent, boxShadow: "0 4px 20px rgba(245,158,11,0.4)" }}>
-            <Database size={22} color="#000" strokeWidth={2.2} />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden"
+            style={{ background: "rgba(20,184,166,0.10)", boxShadow: "0 4px 24px rgba(20,184,166,0.28)" }}>
+            <Logo size={40} />
           </div>
-          <div className="text-[13px] font-medium" style={{ color: T.muted }}>Loading…</div>
+          <div className="text-[13px] font-medium" style={{ color: T.muted }}>Loading {APP_NAME}…</div>
         </div>
       </div>
     );
@@ -662,6 +674,11 @@ export default function App() {
               <SettingsModal     open={settingsOpen}  onClose={() => setSettingsOpen(false)}
                 user={effectiveUser} />
               <CommandBar />
+
+              {/* First-load welcome splash (once per session) */}
+              {showSplash && (
+                <SplashScreen user={effectiveUser} onDone={dismissSplash} />
+              )}
             </div>
           }
         />

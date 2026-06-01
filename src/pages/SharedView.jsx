@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Database, AlertTriangle, ExternalLink } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
 import { getSharedLink } from "../lib/supabase";
 import { applyGlobalFilters } from "../utils/filterEngine";
 import VisualRenderer from "../components/builder/VisualRenderer";
+import Logo from "../components/Logo";
 import { useTheme } from "../styles/theme";
 
 export default function SharedView() {
@@ -43,7 +44,7 @@ export default function SharedView() {
     <div className="flex h-screen flex-col items-center justify-center gap-3 p-8" style={{ background: T.bg }}>
       <AlertTriangle size={36} style={{ color: T.accent }} />
       <div className="text-base font-semibold" style={{ color: T.text }}>{error || "Dashboard not found"}</div>
-      <a href="/" className="text-sm underline" style={{ color: T.accent }}>Go to DataCanvas</a>
+      <a href="/" className="text-sm underline" style={{ color: T.accent }}>Go to Vizora</a>
     </div>
   );
 
@@ -60,10 +61,10 @@ export default function SharedView() {
       >
         <div className="flex items-center gap-3">
           <div
-            className="flex h-7 w-7 items-center justify-center rounded-lg"
-            style={{ background: T.accent }}
+            className="flex h-7 w-7 items-center justify-center rounded-lg overflow-hidden"
+            style={{ background: "rgba(20,184,166,0.10)" }}
           >
-            <Database size={13} color="#000" />
+            <Logo size={20} />
           </div>
           <div>
             <div className="text-sm font-semibold" style={{ color: T.text }}>{dashboard.name}</div>
@@ -75,7 +76,7 @@ export default function SharedView() {
           className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium"
           style={{ background: T.s2, borderColor: T.border, color: T.dim }}
         >
-          <ExternalLink size={11} /> Open DataCanvas
+          <ExternalLink size={11} /> Open Vizora
         </a>
       </div>
 

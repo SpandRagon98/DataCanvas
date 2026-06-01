@@ -51,7 +51,7 @@ function RoleBadge({ role, size = "sm" }) {
 }
 
 function AvatarCircle({ name, avatarUrl, size = 36 }) {
-  const COLORS  = ["#f59e0b","#60a5fa","#34d399","#f472b6","#a78bfa","#fb923c"];
+  const COLORS  = ["#14b8a6","#60a5fa","#34d399","#f472b6","#a78bfa","#fb923c"];
   const color   = COLORS[(name?.charCodeAt(0) ?? 0) % COLORS.length];
   const initials= (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const fs      = size <= 28 ? 9 : size <= 36 ? 12 : size <= 52 ? 16 : 22;
@@ -144,12 +144,12 @@ function ProfileTab({ user, members, activeWs, onClose, T }) {
         {isOwner && (
           <div
             className="flex items-start gap-2.5 rounded-xl border px-3 py-2.5"
-            style={{ background: "rgba(245,158,11,0.08)", borderColor: "rgba(245,158,11,0.25)" }}
+            style={{ background: "rgba(20,184,166,0.08)", borderColor: "rgba(20,184,166,0.25)" }}
           >
-            <Crown size={14} style={{ color: "#f59e0b", flexShrink: 0, marginTop: 1 }} />
+            <Crown size={14} style={{ color: "#14b8a6", flexShrink: 0, marginTop: 1 }} />
             <div>
-              <div className="text-xs font-semibold" style={{ color: "#f59e0b" }}>Application Owner</div>
-              <div className="text-[10.5px] mt-0.5" style={{ color: "#f59e0b", opacity: 0.75 }}>
+              <div className="text-xs font-semibold" style={{ color: "#14b8a6" }}>Application Owner</div>
+              <div className="text-[10.5px] mt-0.5" style={{ color: "#14b8a6", opacity: 0.75 }}>
                 Full permissions across all workspaces
               </div>
             </div>
@@ -322,7 +322,7 @@ function LocalWorkspaceTab({ user, T }) {
                   className="flex items-center gap-2.5 rounded-xl border px-3 py-2"
                   style={{
                     background:  isMe ? T.accentDim : T.s2,
-                    borderColor: isMe ? "rgba(245,158,11,0.22)" : T.border,
+                    borderColor: isMe ? "rgba(20,184,166,0.22)" : T.border,
                   }}
                 >
                   <AvatarCircle name={mName} size={28} />
@@ -674,7 +674,7 @@ function CloudWorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                 className="w-full rounded-xl px-2 py-2 text-left"
                 style={{
                   background:   isActive ? T.accentDim : "transparent",
-                  border:       `1px solid ${isActive ? "rgba(245,158,11,0.28)" : "transparent"}`,
+                  border:       `1px solid ${isActive ? "rgba(20,184,166,0.28)" : "transparent"}`,
                 }}
               >
                 <div className="flex items-center gap-2">
@@ -805,7 +805,7 @@ function CloudWorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                         className="flex items-center gap-2.5 rounded-xl border px-3 py-2"
                         style={{
                           background:  isMe ? T.accentDim : T.s2,
-                          borderColor: isMe ? "rgba(245,158,11,0.22)" : T.border,
+                          borderColor: isMe ? "rgba(20,184,166,0.22)" : T.border,
                         }}
                       >
                         <AvatarCircle name={mName} avatarUrl={mAvatar} size={28} />
@@ -963,7 +963,7 @@ function CloudWorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                       className="rounded-xl border px-3 py-2.5 text-[10.5px] leading-relaxed"
                       style={{ background: T.s2, borderColor: T.border, color: T.muted }}
                     >
-                      The person must already have a DataCanvas account.
+                      The person must already have a Vizora account.
                       Share the app link first so they can sign up, then add them here.
                     </div>
                   </div>
@@ -1162,7 +1162,7 @@ export default function SettingsModal({ open, onClose, user }) {
                 style={{
                   background:   activeTab === id ? T.accentDim   : "transparent",
                   color:        activeTab === id ? T.accent       : T.dim,
-                  border:       `1px solid ${activeTab === id ? "rgba(245,158,11,0.22)" : "transparent"}`,
+                  border:       `1px solid ${activeTab === id ? "rgba(20,184,166,0.22)" : "transparent"}`,
                 }}
               >
                 <Icon size={13} strokeWidth={1.8} />
@@ -1172,7 +1172,7 @@ export default function SettingsModal({ open, onClose, user }) {
           </nav>
 
           <div className="px-4 pb-3 text-[10px]" style={{ color: T.muted }}>
-            DataCanvas · v7.0
+            Vizora · v7.0
           </div>
         </div>
 

@@ -138,7 +138,7 @@ export default function HierarchyBuilder() {
         <button
           onClick={saveHierarchy}
           className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold btn-primary"
-          style={{ background: T.accent, color: "#000", boxShadow: "0 2px 8px rgba(245,158,11,0.20)" }}
+          style={{ background: T.accent, color: "#000", boxShadow: "0 2px 8px rgba(20,184,166,0.20)" }}
         >
           Save Hierarchy
         </button>

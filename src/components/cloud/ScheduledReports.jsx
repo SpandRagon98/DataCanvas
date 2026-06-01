@@ -203,13 +203,13 @@ export default function ScheduledReports({ open, onClose, user }) {
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
           {!CLOUD_ENABLED && (
-            <div className="rounded-lg border p-3 text-xs" style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.2)", color: T.accent }}>
+            <div className="rounded-lg border p-3 text-xs" style={{ background: "rgba(20,184,166,0.07)", borderColor: "rgba(20,184,166,0.2)", color: T.accent }}>
               Cloud not configured. Scheduled reports require Supabase + Resend API.
             </div>
           )}
 
           {!workbookId && CLOUD_ENABLED && (
-            <div className="rounded-lg border p-3 text-xs" style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.2)", color: T.accent }}>
+            <div className="rounded-lg border p-3 text-xs" style={{ background: "rgba(20,184,166,0.07)", borderColor: "rgba(20,184,166,0.2)", color: T.accent }}>
               Save your workbook to the cloud first before scheduling reports.
             </div>
           )}
@@ -272,7 +272,7 @@ export default function ScheduledReports({ open, onClose, user }) {
                       className="flex-1 rounded-lg border py-1.5 text-xs font-medium"
                       style={{
                         background: freq === value ? T.accentDim : T.surface,
-                        borderColor: freq === value ? "rgba(245,158,11,0.3)" : T.border,
+                        borderColor: freq === value ? "rgba(20,184,166,0.3)" : T.border,
                         color: freq === value ? T.accent : T.dim,
                       }}
                     >

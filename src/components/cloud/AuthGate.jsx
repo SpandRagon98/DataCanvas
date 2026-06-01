@@ -9,7 +9,7 @@ import { useTheme } from "../../styles/theme";
  * If cloud is configured but user is not signed in, shows "Sign In" button.
  * If user is signed in, shows avatar + name with a dropdown for sign out.
  *
- * It does NOT block the rest of the app — DataCanvas works fully offline.
+ * It does NOT block the rest of the app — Vizora works fully offline.
  */
 export default function AuthGate({ user, onSignIn }) {
   const T         = useTheme();

@@ -121,7 +121,7 @@ export default function AIFormulaAssistant({ columns, dataTypes, onInsert }) {
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold"
             style={{
               background: T.accentDim,
-              borderColor: "rgba(245,158,11,0.25)",
+              borderColor: "rgba(20,184,166,0.25)",
               color: T.accent,
               border: "1px solid",
             }}

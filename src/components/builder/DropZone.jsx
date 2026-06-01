@@ -22,13 +22,13 @@ export default function DropZone({ label, value, onDropField, onRemoveField }) {
       className={`min-h-[68px] rounded-xl border-2 border-dashed p-2.5 transition ${isDragOver ? "drop-active" : ""}`}
       style={{
         borderColor: isDragOver ? undefined : hasValue ? T.accent : T.border,
-        background: isDragOver ? undefined : hasValue ? "rgba(245,158,11,0.04)" : T.s2,
+        background: isDragOver ? undefined : hasValue ? "rgba(20,184,166,0.04)" : T.s2,
       }}
     >
       {/* Label */}
       <div
         className="mb-1.5 text-[10px] font-bold uppercase tracking-wider"
-        style={{ color: isDragOver ? "#f59e0b" : hasValue ? T.accent : T.muted }}
+        style={{ color: isDragOver ? "#14b8a6" : hasValue ? T.accent : T.muted }}
       >
         {label}
       </div>

@@ -3,6 +3,8 @@ import { Database, Mail, Lock, User, Chrome, Eye, EyeOff, AlertCircle, Check } f
 import { CLOUD_ENABLED, signInWithEmail, signUpWithEmail, signInWithGoogle } from "../lib/supabase";
 import { useLocalAuth } from "../store/useLocalAuth";
 import { useTheme } from "../styles/theme";
+import Logo from "../components/Logo";
+import { APP_NAME, APP_TAGLINE } from "../branding";
 
 export default function Auth({ hideLocalMode = false, onLocalLogin }) {
   const T = useTheme();
@@ -83,14 +85,14 @@ export default function Auth({ hideLocalMode = false, onLocalLogin }) {
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center gap-3">
           <div
-            className="flex h-12 w-12 items-center justify-center rounded-xl"
-            style={{ background: T.accent, boxShadow: "0 4px 20px rgba(245,158,11,0.4)" }}
+            className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden"
+            style={{ background: "rgba(20,184,166,0.10)", boxShadow: "0 6px 24px rgba(20,184,166,0.28)" }}
           >
-            <Database size={22} color="#000" strokeWidth={2.2} />
+            <Logo size={40} />
           </div>
           <div className="text-center">
-            <div className="text-xl font-bold tracking-tight" style={{ color: T.text }}>DataCanvas</div>
-            <div className="text-xs mt-0.5" style={{ color: T.muted }}>BI Workspace</div>
+            <div className="text-xl font-bold tracking-tight" style={{ color: T.text }}>{APP_NAME}</div>
+            <div className="text-xs mt-0.5" style={{ color: T.muted }}>{APP_TAGLINE}</div>
           </div>
         </div>
 
@@ -193,7 +195,7 @@ export default function Auth({ hideLocalMode = false, onLocalLogin }) {
                 background: T.accent,
                 color: "#000",
                 opacity: loading ? 0.7 : 1,
-                boxShadow: "0 2px 10px rgba(245,158,11,0.25)",
+                boxShadow: "0 2px 10px rgba(20,184,166,0.25)",
               }}
             >
               {loading ? "Please wait..." : tab === "signin" ? "Sign In" : "Create Account"}

@@ -74,7 +74,7 @@ export default function AIChartSuggestion({
         className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition"
         style={{
           background: T.accentDim,
-          borderColor: "rgba(245,158,11,0.20)",
+          borderColor: "rgba(20,184,166,0.20)",
           color: T.accent,
           opacity: loading ? 0.6 : 1,
         }}

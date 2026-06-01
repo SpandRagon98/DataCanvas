@@ -1,9 +1,9 @@
 import { useStore } from "../store/useStore";
 
 const SHARED = {
-  accent:       "#f59e0b",
-  accentHover:  "#fbbf24",
-  accentDim:    "rgba(245,158,11,0.10)",
+  accent:       "#14b8a6",
+  accentHover:  "#2dd4bf",
+  accentDim:    "rgba(20,184,166,0.10)",
   success:      "#10b981",
   error:        "#ef4444",
   blue:         "#60a5fa",
@@ -24,7 +24,7 @@ const SHARED = {
   shadowXl:  "0 24px 60px rgba(0,0,0,0.5), 0 8px 20px rgba(0,0,0,0.28)",
 
   // Glow
-  glowAccent: "0 0 0 1px rgba(245,158,11,0.16), 0 4px 20px rgba(245,158,11,0.12)",
+  glowAccent: "0 0 0 1px rgba(20,184,166,0.16), 0 4px 20px rgba(20,184,166,0.12)",
 
   // Transitions
   transition:     "all 160ms cubic-bezier(0.16,1,0.3,1)",
@@ -78,22 +78,22 @@ export const T_LIGHT = {
   shadowXl:  "0 28px 72px rgba(15,23,42,0.14), 0 8px 24px rgba(15,23,42,0.08)",
 
   // Brighter glow for light mode
-  glowAccent: "0 0 0 1px rgba(245,158,11,0.2), 0 4px 24px rgba(245,158,11,0.18)",
+  glowAccent: "0 0 0 1px rgba(20,184,166,0.2), 0 4px 24px rgba(20,184,166,0.18)",
 };
 
 // Static fallback (for non-React modules that import `T` directly).
 export const T = T_DARK;
 
 export const CHART_COLORS = [
-  "#f59e0b","#60a5fa","#10b981","#ef4444",
+  "#14b8a6","#60a5fa","#10b981","#ef4444",
   "#a78bfa","#ec4899","#06b6d4","#84cc16",
 ];
 
 export const COLOR_PALETTES = {
-  default: ["#f59e0b","#60a5fa","#10b981","#ef4444","#a78bfa","#ec4899","#06b6d4","#84cc16"],
+  default: ["#14b8a6","#60a5fa","#10b981","#ef4444","#a78bfa","#ec4899","#06b6d4","#84cc16"],
   ocean:   ["#0ea5e9","#22d3ee","#38bdf8","#0891b2","#7dd3fc","#0284c7","#67e8f9","#0e7490"],
   forest:  ["#10b981","#4ade80","#86efac","#059669","#16a34a","#84cc16","#65a30d","#15803d"],
-  sunset:  ["#f97316","#ef4444","#f59e0b","#ec4899","#fb923c","#fbbf24","#f43f5e","#fcd34d"],
+  sunset:  ["#f97316","#ef4444","#fb923c","#ec4899","#fbbf24","#facc15","#f43f5e","#fcd34d"],
   pastel:  ["#c4b5fd","#93c5fd","#6ee7b7","#fca5a5","#fde68a","#fbcfe8","#a5f3fc","#bef264"],
 };
 

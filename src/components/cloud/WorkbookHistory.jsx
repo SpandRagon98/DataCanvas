@@ -104,7 +104,7 @@ export default function WorkbookHistory({ open, onClose }) {
           {!CLOUD_ENABLED && (
             <div
               className="rounded-lg border p-3 text-xs"
-              style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.2)", color: T.accent }}
+              style={{ background: "rgba(20,184,166,0.07)", borderColor: "rgba(20,184,166,0.2)", color: T.accent }}
             >
               Cloud not configured. Version history requires Supabase.
             </div>
@@ -113,7 +113,7 @@ export default function WorkbookHistory({ open, onClose }) {
           {!workbookId && CLOUD_ENABLED && (
             <div
               className="rounded-lg border p-3 text-xs"
-              style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.2)", color: T.accent }}
+              style={{ background: "rgba(20,184,166,0.07)", borderColor: "rgba(20,184,166,0.2)", color: T.accent }}
             >
               Save your workbook to the cloud first to see version history.
             </div>
@@ -145,8 +145,8 @@ export default function WorkbookHistory({ open, onClose }) {
                 key={v.id}
                 className="rounded-xl border"
                 style={{
-                  background: isFirst ? "rgba(245,158,11,0.05)" : T.s2,
-                  borderColor: isFirst ? "rgba(245,158,11,0.22)" : T.border,
+                  background: isFirst ? "rgba(20,184,166,0.05)" : T.s2,
+                  borderColor: isFirst ? "rgba(20,184,166,0.22)" : T.border,
                 }}
               >
                 <div className="flex items-center gap-3 px-3 py-2.5">

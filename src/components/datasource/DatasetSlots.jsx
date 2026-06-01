@@ -7,7 +7,7 @@ import { useTheme } from "../../styles/theme";
 const SOURCE_BADGE = {
   demo: { label: "demo", color: "#6366f1" },
   file: { label: "file", color: "#10b981" },
-  api:  { label: "api",  color: "#f59e0b" },
+  api:  { label: "api",  color: "#14b8a6" },
   join: { label: "join", color: "#60a5fa" },
 };
 
@@ -73,7 +73,7 @@ export default function DatasetSlots() {
         <button
           onClick={() => setImportOpen(true)}
           className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition hover:opacity-80"
-          style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}
+          style={{ background: T.accentDim, borderColor: "rgba(20,184,166,0.25)", color: T.accent }}
         >
           <Plus size={13} /> Add Dataset
         </button>

@@ -1,0 +1,24 @@
+{
+  "name": "Vizora",
+  "short_name": "Vizora",
+  "description": "Vizora — premium BI workspace for data modeling, dashboards, metrics, and AI insights.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#14b8a6",
+  "icons": [
+    {
+      "src": "/vizora-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/vizora-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

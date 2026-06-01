@@ -762,7 +762,7 @@ export const useStore = create(
                   layout: { x: 16, y: nextY + 12, w: 140, h: 44, minW: 60, minH: 32 },
                   buttonConfig: buttonConfig || {
                     label: "Button",
-                    bgColor: "#f59e0b",
+                    bgColor: "#14b8a6",
                     textColor: "#000000",
                     borderRadius: 8,
                     fontSize: 13,
@@ -891,7 +891,7 @@ export const useStore = create(
                       y: 20,
                       w: 220,
                       text: "📝 Add your note here…",
-                      color: "rgba(245,158,11,0.15)",
+                      color: "rgba(20,184,166,0.15)",
                     },
                   ],
                 }

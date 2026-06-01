@@ -165,7 +165,7 @@ export default function VisualCard({ visual, onCollapse }) {
         background: T.surface,
         borderColor: isActive ? T.accent : T.border,
         boxShadow: isActive
-          ? "0 0 0 2px rgba(245,158,11,0.14), 0 8px 24px rgba(0,0,0,0.20)"
+          ? "0 0 0 2px rgba(20,184,166,0.14), 0 8px 24px rgba(0,0,0,0.20)"
           : "0 4px 16px rgba(0,0,0,0.12)",
         transition: "box-shadow 200ms ease, border-color 200ms ease",
       }}
@@ -214,7 +214,7 @@ export default function VisualCard({ visual, onCollapse }) {
         <div className="mb-3 flex flex-wrap gap-2">
           {healthWarnings.map((w, i) => (
             <span key={i} className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-medium"
-              style={{ background: "rgba(245,158,11,0.10)", borderColor: "rgba(245,158,11,0.28)", color: T.accent }}>
+              style={{ background: "rgba(20,184,166,0.10)", borderColor: "rgba(20,184,166,0.28)", color: T.accent }}>
               <AlertTriangle size={11} />{w}
             </span>
           ))}
@@ -563,7 +563,7 @@ export default function VisualCard({ visual, onCollapse }) {
                 </select>
                 <button onClick={addVisualFilter}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
-                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
+                  style={{ background: T.accentDim, borderColor: "rgba(20,184,166,0.25)", color: T.accent }}>
                   <Plus size={13} /> Add
                 </button>
               </div>
@@ -593,7 +593,7 @@ export default function VisualCard({ visual, onCollapse }) {
                 <ColorPickerInput value={rlColor} onChange={setRlColor} />
                 <button onClick={addReferenceLine}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
-                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
+                  style={{ background: T.accentDim, borderColor: "rgba(20,184,166,0.25)", color: T.accent }}>
                   <Plus size={13} /> Add
                 </button>
               </div>
@@ -632,7 +632,7 @@ export default function VisualCard({ visual, onCollapse }) {
                 <ColorPickerInput value={crColor} onChange={setCrColor} />
                 <button onClick={addConditionalRule}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-sm font-medium"
-                  style={{ background: T.accentDim, borderColor: "rgba(245,158,11,0.25)", color: T.accent }}>
+                  style={{ background: T.accentDim, borderColor: "rgba(20,184,166,0.25)", color: T.accent }}>
                   <Plus size={13} /> Add
                 </button>
               </div>

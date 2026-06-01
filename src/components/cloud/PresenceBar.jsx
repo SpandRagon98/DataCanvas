@@ -1,6 +1,6 @@
 import { useTheme } from "../../styles/theme";
 
-const COLORS = ["#f59e0b","#60a5fa","#34d399","#f472b6","#a78bfa","#fb923c"];
+const COLORS = ["#14b8a6","#60a5fa","#34d399","#f472b6","#a78bfa","#fb923c"];
 
 function Avatar({ user, index, size = 26 }) {
   const color = COLORS[index % COLORS.length];

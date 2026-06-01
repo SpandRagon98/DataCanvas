@@ -95,8 +95,8 @@ function FindReplaceModal({ open, onClose, rows, columns, dataTypes, updateCell,
           </label>
           {matchCount !== null && (
             <div className="rounded-xl border px-3 py-2 text-sm" style={{
-              background: matchCount > 0 ? "rgba(16,185,129,0.08)" : "rgba(245,158,11,0.08)",
-              borderColor: matchCount > 0 ? "rgba(16,185,129,0.25)" : "rgba(245,158,11,0.25)",
+              background: matchCount > 0 ? "rgba(16,185,129,0.08)" : "rgba(20,184,166,0.08)",
+              borderColor: matchCount > 0 ? "rgba(16,185,129,0.25)" : "rgba(20,184,166,0.25)",
               color: matchCount > 0 ? T.success : T.accent,
             }}>
               {matchCount > 0 ? `${matchCount} match${matchCount !== 1 ? "es" : ""} found` : "No matches found"}
@@ -162,7 +162,7 @@ export default function DataTable() {
     );
     const blob = new Blob([[header, ...csvRows].join("\n")], { type: "text/csv" });
     const url  = URL.createObjectURL(blob);
-    Object.assign(document.createElement("a"), { href: url, download: "datacanvas-export.csv" }).click();
+    Object.assign(document.createElement("a"), { href: url, download: "vizora-export.csv" }).click();
     URL.revokeObjectURL(url);
   };
 
@@ -175,7 +175,7 @@ export default function DataTable() {
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Data");
-    XLSX.writeFile(wb, "datacanvas-export.xlsx");
+    XLSX.writeFile(wb, "vizora-export.xlsx");
   };
 
   /* ── Column definitions (with CheckboxSetFilter for string columns) ── */

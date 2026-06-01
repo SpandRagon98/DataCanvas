@@ -154,7 +154,7 @@ export default function CalcFieldManager() {
                 className="rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:opacity-90"
                 style={{
                   background: T.accentDim,
-                  borderColor: "rgba(245,158,11,0.20)",
+                  borderColor: "rgba(20,184,166,0.20)",
                   color: T.accent,
                 }}
                 title={preset.getFormula(numericColumns)}

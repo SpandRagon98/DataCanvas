@@ -20,7 +20,7 @@ function timeAgo(ts) {
 }
 
 function Avatar({ name, size = 24 }) {
-  const COLORS = ["#f59e0b","#60a5fa","#34d399","#f472b6","#a78bfa"];
+  const COLORS = ["#14b8a6","#60a5fa","#34d399","#f472b6","#a78bfa"];
   const color  = COLORS[(name?.charCodeAt(0) ?? 0) % COLORS.length];
   const init   = (name ?? "?")[0]?.toUpperCase() ?? "?";
   return (
@@ -95,7 +95,7 @@ function CommentItem({ comment, user, onResolve, onDelete, T }) {
             {comment.visual_id && (
               <span
                 className="rounded px-1 py-px text-[9px] font-medium uppercase"
-                style={{ background: "rgba(245,158,11,0.12)", color: "#f59e0b" }}
+                style={{ background: "rgba(20,184,166,0.12)", color: "#14b8a6" }}
               >
                 visual
               </span>
@@ -336,7 +336,7 @@ export default function CommentsPanel({ open, onClose, workbookId, user }) {
           {!CLOUD_ENABLED && (
             <div
               className="rounded-lg border p-3 text-xs"
-              style={{ background: "rgba(245,158,11,0.07)", borderColor: "rgba(245,158,11,0.2)", color: T.accent }}
+              style={{ background: "rgba(20,184,166,0.07)", borderColor: "rgba(20,184,166,0.2)", color: T.accent }}
             >
               Cloud not configured. Comments require Supabase.
             </div>

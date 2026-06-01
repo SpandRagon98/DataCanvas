@@ -5,7 +5,7 @@ import { useTheme } from "../../styles/theme";
 
 const SEVERITY_STYLES = {
   high: { bg: "rgba(239,68,68,0.10)", border: "rgba(239,68,68,0.25)", icon: AlertCircle },
-  medium: { bg: "rgba(245,158,11,0.10)", border: "rgba(245,158,11,0.25)", icon: AlertTriangle },
+  medium: { bg: "rgba(20,184,166,0.10)", border: "rgba(20,184,166,0.25)", icon: AlertTriangle },
   low: { bg: "rgba(96,165,250,0.10)", border: "rgba(96,165,250,0.25)", icon: Info },
 };
 

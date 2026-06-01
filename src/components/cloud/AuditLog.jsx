@@ -12,9 +12,9 @@ const ACTION_META = {
   [A.VISUAL_ADDED]:       { label: "Visual Added",       color: "#34d399", bg: "rgba(52,211,153,0.1)"  },
   [A.VISUAL_REMOVED]:     { label: "Visual Removed",     color: "#ef4444", bg: "rgba(239,68,68,0.1)"   },
   [A.VISUAL_CONFIG]:      { label: "Visual Config",      color: "#a78bfa", bg: "rgba(167,139,250,0.1)" },
-  [A.FILTER_CHANGED]:     { label: "Filter Changed",     color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
+  [A.FILTER_CHANGED]:     { label: "Filter Changed",     color: "#14b8a6", bg: "rgba(20,184,166,0.1)"  },
   [A.FILTER_CLEARED]:     { label: "Filters Cleared",    color: "#94a3b8", bg: "rgba(148,163,184,0.1)" },
-  [A.FILTER_BOOKMARKED]:  { label: "Filter Saved",       color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
+  [A.FILTER_BOOKMARKED]:  { label: "Filter Saved",       color: "#14b8a6", bg: "rgba(20,184,166,0.1)"  },
   [A.CALC_FIELD_ADDED]:   { label: "Calc Field Added",   color: "#a78bfa", bg: "rgba(167,139,250,0.1)" },
   [A.CALC_FIELD_REMOVED]: { label: "Calc Field Removed", color: "#ef4444", bg: "rgba(239,68,68,0.1)"   },
   [A.DASHBOARD_CREATED]:  { label: "Dashboard Created",  color: "#34d399", bg: "rgba(52,211,153,0.1)"  },
@@ -24,7 +24,7 @@ const ACTION_META = {
   [A.DATA_IMPORTED]:      { label: "Data Imported",      color: "#a78bfa", bg: "rgba(167,139,250,0.1)" },
   [A.WORKBOOK_SAVED]:     { label: "Workbook Saved",     color: "#34d399", bg: "rgba(52,211,153,0.1)"  },
   [A.WORKBOOK_LOADED]:    { label: "Workbook Loaded",    color: "#60a5fa", bg: "rgba(96,165,250,0.1)"  },
-  [A.SCENARIO_APPLIED]:   { label: "Scenario Applied",   color: "#f59e0b", bg: "rgba(245,158,11,0.1)"  },
+  [A.SCENARIO_APPLIED]:   { label: "Scenario Applied",   color: "#14b8a6", bg: "rgba(20,184,166,0.1)"  },
   [A.SCENARIO_ADDED]:     { label: "Scenario Added",     color: "#34d399", bg: "rgba(52,211,153,0.1)"  },
   [A.SCENARIO_REMOVED]:   { label: "Scenario Removed",   color: "#ef4444", bg: "rgba(239,68,68,0.1)"   },
   [A.SHARE_CREATED]:      { label: "Share Link Created", color: "#60a5fa", bg: "rgba(96,165,250,0.1)"  },
@@ -194,7 +194,7 @@ export default function AuditLog({ open, onClose }) {
                 No events yet
               </div>
               <div className="text-xs text-center" style={{ color: T.muted }}>
-                Actions are automatically recorded as you use DataCanvas
+                Actions are automatically recorded as you use Vizora
               </div>
             </div>
           ) : (
