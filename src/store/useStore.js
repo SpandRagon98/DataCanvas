@@ -185,6 +185,12 @@ export const useStore = create(
       // Each: { id, name, formula, description, format }
       measures: [],
 
+      // ── Metrics (Pigment-style multidimensional cubes) ──
+      // Each: { id, name, description, dataType, dimensions:[col],
+      //         membersByDim:{col:[member]}, values:{cellKey:number},
+      //         isCalculated, formula, createdAt, modifiedAt }
+      metrics: [],
+
       // ── Cloud meta — transient, not persisted to localStorage ──
       cloudWorkbookId:   null,
       cloudWorkbookName: null,
@@ -257,6 +263,7 @@ export const useStore = create(
           modelPages: [],
           activeModelPageId: null,
           measures: [],
+          metrics: [],
           crossFilter: {},
           lastEditRowIndex: -1,
           undoStack: [],
@@ -310,6 +317,7 @@ export const useStore = create(
           modelPages: wb.modelPages ?? [],
           activeModelPageId: wb.activeModelPageId ?? null,
           measures: wb.measures ?? [],
+          metrics: wb.metrics ?? [],
           crossFilter: {},
           undoStack: [],
           redoStack: [],
@@ -1051,6 +1059,107 @@ export const useStore = create(
           ),
         })),
 
+      // ── Metrics (Pigment-style) ──
+      addMetric: (metric) =>
+        set((state) => ({
+          metrics: [...state.metrics, {
+            id:          metric.id ?? createId("metric"),
+            name:        metric.name ?? "New Metric",
+            description: metric.description ?? "",
+            dataType:    metric.dataType ?? "number",
+            dimensions:  metric.dimensions ?? [],
+            membersByDim: metric.membersByDim ?? {},
+            values:      metric.values ?? {},
+            isCalculated: metric.isCalculated ?? false,
+            formula:     metric.formula ?? "",
+            createdAt:   new Date().toISOString(),
+            modifiedAt:  new Date().toISOString(),
+          }],
+        })),
+
+      updateMetric: (id, patch) =>
+        set((state) => ({
+          metrics: state.metrics.map((m) =>
+            m.id === id ? { ...m, ...patch, modifiedAt: new Date().toISOString() } : m
+          ),
+        })),
+
+      deleteMetric: (id) =>
+        set((state) => ({
+          metrics: state.metrics.filter((m) => m.id !== id),
+        })),
+
+      // Edit a single input-metric cell (used by builder + dashboard table)
+      setMetricCellValue: (metricId, cellKey, value) =>
+        set((state) => ({
+          metrics: state.metrics.map((m) => {
+            if (m.id !== metricId || m.isCalculated) return m;
+            const next = { ...(m.values || {}) };
+            if (value === "" || value === null || value === undefined) {
+              delete next[cellKey];
+            } else {
+              next[cellKey] = Number(value);
+            }
+            return { ...m, values: next, modifiedAt: new Date().toISOString() };
+          }),
+        })),
+
+      // Add a metric to a dashboard as a table or chart visual
+      addMetricVisualToDashboard: ({ dashboardId, metricId, displayAs = "table" }) =>
+        set((state) => {
+          const targetId = dashboardId || state.activeDashboardId;
+          const dash = state.dashboards.find((d) => d.id === targetId);
+          if (!dash) return state;
+          const nextY = dash.items.reduce(
+            (max, item) => Math.max(max, (item.layout?.y || 0) + (item.layout?.h || 300) + 16), 0
+          );
+          return {
+            dashboards: state.dashboards.map((d) =>
+              d.id !== targetId ? d : {
+                ...d,
+                items: [...d.items, {
+                  id:        createId("metricviz"),
+                  type:      "metric",
+                  metricId,
+                  displayAs,            // "table" | "chart"
+                  chartType: "bar",
+                  layout:    { x: 16, y: nextY + 16, w: 520, h: 320, minW: 200, minH: 140 },
+                  tileStyle: { ...DEFAULT_TILE_STYLE },
+                }],
+              }
+            ),
+            activeDashboardId: targetId,
+          };
+        }),
+
+      // ── Dashboard layers (z-order + visibility) ──
+      reorderDashboardItem: ({ dashboardId, itemId, direction }) =>
+        set((state) => ({
+          dashboards: state.dashboards.map((d) => {
+            if (d.id !== dashboardId) return d;
+            const items = [...d.items];
+            const idx = items.findIndex((i) => i.id === itemId);
+            if (idx < 0) return d;
+            const [it] = items.splice(idx, 1);
+            if (direction === "front")      items.push(it);
+            else if (direction === "back")  items.unshift(it);
+            else if (direction === "up")    items.splice(Math.min(items.length, idx + 1), 0, it);
+            else if (direction === "down")  items.splice(Math.max(0, idx - 1), 0, it);
+            else                            items.splice(idx, 0, it);
+            return { ...d, items };
+          }),
+        })),
+
+      toggleDashboardItemVisibility: ({ dashboardId, itemId }) =>
+        set((state) => ({
+          dashboards: state.dashboards.map((d) =>
+            d.id !== dashboardId ? d : {
+              ...d,
+              items: d.items.map((i) => i.id === itemId ? { ...i, hidden: !i.hidden } : i),
+            }
+          ),
+        })),
+
       // ── Measures (DAX) ──
       addMeasure: (measure) =>
         set((state) => ({
@@ -1144,6 +1253,7 @@ export const useStore = create(
         modelPages: state.modelPages,
         activeModelPageId: state.activeModelPageId,
         measures: state.measures,
+        metrics: state.metrics,
         // undoStack, redoStack, crossFilter intentionally excluded
       }),
     }

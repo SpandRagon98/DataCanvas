@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Sigma, Plus, Trash2, Copy, AlertCircle, CheckCircle2,
-  Play, FileText, BookOpen, Search, Hash,
+  Play, FileText, BookOpen, Search, Hash, Grid3x3, Pencil, Table2,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useTheme } from "../styles/theme";
@@ -13,7 +13,9 @@ import {
   listFunctions,
 } from "../utils/dax";
 import { formatValue } from "../utils/formatValue";
+import { computeAllMetrics, metricTotal } from "../utils/metricsEngine";
 import DaxEditor from "../components/measures/DaxEditor";
+import MetricBuilder from "../components/measures/MetricBuilder";
 
 const FORMATS = [
   { id: "number",   label: "Number",   sample: { type: "number",  decimals: 2 } },
@@ -32,11 +34,29 @@ export default function Measures() {
   const deleteMeasure  = useStore((s) => s.deleteMeasure);
   const duplicateMeasure = useStore((s) => s.duplicateMeasure);
   const filters        = useStore((s) => s.filters);
-  const { rows: rawData } = useEffectiveData({ applyScenario: false });
+  const { rows: rawData, columns, dataTypes } = useEffectiveData({ applyScenario: false });
+
+  // Metrics (Pigment-style)
+  const metrics        = useStore((s) => s.metrics);
+  const deleteMetric   = useStore((s) => s.deleteMetric);
+  const hierarchies    = useStore((s) => s.hierarchies);
 
   const [selectedId,   setSelectedId]   = useState(measures[0]?.id ?? null);
   const [search,       setSearch]       = useState("");
   const [showRef,      setShowRef]      = useState(false);
+  const [builderOpen,  setBuilderOpen]  = useState(false);
+  const [editingMetric, setEditingMetric] = useState(null);
+
+  // Live metric totals (for list summary)
+  const metricTotals = useMemo(() => {
+    const { valuesById } = computeAllMetrics(metrics);
+    const out = {};
+    metrics.forEach((m) => { out[m.id] = metricTotal(valuesById[m.id]); });
+    return out;
+  }, [metrics]);
+
+  const openNewMetric  = () => { setEditingMetric(null); setBuilderOpen(true); };
+  const openEditMetric = (m) => { setEditingMetric(m); setBuilderOpen(true); };
 
   // Keep selectedId valid
   useEffect(() => {
@@ -123,11 +143,20 @@ export default function Measures() {
 
         <button
           onClick={handleCreate}
+          className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-bold transition"
+          style={{ background: T.s2, borderColor: T.border, color: T.text }}
+        >
+          <Sigma size={12} strokeWidth={2.5} />
+          New Measure
+        </button>
+
+        <button
+          onClick={openNewMetric}
           className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold transition"
           style={{ background: T.accent, color: "#000" }}
         >
-          <Plus size={12} strokeWidth={2.5} />
-          New Measure
+          <Grid3x3 size={12} strokeWidth={2.5} />
+          New Metric
         </button>
       </div>
 
@@ -204,6 +233,55 @@ export default function Measures() {
               })
             )}
           </div>
+
+          {/* ── Metrics section ── */}
+          <div className="border-t shrink-0" style={{ borderColor: T.border, maxHeight: "42%" }}>
+            <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5">
+              <Grid3x3 size={11} style={{ color: T.accent }} />
+              <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: T.muted }}>
+                Metrics
+              </span>
+              <span className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                style={{ background: T.accent + "22", color: T.accent }}>{metrics.length}</span>
+              <div className="flex-1" />
+              <button onClick={openNewMetric} className="rounded-md p-0.5" style={{ color: T.muted }} title="New metric">
+                <Plus size={13} />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-2 pb-2 space-y-1" style={{ maxHeight: 240 }}>
+              {metrics.length === 0 ? (
+                <div className="px-2 py-3 text-center text-[11px]" style={{ color: T.muted }}>
+                  No metrics yet
+                </div>
+              ) : metrics.map((m) => (
+                <div key={m.id}
+                  className="group w-full rounded-xl border px-3 py-2 transition cursor-pointer"
+                  style={{ background: T.s2, borderColor: T.border }}
+                  onClick={() => openEditMetric(m)}>
+                  <div className="flex items-center gap-2">
+                    {m.isCalculated
+                      ? <Sigma size={11} style={{ color: T.purple }} />
+                      : <Table2 size={11} style={{ color: T.blue }} />}
+                    <span className="text-[12px] font-semibold truncate flex-1" style={{ color: T.text }}>{m.name}</span>
+                    <button onClick={(e) => { e.stopPropagation(); openEditMetric(m); }}
+                      className="rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: T.dim }}>
+                      <Pencil size={10} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteMetric(m.id); }}
+                      className="rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: T.dim }}>
+                      <Trash2 size={10} />
+                    </button>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[10px]" style={{ color: T.muted }}>
+                    <span className="truncate">{(m.dimensions || []).join(" × ") || "no dimensions"}</span>
+                    <span className="tabular-nums shrink-0 ml-2" style={{ color: T.dim }}>
+                      {(metricTotals[m.id] ?? 0).toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Editor */}
@@ -242,6 +320,17 @@ export default function Measures() {
         {/* Function reference drawer */}
         {showRef && <FunctionReference T={T} onClose={() => setShowRef(false)} />}
       </div>
+
+      {/* Metric Builder modal */}
+      <MetricBuilder
+        open={builderOpen}
+        onClose={() => { setBuilderOpen(false); setEditingMetric(null); }}
+        metric={editingMetric}
+        rows={rawData}
+        columns={columns}
+        dataTypes={dataTypes}
+        hierarchies={hierarchies}
+      />
     </div>
   );
 }
