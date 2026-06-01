@@ -238,7 +238,7 @@ export default function DataSource() {
                             )}
                             {hasWarn && (
                               <span className="shrink-0 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                                style={{ background: "rgba(20,184,166,0.14)", color: T.accent }}>
+                                style={{ background: "rgba(var(--dc-accent-rgb),0.14)", color: T.accent }}>
                                 <AlertTriangle size={9} />{nullPcts[col].toFixed(0)}% null
                               </span>
                             )}

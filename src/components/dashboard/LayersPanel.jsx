@@ -90,7 +90,7 @@ export default function LayersPanel({ dashboard, selectedItemId, onSelect, onClo
               className="group flex items-center gap-1.5 rounded-lg border px-2 py-1.5 cursor-pointer transition"
               style={{
                 background: isSel ? T.accentDim : "transparent",
-                borderColor: isSel ? "rgba(20,184,166,0.3)" : "transparent",
+                borderColor: isSel ? "rgba(var(--dc-accent-rgb),0.3)" : "transparent",
                 opacity: hidden ? 0.5 : 1,
               }}>
               {/* Visibility */}

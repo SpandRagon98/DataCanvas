@@ -95,8 +95,8 @@ function FindReplaceModal({ open, onClose, rows, columns, dataTypes, updateCell,
           </label>
           {matchCount !== null && (
             <div className="rounded-xl border px-3 py-2 text-sm" style={{
-              background: matchCount > 0 ? "rgba(16,185,129,0.08)" : "rgba(20,184,166,0.08)",
-              borderColor: matchCount > 0 ? "rgba(16,185,129,0.25)" : "rgba(20,184,166,0.25)",
+              background: matchCount > 0 ? "rgba(16,185,129,0.08)" : "rgba(var(--dc-accent-rgb),0.08)",
+              borderColor: matchCount > 0 ? "rgba(16,185,129,0.25)" : "rgba(var(--dc-accent-rgb),0.25)",
               color: matchCount > 0 ? T.success : T.accent,
             }}>
               {matchCount > 0 ? `${matchCount} match${matchCount !== 1 ? "es" : ""} found` : "No matches found"}

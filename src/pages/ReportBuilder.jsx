@@ -93,7 +93,7 @@ export default function ReportBuilder() {
           {hasCF && (
             <div
               className="flex items-center gap-2 rounded-xl border px-3 py-1.5"
-              style={{ background: "rgba(20,184,166,0.08)", borderColor: "rgba(20,184,166,0.22)" }}
+              style={{ background: "rgba(var(--dc-accent-rgb),0.08)", borderColor: "rgba(var(--dc-accent-rgb),0.22)" }}
             >
               <Zap size={12} style={{ color: T.accent }} />
               <span className="text-xs font-medium" style={{ color: T.accent }}>
@@ -111,7 +111,7 @@ export default function ReportBuilder() {
           <button
             onClick={addVisual}
             className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
-            style={{ background: T.accent, color: "#000", boxShadow: "0 2px 10px rgba(20,184,166,0.22)" }}
+            style={{ background: T.accent, color: "#000", boxShadow: "0 2px 10px rgba(var(--dc-accent-rgb),0.22)" }}
           >
             <Plus size={14} strokeWidth={2.5} />
             Add Visual

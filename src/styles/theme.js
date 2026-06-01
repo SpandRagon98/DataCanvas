@@ -1,9 +1,35 @@
 import { useStore } from "../store/useStore";
 
+// ── Accent palettes (user-selectable brand color) ─────────────────────────────
+// `text` is the readable foreground used on a filled accent surface.
+export const ACCENTS = {
+  teal:   { hex: "#14b8a6", hover: "#2dd4bf", rgb: "20,184,166",  text: "#06302b" },
+  orange: { hex: "#f59e0b", hover: "#fbbf24", rgb: "245,158,11",  text: "#1a1205" },
+  blue:   { hex: "#3b82f6", hover: "#60a5fa", rgb: "59,130,246",  text: "#ffffff" },
+  purple: { hex: "#8b5cf6", hover: "#a78bfa", rgb: "139,92,246",  text: "#ffffff" },
+  green:  { hex: "#22c55e", hover: "#4ade80", rgb: "34,197,94",   text: "#06210f" },
+  slate:  { hex: "#64748b", hover: "#94a3b8", rgb: "100,116,139", text: "#ffffff" },
+};
+
+// Options for the Settings → General → Theme Color picker (order shown in UI)
+export const ACCENT_OPTIONS = [
+  { id: "teal",   label: "Teal",   hex: ACCENTS.teal.hex },
+  { id: "orange", label: "Orange", hex: ACCENTS.orange.hex },
+  { id: "blue",   label: "Blue",   hex: ACCENTS.blue.hex },
+  { id: "purple", label: "Purple", hex: ACCENTS.purple.hex },
+  { id: "green",  label: "Green",  hex: ACCENTS.green.hex },
+  { id: "slate",  label: "Slate",  hex: ACCENTS.slate.hex },
+];
+
+export const DEFAULT_ACCENT = "teal";
+
 const SHARED = {
+  // Defaults (teal) — overridden per selected accent by getThemeObject().
   accent:       "#14b8a6",
   accentHover:  "#2dd4bf",
   accentDim:    "rgba(20,184,166,0.10)",
+  accentText:   "#06302b",
+  accentRgb:    "20,184,166",
   success:      "#10b981",
   error:        "#ef4444",
   blue:         "#60a5fa",
@@ -107,18 +133,37 @@ export const PALETTE_LABELS = [
 
 export const getPalette = (name) => COLOR_PALETTES[name] || COLOR_PALETTES.default;
 
-export function getThemeObject(mode) {
-  return mode === "light" ? T_LIGHT : T_DARK;
+/**
+ * Build the active theme object for a mode + selected accent.
+ * Accent-derived fields (accent, accentHover, accentDim, accentText, glow)
+ * are computed so a single setting recolors the whole app.
+ */
+export function getThemeObject(mode, accentId = DEFAULT_ACCENT) {
+  const base = mode === "light" ? T_LIGHT : T_DARK;
+  const a = ACCENTS[accentId] || ACCENTS[DEFAULT_ACCENT];
+  const glowAlpha1 = mode === "light" ? 0.2  : 0.16;
+  const glowAlpha2 = mode === "light" ? 0.18 : 0.12;
+  return {
+    ...base,
+    accent:      a.hex,
+    accentHover: a.hover,
+    accentDim:   `rgba(${a.rgb},0.10)`,
+    accentText:  a.text,
+    accentRgb:   a.rgb,
+    glowAccent:  `0 0 0 1px rgba(${a.rgb},${glowAlpha1}), 0 4px 20px rgba(${a.rgb},${glowAlpha2})`,
+  };
 }
 
 export function useTheme() {
-  const mode = useStore((s) => s.themeMode);
-  return getThemeObject(mode);
+  const mode   = useStore((s) => s.themeMode);
+  const accent = useStore((s) => s.themeAccent);
+  return getThemeObject(mode, accent);
 }
 
-export function applyThemeToDocument(mode) {
+export function applyThemeToDocument(mode, accentId = DEFAULT_ACCENT) {
   if (typeof document === "undefined") return;
-  const t = getThemeObject(mode);
+  const t = getThemeObject(mode, accentId);
+  const a = ACCENTS[accentId] || ACCENTS[DEFAULT_ACCENT];
   const root = document.documentElement;
 
   root.style.setProperty("--dc-bg",                    t.bg);
@@ -129,7 +174,9 @@ export function applyThemeToDocument(mode) {
   root.style.setProperty("--dc-text",                  t.text);
   root.style.setProperty("--dc-muted",                 t.muted);
   root.style.setProperty("--dc-dim",                   t.dim);
-  root.style.setProperty("--dc-accent",                t.accent);
+  root.style.setProperty("--dc-accent",                a.hex);
+  root.style.setProperty("--dc-accent-hover",          a.hover);
+  root.style.setProperty("--dc-accent-rgb",            a.rgb);
   root.style.setProperty("--dc-scrollbar-thumb",       t.scrollbarThumb);
   root.style.setProperty("--dc-scrollbar-thumb-hover", t.scrollbarThumbHover);
 

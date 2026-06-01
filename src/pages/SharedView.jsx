@@ -62,7 +62,7 @@ export default function SharedView() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-7 w-7 items-center justify-center rounded-lg overflow-hidden"
-            style={{ background: "rgba(20,184,166,0.10)" }}
+            style={{ background: "rgba(var(--dc-accent-rgb),0.10)" }}
           >
             <Logo size={20} />
           </div>

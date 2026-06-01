@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   X, User, Building2, Sliders, Crown, ShieldCheck, Code2,
   PenLine, Eye, Plus, Trash2, Check, LogOut, AlertCircle,
-  Sun, Moon, Mail, RefreshCw, UserPlus, Users,
+  Sun, Moon, Mail, RefreshCw, UserPlus, Users, Palette,
 } from "lucide-react";
 import {
   CLOUD_ENABLED, signOut,
@@ -18,7 +18,7 @@ import {
 } from "../../lib/supabase";
 import { useStore }      from "../../store/useStore";
 import { useLocalAuth }  from "../../store/useLocalAuth";
-import { useTheme }      from "../../styles/theme";
+import { useTheme, ACCENT_OPTIONS } from "../../styles/theme";
 import { ROLES, OWNER_EMAIL } from "../../hooks/useRBAC";
 
 // ── Shared micro-components ────────────────────────────────────────────────
@@ -51,7 +51,7 @@ function RoleBadge({ role, size = "sm" }) {
 }
 
 function AvatarCircle({ name, avatarUrl, size = 36 }) {
-  const COLORS  = ["#14b8a6","#60a5fa","#34d399","#f472b6","#a78bfa","#fb923c"];
+  const COLORS  = ["var(--dc-accent)","#60a5fa","#34d399","#f472b6","#a78bfa","#fb923c"];
   const color   = COLORS[(name?.charCodeAt(0) ?? 0) % COLORS.length];
   const initials= (name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   const fs      = size <= 28 ? 9 : size <= 36 ? 12 : size <= 52 ? 16 : 22;
@@ -144,12 +144,12 @@ function ProfileTab({ user, members, activeWs, onClose, T }) {
         {isOwner && (
           <div
             className="flex items-start gap-2.5 rounded-xl border px-3 py-2.5"
-            style={{ background: "rgba(20,184,166,0.08)", borderColor: "rgba(20,184,166,0.25)" }}
+            style={{ background: "rgba(var(--dc-accent-rgb),0.08)", borderColor: "rgba(var(--dc-accent-rgb),0.25)" }}
           >
-            <Crown size={14} style={{ color: "#14b8a6", flexShrink: 0, marginTop: 1 }} />
+            <Crown size={14} style={{ color: "var(--dc-accent)", flexShrink: 0, marginTop: 1 }} />
             <div>
-              <div className="text-xs font-semibold" style={{ color: "#14b8a6" }}>Application Owner</div>
-              <div className="text-[10.5px] mt-0.5" style={{ color: "#14b8a6", opacity: 0.75 }}>
+              <div className="text-xs font-semibold" style={{ color: "var(--dc-accent)" }}>Application Owner</div>
+              <div className="text-[10.5px] mt-0.5" style={{ color: "var(--dc-accent)", opacity: 0.75 }}>
                 Full permissions across all workspaces
               </div>
             </div>
@@ -322,7 +322,7 @@ function LocalWorkspaceTab({ user, T }) {
                   className="flex items-center gap-2.5 rounded-xl border px-3 py-2"
                   style={{
                     background:  isMe ? T.accentDim : T.s2,
-                    borderColor: isMe ? "rgba(20,184,166,0.22)" : T.border,
+                    borderColor: isMe ? "rgba(var(--dc-accent-rgb),0.22)" : T.border,
                   }}
                 >
                   <AvatarCircle name={mName} size={28} />
@@ -674,7 +674,7 @@ function CloudWorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                 className="w-full rounded-xl px-2 py-2 text-left"
                 style={{
                   background:   isActive ? T.accentDim : "transparent",
-                  border:       `1px solid ${isActive ? "rgba(20,184,166,0.28)" : "transparent"}`,
+                  border:       `1px solid ${isActive ? "rgba(var(--dc-accent-rgb),0.28)" : "transparent"}`,
                 }}
               >
                 <div className="flex items-center gap-2">
@@ -805,7 +805,7 @@ function CloudWorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
                         className="flex items-center gap-2.5 rounded-xl border px-3 py-2"
                         style={{
                           background:  isMe ? T.accentDim : T.s2,
-                          borderColor: isMe ? "rgba(20,184,166,0.22)" : T.border,
+                          borderColor: isMe ? "rgba(var(--dc-accent-rgb),0.22)" : T.border,
                         }}
                       >
                         <AvatarCircle name={mName} avatarUrl={mAvatar} size={28} />
@@ -984,6 +984,86 @@ function CloudWorkspaceTab({ user, onMembersChange, onActiveWsChange, T }) {
   );
 }
 
+// ── General Tab (theme color + appearance) ──────────────────────────────────
+
+function GeneralTab({ T }) {
+  const themeMode    = useStore((s) => s.themeMode);
+  const toggleTheme  = useStore((s) => s.toggleThemeMode);
+  const themeAccent  = useStore((s) => s.themeAccent);
+  const setThemeAccent = useStore((s) => s.setThemeAccent);
+
+  return (
+    <div className="px-6 py-5 space-y-6 overflow-y-auto h-full">
+      {/* Theme Color */}
+      <section>
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+          Theme Color
+        </div>
+        <p className="mb-3 text-[11px]" style={{ color: T.dim }}>
+          Choose the accent color used across buttons, tabs, highlights, and icons.
+        </p>
+        <div className="grid grid-cols-3 gap-2.5">
+          {ACCENT_OPTIONS.map((opt) => {
+            const active = themeAccent === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => setThemeAccent(opt.id)}
+                className="flex items-center gap-2 rounded-xl border px-3 py-2.5 transition"
+                style={{
+                  background: active ? opt.hex + "1a" : T.s2,
+                  borderColor: active ? opt.hex : T.border,
+                  boxShadow: active ? `0 0 0 1px ${opt.hex}55` : "none",
+                }}
+              >
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                  style={{ background: opt.hex }}
+                >
+                  {active && <Check size={11} color="#fff" strokeWidth={3} />}
+                </span>
+                <span className="text-xs font-medium" style={{ color: active ? opt.hex : T.text }}>
+                  {opt.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2.5 text-[10.5px]" style={{ color: T.muted }}>
+          Default is Teal. Selecting <strong>Orange</strong> restores the original theme. Your choice is saved automatically.
+        </p>
+      </section>
+
+      {/* Appearance (light / dark) */}
+      <section>
+        <div className="mb-2.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+          Appearance
+        </div>
+        <div className="flex rounded-xl border p-1" style={{ background: T.s2, borderColor: T.border }}>
+          {[
+            { mode: "dark",  Icon: Moon, label: "Dark"  },
+            { mode: "light", Icon: Sun,  label: "Light" },
+          ].map(({ mode, Icon, label }) => (
+            <button
+              key={mode}
+              onClick={() => themeMode !== mode && toggleTheme()}
+              className="flex flex-1 items-center justify-center gap-2 rounded-[9px] py-2 text-sm font-medium transition"
+              style={{
+                background: themeMode === mode ? T.surface : "transparent",
+                color:      themeMode === mode ? T.text    : T.muted,
+                boxShadow:  themeMode === mode ? "0 1px 4px rgba(0,0,0,0.18)" : "none",
+              }}
+            >
+              <Icon size={13} strokeWidth={2} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 // ── Preferences Tab ────────────────────────────────────────────────────────
 
 function PreferencesTab({ T }) {
@@ -1104,6 +1184,7 @@ function PreferencesTab({ T }) {
 
 const TABS = [
   { id: "profile",     icon: User,      label: "Profile"     },
+  { id: "general",     icon: Palette,   label: "General"     },
   { id: "workspace",   icon: Building2, label: "Workspace"   },
   { id: "preferences", icon: Sliders,   label: "Preferences" },
 ];
@@ -1162,7 +1243,7 @@ export default function SettingsModal({ open, onClose, user }) {
                 style={{
                   background:   activeTab === id ? T.accentDim   : "transparent",
                   color:        activeTab === id ? T.accent       : T.dim,
-                  border:       `1px solid ${activeTab === id ? "rgba(20,184,166,0.22)" : "transparent"}`,
+                  border:       `1px solid ${activeTab === id ? "rgba(var(--dc-accent-rgb),0.22)" : "transparent"}`,
                 }}
               >
                 <Icon size={13} strokeWidth={1.8} />
@@ -1220,6 +1301,9 @@ export default function SettingsModal({ open, onClose, user }) {
                   T={T}
                 />
               )
+            )}
+            {activeTab === "general" && (
+              <GeneralTab T={T} />
             )}
             {activeTab === "preferences" && (
               <PreferencesTab T={T} />

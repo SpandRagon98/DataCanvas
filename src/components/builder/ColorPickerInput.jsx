@@ -8,8 +8,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../../styles/theme";
 
 const PRESETS = [
-  "#ef4444","#f97316","#14b8a6","#eab308","#84cc16",
-  "#22c55e","#10b981","#14b8a6","#06b6d4","#3b82f6",
+  "#ef4444","#f97316","var(--dc-accent)","#eab308","#84cc16",
+  "#22c55e","#10b981","var(--dc-accent)","#06b6d4","#3b82f6",
   "#6366f1","#8b5cf6","#a855f7","#ec4899","#f43f5e",
   "#ffffff","#d1d5db","#9ca3af","#4b5563","#111827",
 ];

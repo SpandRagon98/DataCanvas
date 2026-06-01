@@ -88,7 +88,7 @@ function highlight(src, T) {
         if ((src[j] === "+" || src[j] === "-") && src[j - 1] !== "e" && src[j - 1] !== "E") break;
         j++;
       }
-      push(src.slice(i, j), "#14b8a6"); // amber
+      push(src.slice(i, j), "var(--dc-accent)"); // amber
       i = j;
       continue;
     }
@@ -110,7 +110,7 @@ function highlight(src, T) {
 
     // Operators
     if ("()+-*/<>=&|,".includes(c)) {
-      push(c, "#14b8a6");
+      push(c, "var(--dc-accent)");
       i++;
       continue;
     }

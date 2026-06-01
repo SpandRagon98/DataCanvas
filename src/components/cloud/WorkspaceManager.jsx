@@ -60,7 +60,7 @@ function RoleBadge({ role }) {
 }
 
 function Avatar({ name, size = 26 }) {
-  const COLORS = ["#14b8a6","#60a5fa","#34d399","#f472b6","#a78bfa"];
+  const COLORS = ["var(--dc-accent)","#60a5fa","#34d399","#f472b6","#a78bfa"];
   const color  = COLORS[(name?.charCodeAt(0) ?? 0) % COLORS.length];
   return (
     <div
@@ -271,7 +271,7 @@ export default function WorkspaceManager({ open, onClose, user }) {
 
         {!CLOUD_ENABLED && (
           <div className="mx-5 mt-4 rounded-lg border px-3 py-3 text-xs"
-            style={{ background: "rgba(20,184,166,0.08)", borderColor: "rgba(20,184,166,0.22)", color: T.accent }}>
+            style={{ background: "rgba(var(--dc-accent-rgb),0.08)", borderColor: "rgba(var(--dc-accent-rgb),0.22)", color: T.accent }}>
             Cloud not configured. Workspaces require Supabase.
           </div>
         )}
@@ -305,7 +305,7 @@ export default function WorkspaceManager({ open, onClose, user }) {
                         className="w-full rounded-lg px-2.5 py-2 text-left"
                         style={{
                           background: isActive ? T.accentDim : "transparent",
-                          border: `1px solid ${isActive ? "rgba(20,184,166,0.3)" : "transparent"}`,
+                          border: `1px solid ${isActive ? "rgba(var(--dc-accent-rgb),0.3)" : "transparent"}`,
                         }}
                       >
                         <div className="flex items-center gap-2">
@@ -510,7 +510,7 @@ export default function WorkspaceManager({ open, onClose, user }) {
                                 className="rounded-lg border p-2 text-left"
                                 style={{
                                   background: inviteRole === v ? T.accentDim : T.s2,
-                                  borderColor: inviteRole === v ? "rgba(20,184,166,0.3)" : T.border,
+                                  borderColor: inviteRole === v ? "rgba(var(--dc-accent-rgb),0.3)" : T.border,
                                 }}
                               >
                                 <div className="flex items-center justify-between mb-0.5">

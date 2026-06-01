@@ -41,16 +41,16 @@ const CARDINALITY_SYM = {
 };
 
 // ── BezierLine ────────────────────────────────────────────────────────────────
-function BezierLine({ x1, y1, x2, y2, active, selected, cardinality, onClick }) {
+function BezierLine({ x1, y1, x2, y2, active, selected, cardinality, onClick, accent = "#14b8a6" }) {
   const dx  = Math.max(Math.abs(x2 - x1) * 0.5, 60);
   const d   = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
-  const col = selected ? "#14b8a6" : active ? "#60a5fa" : "#4b5563";
+  const col = selected ? accent : active ? "#60a5fa" : "#4b5563";
   const sym = CARDINALITY_SYM[cardinality] ?? { from: "∞", to: "1" };
 
   return (
     <g onClick={onClick} style={{ cursor: "pointer" }}>
       <path d={d} fill="none" stroke="transparent" strokeWidth={14} />
-      {selected && <path d={d} fill="none" stroke="#14b8a6" strokeWidth={6} opacity={0.18} />}
+      {selected && <path d={d} fill="none" stroke={accent} strokeWidth={6} opacity={0.18} />}
       <path d={d} fill="none" stroke={col} strokeWidth={selected ? 2.5 : 1.8}
         strokeDasharray={active ? undefined : "6,4"} opacity={active ? 0.9 : 0.45} />
       <text x={x1 + 10} y={y1 - 4} fontSize={9} fill={col} fontFamily="monospace" opacity={0.8}>{sym.from}</text>
@@ -329,6 +329,7 @@ export default function ModelCanvas({ page, selectedRelId, onSelectRel }) {
     return (
       <BezierLine key={rel.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
         active={rel.active !== false} selected={rel.id === selectedRelId} cardinality={rel.cardinality}
+        accent={T.accent}
         onClick={(e) => { e.stopPropagation(); onSelectRel(rel.id === selectedRelId ? null : rel.id); }} />
     );
   });

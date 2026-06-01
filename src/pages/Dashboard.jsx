@@ -26,7 +26,7 @@ const GRID_SIZE = 40;
 const snap = (v) => Math.round(v / GRID_SIZE) * GRID_SIZE;
 
 const ANNOTATION_COLORS = [
-  "rgba(20,184,166,0.18)", "rgba(96,165,250,0.18)",
+  "rgba(var(--dc-accent-rgb),0.18)", "rgba(96,165,250,0.18)",
   "rgba(16,185,129,0.18)", "rgba(239,68,68,0.18)",
   "rgba(167,139,250,0.18)",
 ];
@@ -763,7 +763,7 @@ function TileFormatPanel({ item, dashboardId, T }) {
               </div>
               <div>
                 <label style={iLabel}>Background</label>
-                <ColorPickerInput value={bc.bgColor || "#14b8a6"} onChange={(c) => patchButton({ bgColor: c })} />
+                <ColorPickerInput value={bc.bgColor || "var(--dc-accent)"} onChange={(c) => patchButton({ bgColor: c })} />
               </div>
               <div>
                 <label style={iLabel}>Text Color</label>
@@ -1229,7 +1229,7 @@ export default function Dashboard() {
                   <div key={item.id} className="absolute flex items-center justify-center font-semibold" style={{
                     left: item.layout.x, top: item.layout.y,
                     width: item.layout.w, height: item.layout.h,
-                    background: bc.bgColor || "#14b8a6", color: bc.textColor || "#000",
+                    background: bc.bgColor || "var(--dc-accent)", color: bc.textColor || "#000",
                     borderRadius: bc.borderRadius ?? 8, fontSize: bc.fontSize ?? 13,
                     fontWeight: bc.fontWeight ?? 600,
                     border: bc.borderWidth ? `${bc.borderWidth}px solid ${bc.borderColor || "transparent"}` : "none",
@@ -1415,7 +1415,7 @@ export default function Dashboard() {
               return (
                 <div key={dashboard.id}
                   className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
-                  style={{ background: isActive ? T.accentDim : T.s2, borderColor: isActive ? "rgba(20,184,166,0.28)" : T.border }}>
+                  style={{ background: isActive ? T.accentDim : T.s2, borderColor: isActive ? "rgba(var(--dc-accent-rgb),0.28)" : T.border }}>
                   {editingTabId === dashboard.id ? (
                     <input autoFocus value={draftTabName} onChange={(e) => setDraftTabName(e.target.value)}
                       onBlur={handleCommitRename}
@@ -1469,7 +1469,7 @@ export default function Dashboard() {
             <div className="relative">
               <button onClick={() => setMetricAssetOpen((o) => !o)}
                 className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-                style={{ background: metricAssetOpen ? T.accentDim : T.s2, borderColor: metricAssetOpen ? "rgba(20,184,166,0.28)" : T.border, color: metricAssetOpen ? T.accent : T.dim }}
+                style={{ background: metricAssetOpen ? T.accentDim : T.s2, borderColor: metricAssetOpen ? "rgba(var(--dc-accent-rgb),0.28)" : T.border, color: metricAssetOpen ? T.accent : T.dim }}
                 title="Add a metric">
                 <Grid3x3 size={12} /> Metric
               </button>
@@ -1504,19 +1504,19 @@ export default function Dashboard() {
 
             <button onClick={() => setLayersOpen((o) => !o)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-              style={{ background: layersOpen ? T.accentDim : T.s2, borderColor: layersOpen ? "rgba(20,184,166,0.28)" : T.border, color: layersOpen ? T.accent : T.dim }}
+              style={{ background: layersOpen ? T.accentDim : T.s2, borderColor: layersOpen ? "rgba(var(--dc-accent-rgb),0.28)" : T.border, color: layersOpen ? T.accent : T.dim }}
               title="Layers / Selection">
               <Layers size={12} /> Layers
             </button>
 
             <button onClick={() => setSnapEnabled((s) => !s)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-              style={{ background: snapEnabled ? T.accentDim : T.s2, borderColor: snapEnabled ? "rgba(20,184,166,0.28)" : T.border, color: snapEnabled ? T.accent : T.dim }}>
+              style={{ background: snapEnabled ? T.accentDim : T.s2, borderColor: snapEnabled ? "rgba(var(--dc-accent-rgb),0.28)" : T.border, color: snapEnabled ? T.accent : T.dim }}>
               <Grid3x3 size={12} /> Snap
             </button>
             <button onClick={() => setFormatPanelOpen((o) => !o)}
               className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-              style={{ background: formatPanelOpen ? T.accentDim : T.s2, borderColor: formatPanelOpen ? "rgba(20,184,166,0.28)" : T.border, color: formatPanelOpen ? T.accent : T.dim }}>
+              style={{ background: formatPanelOpen ? T.accentDim : T.s2, borderColor: formatPanelOpen ? "rgba(var(--dc-accent-rgb),0.28)" : T.border, color: formatPanelOpen ? T.accent : T.dim }}>
               <Palette size={12} /> Format
             </button>
             <button onClick={handleExportPNG}

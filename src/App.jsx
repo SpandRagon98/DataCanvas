@@ -205,7 +205,7 @@ function Sidebar({
       <div className="px-3 pt-3 pb-2 flex items-center" style={{ minHeight: 52 }}>
         <div
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl overflow-hidden"
-          style={{ background: "rgba(20,184,166,0.10)", boxShadow: "0 2px 12px rgba(20,184,166,0.20)" }}
+          style={{ background: "rgba(var(--dc-accent-rgb),0.10)", boxShadow: "0 2px 12px rgba(var(--dc-accent-rgb),0.20)" }}
         >
           <Logo size={26} />
         </div>
@@ -272,22 +272,22 @@ function Sidebar({
             }
             style={accent ? ({ isActive }) => ({
               ...(isActive ? {
-                background: "rgba(20,184,166,0.12)",
-                borderColor: "rgba(20,184,166,0.22)",
-                color: "#14b8a6",
+                background: "rgba(var(--dc-accent-rgb),0.12)",
+                borderColor: "rgba(var(--dc-accent-rgb),0.22)",
+                color: "var(--dc-accent)",
               } : {
                 borderColor: "transparent",
-                color: "rgba(20,184,166,0.85)",
+                color: "rgba(var(--dc-accent-rgb),0.85)",
               })
             }) : undefined}
           >
-            <Icon size={15} strokeWidth={1.8} style={accent ? { color: "#14b8a6", flexShrink: 0 } : { flexShrink: 0 }} />
+            <Icon size={15} strokeWidth={1.8} style={accent ? { color: "var(--dc-accent)", flexShrink: 0 } : { flexShrink: 0 }} />
             {!collapsed && (
               <>
                 <span className="nav-label truncate flex-1">{label}</span>
                 {accent && (
                   <span className="nav-ai-badge ml-auto rounded-md px-1.5 py-0.5 text-[9px] font-bold shrink-0"
-                    style={{ background: "#14b8a6", color: "#000" }}>AI</span>
+                    style={{ background: "var(--dc-accent)", color: "#000" }}>AI</span>
                 )}
               </>
             )}
@@ -458,6 +458,7 @@ function AnimatedRoutes() {
 export default function App() {
   const T         = useTheme();
   const themeMode = useStore((s) => s.themeMode);
+  const themeAccent = useStore((s) => s.themeAccent);
   const setCloudMeta = useStore((s) => s.setCloudMeta);
 
   // Cloud hooks
@@ -555,8 +556,8 @@ export default function App() {
   }, [collapsed, sidebarWidth]);
 
   useEffect(() => {
-    applyThemeToDocument(themeMode);
-  }, [themeMode]);
+    applyThemeToDocument(themeMode, themeAccent);
+  }, [themeMode, themeAccent]);
 
   useEffect(() => {
     if (workbookId) setCloudMeta({ cloudWorkbookId: workbookId });
@@ -568,7 +569,7 @@ export default function App() {
       <div className="flex items-center justify-center min-h-screen" style={{ background: T.bg }}>
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden"
-            style={{ background: "rgba(20,184,166,0.10)", boxShadow: "0 4px 24px rgba(20,184,166,0.28)" }}>
+            style={{ background: "rgba(var(--dc-accent-rgb),0.10)", boxShadow: "0 4px 24px rgba(var(--dc-accent-rgb),0.28)" }}>
             <Logo size={40} />
           </div>
           <div className="text-[13px] font-medium" style={{ color: T.muted }}>Loading {APP_NAME}…</div>

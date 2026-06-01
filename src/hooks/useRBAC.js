@@ -16,7 +16,7 @@ export const ROLES = {
   owner: {
     level: 5,
     label: "Owner",
-    color: "#14b8a6",
+    color: "var(--dc-accent)",
     desc: "Full control over all workspaces. Cannot be removed.",
   },
   admin: {

@@ -66,7 +66,7 @@ export default function ShareModal({ open, onClose }) {
         </div>
 
         {!CLOUD_ENABLED && (
-          <div className="rounded-xl border px-3 py-3 text-xs" style={{ background: "rgba(20,184,166,0.08)", borderColor: "rgba(20,184,166,0.22)", color: T.accent }}>
+          <div className="rounded-xl border px-3 py-3 text-xs" style={{ background: "rgba(var(--dc-accent-rgb),0.08)", borderColor: "rgba(var(--dc-accent-rgb),0.22)", color: T.accent }}>
             Cloud not configured. Add <span className="mono">VITE_SUPABASE_URL</span> and <span className="mono">VITE_SUPABASE_ANON_KEY</span> to your <span className="mono">.env</span> to enable sharing.
           </div>
         )}
@@ -99,7 +99,7 @@ export default function ShareModal({ open, onClose }) {
                     className="flex-1 rounded-xl border py-1.5 text-xs font-medium"
                     style={{
                       background: expiry === v ? T.accentDim : T.s2,
-                      borderColor: expiry === v ? "rgba(20,184,166,0.28)" : T.border,
+                      borderColor: expiry === v ? "rgba(var(--dc-accent-rgb),0.28)" : T.border,
                       color: expiry === v ? T.accent : T.dim,
                     }}
                   >{l}</button>
@@ -108,7 +108,7 @@ export default function ShareModal({ open, onClose }) {
             </div>
 
             {!workbookId && (
-              <div className="rounded-xl border px-3 py-2 text-xs" style={{ background: "rgba(20,184,166,0.08)", borderColor: "rgba(20,184,166,0.22)", color: T.accent }}>
+              <div className="rounded-xl border px-3 py-2 text-xs" style={{ background: "rgba(var(--dc-accent-rgb),0.08)", borderColor: "rgba(var(--dc-accent-rgb),0.22)", color: T.accent }}>
                 Save your workbook to the cloud first before sharing.
               </div>
             )}

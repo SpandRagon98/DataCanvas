@@ -299,7 +299,7 @@ function DoYourOwnThing({ schema, T, onDeployed }) {
       <div className="flex flex-wrap items-center justify-center gap-2">
         {[
           { label: schema.measures.length   + " measures",   color: "#60a5fa" },
-          { label: schema.dimensions.length + " dimensions", color: "#14b8a6" },
+          { label: schema.dimensions.length + " dimensions", color: "var(--dc-accent)" },
           { label: schema.dates.length      + " date cols",  color: "#34d399" },
           { label: schema.rowCount.toLocaleString() + " rows", color: "#94a3b8" },
         ].filter(({ label }) => !label.startsWith("0 ")).map(({ label, color }) => (
@@ -401,7 +401,7 @@ function DoYourOwnThing({ schema, T, onDeployed }) {
               <div className="flex flex-wrap gap-2">
                 {aiResult.filters.map((f, i) => (
                   <span key={i} className="rounded-lg border px-3 py-1.5 text-xs"
-                    style={{ background: "#14b8a618", borderColor: "#14b8a644", color: "#14b8a6" }}>
+                    style={{ background: "rgba(var(--dc-accent-rgb),0.10)", borderColor: "rgba(var(--dc-accent-rgb),0.27)", color: "var(--dc-accent)" }}>
                     {f.label || f.column}
                   </span>
                 ))}
@@ -432,7 +432,7 @@ function DoYourOwnThing({ schema, T, onDeployed }) {
         <button
           onClick={run}
           className="inline-flex items-center gap-2.5 rounded-2xl px-8 py-3.5 text-base font-bold hover:opacity-90 transition"
-          style={{ background: T.accent, color: "#000", boxShadow: "0 4px 20px rgba(20,184,166,0.35)" }}>
+          style={{ background: T.accent, color: "#000", boxShadow: "0 4px 20px rgba(var(--dc-accent-rgb),0.35)" }}>
           <Sparkles size={18} /> Analyze & Generate Dashboard
         </button>
       )}
@@ -717,7 +717,7 @@ export default function AIDashboard() {
         {/* Logo */}
         <div className="text-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl mx-auto mb-4"
-            style={{ background: T.accent, boxShadow: "0 4px 20px rgba(20,184,166,0.4)" }}>
+            style={{ background: T.accent, boxShadow: "0 4px 20px rgba(var(--dc-accent-rgb),0.4)" }}>
             <Wand2 size={26} color="#000" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight" style={{ color: T.text }}>AI Dashboard</h1>
@@ -729,7 +729,7 @@ export default function AIDashboard() {
         {/* No data warning */}
         {!hasData && (
           <div className="flex items-center gap-2 rounded-xl border px-4 py-3 text-sm"
-            style={{ background: "rgba(20,184,166,0.08)", borderColor: "rgba(20,184,166,0.3)", color: T.accent }}>
+            style={{ background: "rgba(var(--dc-accent-rgb),0.08)", borderColor: "rgba(var(--dc-accent-rgb),0.3)", color: T.accent }}>
             <AlertCircle size={14} />
             No dataset loaded. Go to Data Source first to import data.
           </div>
@@ -801,7 +801,7 @@ export default function AIDashboard() {
           <div className="flex flex-wrap items-center justify-center gap-2">
             {[
               { n: schema.measures.length,   label: "measures",   color: "#60a5fa" },
-              { n: schema.dimensions.length, label: "dimensions", color: "#14b8a6" },
+              { n: schema.dimensions.length, label: "dimensions", color: "var(--dc-accent)" },
               { n: schema.dates.length,      label: "date cols",  color: "#34d399" },
               { n: schema.rowCount,          label: "rows",       color: "#94a3b8", fmt: (v) => v.toLocaleString() },
             ].filter(({ n }) => n > 0).map(({ n, label, color, fmt }) => (

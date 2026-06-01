@@ -105,7 +105,7 @@ function ConnectorCard({ connector, onFetch, onRemove, onEdit, T, fetching }) {
             onClick={() => onFetch(connector)}
             disabled={fetching === connector.id}
             className="rounded-lg border px-2 py-1 text-xs transition hover:opacity-80 disabled:opacity-50"
-            style={{ background: T.accentDim, borderColor: "rgba(20,184,166,0.25)", color: T.accent }}
+            style={{ background: T.accentDim, borderColor: "rgba(var(--dc-accent-rgb),0.25)", color: T.accent }}
             title="Fetch now"
           >
             <RefreshCw size={11} className={fetching === connector.id ? "animate-spin" : ""} />
@@ -444,7 +444,7 @@ export default function ApiConnectorPanel() {
         <div className="flex items-center gap-3">
           <div
             className="flex h-9 w-9 items-center justify-center rounded-xl"
-            style={{ background: "rgba(20,184,166,0.12)" }}
+            style={{ background: "rgba(var(--dc-accent-rgb),0.12)" }}
           >
             <Wifi size={16} style={{ color: T.accent }} />
           </div>
@@ -460,7 +460,7 @@ export default function ApiConnectorPanel() {
           <button
             onClick={() => { setEditTarget(null); setShowForm(true); }}
             className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition hover:opacity-80"
-            style={{ background: T.accentDim, borderColor: "rgba(20,184,166,0.25)", color: T.accent }}
+            style={{ background: T.accentDim, borderColor: "rgba(var(--dc-accent-rgb),0.25)", color: T.accent }}
           >
             <Plus size={13} /> Add
           </button>

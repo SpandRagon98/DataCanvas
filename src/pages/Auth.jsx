@@ -86,7 +86,7 @@ export default function Auth({ hideLocalMode = false, onLocalLogin }) {
         <div className="mb-8 flex flex-col items-center gap-3">
           <div
             className="flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden"
-            style={{ background: "rgba(20,184,166,0.10)", boxShadow: "0 6px 24px rgba(20,184,166,0.28)" }}
+            style={{ background: "rgba(var(--dc-accent-rgb),0.10)", boxShadow: "0 6px 24px rgba(var(--dc-accent-rgb),0.28)" }}
           >
             <Logo size={40} />
           </div>
@@ -195,7 +195,7 @@ export default function Auth({ hideLocalMode = false, onLocalLogin }) {
                 background: T.accent,
                 color: "#000",
                 opacity: loading ? 0.7 : 1,
-                boxShadow: "0 2px 10px rgba(20,184,166,0.25)",
+                boxShadow: "0 2px 10px rgba(var(--dc-accent-rgb),0.25)",
               }}
             >
               {loading ? "Please wait..." : tab === "signin" ? "Sign In" : "Create Account"}

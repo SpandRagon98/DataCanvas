@@ -86,7 +86,7 @@ export default function DataModelling() {
           <button
             onClick={() => setTablesOpen((o) => !o)}
             className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium"
-            style={{ background: tablesOpen ? T.accentDim : T.s2, borderColor: tablesOpen ? "rgba(20,184,166,0.28)" : T.border, color: tablesOpen ? T.accent : T.dim }}
+            style={{ background: tablesOpen ? T.accentDim : T.s2, borderColor: tablesOpen ? "rgba(var(--dc-accent-rgb),0.28)" : T.border, color: tablesOpen ? T.accent : T.dim }}
           >
             <Table2 size={12} /> Tables <ChevronDown size={11} />
           </button>
@@ -142,7 +142,7 @@ export default function DataModelling() {
           return (
             <div key={p.id}
               className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 shrink-0"
-              style={{ background: isActive ? T.accentDim : T.s2, borderColor: isActive ? "rgba(20,184,166,0.28)" : T.border }}>
+              style={{ background: isActive ? T.accentDim : T.s2, borderColor: isActive ? "rgba(var(--dc-accent-rgb),0.28)" : T.border }}>
               {editingPageId === p.id ? (
                 <input autoFocus value={draftPageName}
                   onChange={(e) => setDraftPageName(e.target.value)}

@@ -296,7 +296,7 @@ export default function FilterPanel() {
                 if (bookmarkName.trim()) { saveFilterBookmark(bookmarkName.trim()); setBookmarkName(""); }
               }}
               className="rounded-xl border px-2.5 py-1.5"
-              style={{ background: T.accentDim, borderColor: "rgba(20,184,166,0.2)", color: T.accent }}
+              style={{ background: T.accentDim, borderColor: "rgba(var(--dc-accent-rgb),0.2)", color: T.accent }}
             >
               <Plus size={12} />
             </button>

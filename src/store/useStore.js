@@ -155,6 +155,9 @@ export const useStore = create(
       // ── Theme ──
       themeMode: "dark",
 
+      // ── Brand accent color (user-selectable) ──
+      themeAccent: "teal",
+
       // ── Calc fields ──
       calculatedFields: [],
 
@@ -308,6 +311,7 @@ export const useStore = create(
           dashboards: wb.dashboards ?? [fallback],
           activeDashboardId: wb.activeDashboardId ?? fallback.id,
           themeMode: wb.themeMode ?? "dark",
+          themeAccent: wb.themeAccent ?? get().themeAccent ?? "teal",
           calculatedFields: wb.calculatedFields ?? [],
           scenarios: wb.scenarios ?? [],
           activeScenarioId: wb.activeScenarioId ?? null,
@@ -762,7 +766,7 @@ export const useStore = create(
                   layout: { x: 16, y: nextY + 12, w: 140, h: 44, minW: 60, minH: 32 },
                   buttonConfig: buttonConfig || {
                     label: "Button",
-                    bgColor: "#14b8a6",
+                    bgColor: "var(--dc-accent)",
                     textColor: "#000000",
                     borderRadius: 8,
                     fontSize: 13,
@@ -798,6 +802,7 @@ export const useStore = create(
       // ── Theme ──
       setThemeMode: (mode) => set({ themeMode: mode === "light" ? "light" : "dark" }),
       toggleThemeMode: () => set((state) => ({ themeMode: state.themeMode === "light" ? "dark" : "light" })),
+      setThemeAccent: (accent) => set({ themeAccent: accent }),
 
       // ── Calculated Fields ──
       addCalculatedField: ({ name, formula, type = "number" }) =>
@@ -891,7 +896,7 @@ export const useStore = create(
                       y: 20,
                       w: 220,
                       text: "📝 Add your note here…",
-                      color: "rgba(20,184,166,0.15)",
+                      color: "rgba(var(--dc-accent-rgb),0.15)",
                     },
                   ],
                 }
@@ -1243,6 +1248,7 @@ export const useStore = create(
         dashboards: state.dashboards,
         activeDashboardId: state.activeDashboardId,
         themeMode: state.themeMode,
+        themeAccent: state.themeAccent,
         calculatedFields: state.calculatedFields,
         scenarios: state.scenarios,
         activeScenarioId: state.activeScenarioId,
