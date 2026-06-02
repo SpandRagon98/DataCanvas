@@ -12,6 +12,7 @@ import ApiConnectorPanel    from "../components/datasource/ApiConnectorPanel";
 import DataCleaningPanel    from "../components/ai/DataCleaningPanel";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import { useTheme }         from "../styles/theme";
+import { RICH_TYPES, baseToRich } from "../utils/columnTypes";
 
 /** Compute profile stats for one column */
 function profileColumn(rows, col, dataType) {
@@ -102,6 +103,8 @@ export default function DataSource() {
   const resetColumnAlias= useStore((s) => s.resetColumnAlias);
   const datasets        = useStore((s) => s.datasets);
   const activeDatasetId  = useStore((s) => s.activeDatasetId);
+  const columnFormats   = useStore((s) => s.columnFormats);
+  const setColumnType   = useStore((s) => s.setColumnType);
   // Preview/profiler reflect the active dataset's own columns (no Calendar join here).
   const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false, joinCalendar: false });
 
@@ -260,7 +263,6 @@ export default function DataSource() {
               <div className="space-y-1">
                 {columns.length ? columns.map((col) => {
                   const isCalc    = calcFieldNames?.has(col);
-                  const hasWarn   = nullPcts[col] > 20;
                   const isExp     = expandedCol === col;
                   const isRenaming = renamingCol === col;
                   return (
@@ -280,12 +282,6 @@ export default function DataSource() {
                             {isCalc && (
                               <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase mono"
                                 style={{ background: T.accentDim, color: T.accent }}>calc</span>
-                            )}
-                            {hasWarn && (
-                              <span className="shrink-0 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                                style={{ background: "rgba(var(--dc-accent-rgb),0.14)", color: T.accent }}>
-                                <AlertTriangle size={9} />{nullPcts[col].toFixed(0)}% null
-                              </span>
                             )}
                           </span>
                           <div className="flex shrink-0 items-center gap-1.5 ml-2">
@@ -340,7 +336,23 @@ export default function DataSource() {
                       )}
 
                       {isExp && (
-                        <ColumnProfiler col={col} dataType={dataTypes[col]} rows={rows} T={T} />
+                        <>
+                          {!isCalc && (
+                            <div className="mt-2 flex items-center gap-2 rounded-xl border px-3 py-2"
+                              style={{ background: T.surface, borderColor: T.border }}>
+                              <span className="text-[11px] font-medium" style={{ color: T.muted }}>Data type</span>
+                              <select
+                                value={columnFormats[col] || baseToRich(dataTypes[col])}
+                                onChange={(e) => setColumnType(col, e.target.value)}
+                                className="ml-auto rounded-lg border px-2 py-1 text-[12px] outline-none"
+                                style={{ background: T.s2, borderColor: T.border, color: T.accent }}
+                              >
+                                {RICH_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                              </select>
+                            </div>
+                          )}
+                          <ColumnProfiler col={col} dataType={dataTypes[col]} rows={rows} T={T} />
+                        </>
                       )}
                     </div>
                   );

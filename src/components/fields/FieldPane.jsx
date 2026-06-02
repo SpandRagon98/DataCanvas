@@ -1,66 +1,58 @@
-import { Search, Hash, Type, Calendar, ToggleLeft, Layers3, Sigma, AlertCircle, Grid3x3, Table2 } from "lucide-react";
+import {
+  Search, Hash, Type, Calendar, ToggleLeft, Sigma, AlertCircle,
+  Grid3x3, Table2, ChevronRight, Database,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStore }          from "../../store/useStore";
 import { useEffectiveData }  from "../../hooks/useEffectiveData";
 import { useTheme }          from "../../styles/theme";
 import { validateFormula }   from "../../utils/dax";
 
-function TypeIcon({ type, T }) {
-  if (type === "number")  return <Hash      size={10} strokeWidth={2.2} color={T.blue}    />;
-  if (type === "date")    return <Calendar  size={10} strokeWidth={2.2} color={T.success} />;
+// ── A column is a Dimension if it is non-numeric and not explicitly "text". ──
+// (dimension / date / datetime / boolean / un-typed categorical → dimension)
+function isDimensionCol(col, dataTypes, columnFormats) {
+  const base = dataTypes[col];
+  if (base === "number") return false;
+  if (columnFormats[col] === "text") return false;
+  return true;
+}
+
+function FieldTypeIcon({ type, T }) {
+  if (type === "number")  return <Hash       size={10} strokeWidth={2.2} color={T.blue}    />;
+  if (type === "date")    return <Calendar   size={10} strokeWidth={2.2} color={T.success} />;
   if (type === "boolean") return <ToggleLeft size={10} strokeWidth={2.2} color={T.accent}  />;
   return <Type size={10} strokeWidth={2.2} color={T.dim} />;
 }
 
-function FieldChip({ field, type, label, isCalculated = false, T }) {
-  const handleDragStart = (e) => e.dataTransfer.setData("fieldName", field);
-
+function FieldChip({ field, type, label, isCalculated = false, onDragStart, T }) {
+  const handleDragStart = (e) => {
+    onDragStart?.();
+    e.dataTransfer.setData("fieldName", field);
+  };
   return (
     <div
       draggable
       onDragStart={handleDragStart}
-      className="drag-chip rounded-xl border px-2.5 py-1.5"
-      style={{
-        background: T.s2,
-        borderColor: T.border,
-        color: T.text,
-      }}
+      className="drag-chip rounded-lg border px-2.5 py-1.5"
+      style={{ background: T.s2, borderColor: T.border, color: T.text }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex items-center gap-1.5">
-          <TypeIcon type={type} T={T} />
-          <span className="truncate text-[12.5px]">{label || field}</span>
-          {isCalculated && (
-            <span
-              className="shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase"
-              style={{ background: T.accentDim, color: T.accent }}
-            >
-              fx
-            </span>
-          )}
-        </div>
+      <div className="min-w-0 flex items-center gap-1.5">
+        <FieldTypeIcon type={type} T={T} />
+        <span className="truncate text-[12.5px]">{label || field}</span>
+        {isCalculated && (
+          <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-bold uppercase"
+            style={{ background: T.accentDim, color: T.accent }}>fx</span>
+        )}
       </div>
     </div>
   );
 }
 
-function SectionLabel({ title, icon, T }) {
-  return (
-    <div
-      className="mb-1.5 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest"
-      style={{ color: T.muted }}
-    >
-      {icon}
-      {title}
-    </div>
-  );
-}
-
-/** A draggable chip for a DAX measure — drags the measure name like a column. */
-function MeasureChip({ measure, T }) {
+function MeasureChip({ measure, onDragStart, T }) {
   const valid = useMemo(() => validateFormula(measure.formula).valid, [measure.formula]);
   const handleDragStart = (e) => {
     if (!valid) { e.preventDefault(); return; }
+    onDragStart?.();
     e.dataTransfer.setData("fieldName", measure.name);
   };
   return (
@@ -68,171 +60,174 @@ function MeasureChip({ measure, T }) {
       draggable={valid}
       onDragStart={handleDragStart}
       title={measure.description || measure.formula}
-      className="drag-chip rounded-xl border px-2.5 py-1.5"
-      style={{
-        background: T.s2,
-        borderColor: valid ? T.border : "rgba(239,68,68,0.4)",
-        color: T.text,
-        opacity: valid ? 1 : 0.7,
-        cursor: valid ? "grab" : "not-allowed",
-      }}
+      className="drag-chip rounded-lg border px-2.5 py-1.5"
+      style={{ background: T.s2, borderColor: valid ? T.border : "rgba(239,68,68,0.4)",
+        color: T.text, opacity: valid ? 1 : 0.7, cursor: valid ? "grab" : "not-allowed" }}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0 flex items-center gap-1.5">
-          <Sigma size={10} strokeWidth={2.2} color={T.accent} />
-          <span className="truncate text-[12.5px]">{measure.name}</span>
-        </div>
+      <div className="min-w-0 flex items-center gap-1.5">
+        <Sigma size={10} strokeWidth={2.2} color={T.accent} />
+        <span className="truncate text-[12.5px]">{measure.name}</span>
         {!valid && <AlertCircle size={10} style={{ color: "#ef4444", flexShrink: 0 }} />}
       </div>
     </div>
   );
 }
 
+// Collapsible group header (chevron rotates)
+function GroupHeader({ open, onToggle, icon, title, count, T, indent = false, accent = false }) {
+  return (
+    <button
+      onClick={onToggle}
+      className="flex w-full items-center gap-1.5 rounded-lg px-1.5 py-1 text-left transition hover:opacity-90"
+      style={{ paddingLeft: indent ? 14 : 6 }}
+    >
+      <ChevronRight
+        size={12}
+        style={{ color: T.muted, transform: open ? "rotate(90deg)" : "none", transition: "transform 150ms" }}
+      />
+      {icon}
+      <span className="text-[11px] font-semibold uppercase tracking-wide"
+        style={{ color: accent ? T.accent : T.text }}>{title}</span>
+      {count != null && (
+        <span className="ml-auto rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+          style={{ background: T.s3, color: T.muted }}>{count}</span>
+      )}
+    </button>
+  );
+}
+
 export default function FieldPane() {
-  const T             = useTheme();
-  const { columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false });
-  const hierarchies   = useStore((s) => s.hierarchies);
-  const columnAliases = useStore((s) => s.columnAliases);
-  const daxMeasures   = useStore((s) => s.measures);
-  const metrics       = useStore((s) => s.metrics);
+  const T              = useTheme();
+  const datasets       = useStore((s) => s.datasets);
+  const activeDatasetId = useStore((s) => s.activeDatasetId);
+  const activateDataset = useStore((s) => s.activateDataset);
+  const columnAliases  = useStore((s) => s.columnAliases);
+  const columnFormats  = useStore((s) => s.columnFormats);
+  const daxMeasures    = useStore((s) => s.measures);
+  const metrics        = useStore((s) => s.metrics);
+
+  // Effective columns for the ACTIVE dataset (incl. calc fields + calendar join)
+  const eff = useEffectiveData({ applyScenario: false });
+
   const [search, setSearch] = useState("");
+  const [open, setOpen] = useState({}); // section id → bool
+  const isOpen = (id, dflt = false) => open[id] ?? dflt;
+  const toggle = (id, dflt = false) => setOpen((o) => ({ ...o, [id]: !(o[id] ?? dflt) }));
 
   const displayCol = (col) => columnAliases[col] || col;
+  const matchesSearch = (s) => !search || s.toLowerCase().includes(search.toLowerCase());
 
-  const filtered = useMemo(
-    () => columns.filter((c) =>
-      c.toLowerCase().includes(search.toLowerCase()) ||
-      (columnAliases[c] || "").toLowerCase().includes(search.toLowerCase())
-    ),
-    [columns, search, columnAliases]
-  );
-
-  const dimensions = filtered.filter((c) => dataTypes[c] !== "number");
-  const measures   = filtered.filter((c) => dataTypes[c] === "number");
-
-  const hierarchyFields = hierarchies.flatMap((h) =>
-    h.levels.map((level, idx) => ({
-      id: `${h.name}_${idx}`,
-      label: `${h.name}: ${level}`,
-      field: level,
-      type: dataTypes[level] || "string",
-    }))
-  );
+  const userDatasets = datasets.filter((d) => !d.isSystemTable);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="shrink-0 px-4 pt-4 pb-3">
+      <div className="shrink-0 px-4 pt-4 pb-2.5">
         <h2 className="text-[13px] font-semibold leading-none" style={{ color: T.text }}>Fields</h2>
-        <p className="mt-1 text-[11px]" style={{ color: T.muted }}>Drag into visual zones</p>
+        <p className="mt-1 text-[11px]" style={{ color: T.muted }}>Drag dimensions & measures into visuals</p>
       </div>
 
       {/* Search */}
-      <div className="shrink-0 mx-3 mb-3">
-        <div
-          className="flex items-center gap-2 rounded-xl border px-3 py-2"
-          style={{ background: T.s2, borderColor: T.border }}
-        >
+      <div className="shrink-0 mx-3 mb-2">
+        <div className="flex items-center gap-2 rounded-xl border px-3 py-2" style={{ background: T.s2, borderColor: T.border }}>
           <Search size={12} strokeWidth={2} color={T.muted} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search…"
-            className="w-full bg-transparent text-[12.5px] outline-none"
-            style={{ color: T.text }}
-          />
-          {search && (
-            <button onClick={() => setSearch("")} style={{ color: T.muted, display: "flex" }}>
-              <Search size={10} />
-            </button>
-          )}
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…"
+            className="w-full bg-transparent text-[12.5px] outline-none" style={{ color: T.text }} />
         </div>
       </div>
 
       {/* Scrollable list */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-4 space-y-1">
 
-        {hierarchyFields.length > 0 && (
-          <div>
-            <SectionLabel title="Hierarchies" icon={<Layers3 size={10} color={T.accent} />} T={T} />
-            <div className="space-y-1">
-              {hierarchyFields.map((item) => (
-                <FieldChip key={item.id} field={item.field} type={item.type} label={item.label} T={T} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div>
-          <SectionLabel title="Dimensions" icon={<Type size={10} color={T.dim} />} T={T} />
-          <div className="space-y-1">
-            {dimensions.length ? (
-              dimensions.map((f) => (
-                <FieldChip key={f} field={f} type={dataTypes[f]} label={displayCol(f)} isCalculated={calcFieldNames.has(f)} T={T} />
-              ))
-            ) : (
-              <p className="text-[11px] px-1" style={{ color: T.muted }}>No matches</p>
-            )}
-          </div>
+        {/* Datasets label */}
+        <div className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
+          Datasets
         </div>
 
-        <div>
-          <SectionLabel title="Measures" icon={<Hash size={10} color={T.blue} />} T={T} />
-          <div className="space-y-1">
-            {measures.length ? (
-              measures.map((f) => (
-                <FieldChip key={f} field={f} type={dataTypes[f]} label={displayCol(f)} isCalculated={calcFieldNames.has(f)} T={T} />
-              ))
-            ) : (
-              <p className="text-[11px] px-1" style={{ color: T.muted }}>No matches</p>
-            )}
-          </div>
-        </div>
+        {userDatasets.map((ds) => {
+          const isActive = ds.id === activeDatasetId;
+          // Active dataset → effective columns (calc + calendar). Others → own columns.
+          const cols      = isActive ? eff.columns   : (ds.columns   || []);
+          const dts       = isActive ? eff.dataTypes : (ds.dataTypes || {});
+          const calcNames = isActive ? eff.calcFieldNames : new Set();
 
-        {[...calcFieldNames].length > 0 && (
-          <div>
-            <SectionLabel title="Calculated" icon={<Sigma size={10} color={T.accent} />} T={T} />
-            <div className="space-y-1">
-              {[...calcFieldNames]
-                .filter((f) => f.toLowerCase().includes(search.toLowerCase()))
-                .map((f) => (
-                  <FieldChip key={f} field={f} type={dataTypes[f]} isCalculated T={T} />
-                ))}
+          const dims = cols.filter((c) => isDimensionCol(c, dts, columnFormats) && matchesSearch(displayCol(c)) && !c.startsWith("_sort_"));
+          const meas = cols.filter((c) => dts[c] === "number" && matchesSearch(displayCol(c)));
+
+          const dsOpen   = isOpen(`ds_${ds.id}`, isActive);
+          const dimsOpen = isOpen(`dim_${ds.id}`, true);
+          const measOpen = isOpen(`mea_${ds.id}`, true);
+
+          const onChipDrag = () => { if (!isActive) activateDataset(ds.id); };
+
+          return (
+            <div key={ds.id} className="rounded-xl border" style={{
+              borderColor: isActive ? "rgba(var(--dc-accent-rgb),0.35)" : T.border,
+              background: isActive ? "rgba(var(--dc-accent-rgb),0.04)" : "transparent",
+            }}>
+              {/* Dataset header */}
+              <button
+                onClick={() => { if (!isActive) activateDataset(ds.id); toggle(`ds_${ds.id}`, isActive); }}
+                className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left"
+              >
+                <ChevronRight size={12} style={{ color: T.muted, transform: dsOpen ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
+                <Database size={12} style={{ color: isActive ? T.accent : T.dim, flexShrink: 0 }} />
+                <span className="truncate text-[12.5px] font-semibold" style={{ color: isActive ? T.accent : T.text }}>{ds.name}</span>
+                {isActive && <span className="ml-auto rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase"
+                  style={{ background: T.accent, color: "#000" }}>Active</span>}
+              </button>
+
+              {dsOpen && (
+                <div className="pb-1.5">
+                  {/* Dimensions group */}
+                  <GroupHeader open={dimsOpen} onToggle={() => toggle(`dim_${ds.id}`, true)}
+                    icon={<Type size={10} color={T.dim} />} title="Dimensions" count={dims.length} indent T={T} />
+                  {dimsOpen && (
+                    <div className="space-y-1 pl-5 pr-2 pb-1">
+                      {dims.length ? dims.map((f) => (
+                        <FieldChip key={f} field={f} type={dts[f]} label={displayCol(f)}
+                          isCalculated={calcNames.has(f)} onDragStart={onChipDrag} T={T} />
+                      )) : <p className="text-[10.5px] px-1" style={{ color: T.muted }}>No dimensions</p>}
+                    </div>
+                  )}
+
+                  {/* Measures group */}
+                  <GroupHeader open={measOpen} onToggle={() => toggle(`mea_${ds.id}`, true)}
+                    icon={<Hash size={10} color={T.blue} />} title="Measures"
+                    count={meas.length + (isActive ? daxMeasures.length : 0)} indent T={T} />
+                  {measOpen && (
+                    <div className="space-y-1 pl-5 pr-2 pb-1">
+                      {meas.map((f) => (
+                        <FieldChip key={f} field={f} type="number" label={displayCol(f)}
+                          isCalculated={calcNames.has(f)} onDragStart={onChipDrag} T={T} />
+                      ))}
+                      {isActive && daxMeasures
+                        .filter((m) => matchesSearch(m.name))
+                        .map((m) => <MeasureChip key={m.id} measure={m} onDragStart={onChipDrag} T={T} />)}
+                      {meas.length === 0 && (!isActive || daxMeasures.length === 0) && (
+                        <p className="text-[10.5px] px-1" style={{ color: T.muted }}>No measures</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })}
 
-        {daxMeasures.length > 0 && (
-          <div>
-            <SectionLabel title="Measures (DAX)" icon={<Sigma size={10} color={T.accent} />} T={T} />
-            <div className="space-y-1">
-              {daxMeasures
-                .filter((m) =>
-                  m.name.toLowerCase().includes(search.toLowerCase()) ||
-                  (m.description || "").toLowerCase().includes(search.toLowerCase())
-                )
-                .map((m) => (
-                  <MeasureChip key={m.id} measure={m} T={T} />
-                ))}
-            </div>
-          </div>
-        )}
-
+        {/* ── Metrics — separate section, outside datasets ── */}
         {metrics.length > 0 && (
-          <div>
-            <SectionLabel title="Metrics" icon={<Grid3x3 size={10} color={T.accent} />} T={T} />
-            <div className="space-y-1">
-              {metrics
-                .filter((m) => m.name.toLowerCase().includes(search.toLowerCase()))
-                .map((m) => (
-                  <div
-                    key={m.id}
-                    draggable
+          <div className="pt-2">
+            <GroupHeader open={isOpen("metrics", true)} onToggle={() => toggle("metrics", true)}
+              icon={<Grid3x3 size={11} color={T.accent} />} title="Metrics" count={metrics.length} accent T={T} />
+            {isOpen("metrics", true) && (
+              <div className="space-y-1 pl-5 pr-2 pt-1">
+                {metrics.filter((m) => matchesSearch(m.name)).map((m) => (
+                  <div key={m.id} draggable
                     onDragStart={(e) => { e.dataTransfer.setData("metricId", m.id); e.dataTransfer.effectAllowed = "copy"; }}
                     title="Drag onto a dashboard"
-                    className="drag-chip rounded-xl border px-2.5 py-1.5"
-                    style={{ background: T.s2, borderColor: T.border, color: T.text }}
-                  >
+                    className="drag-chip rounded-lg border px-2.5 py-1.5"
+                    style={{ background: T.s2, borderColor: T.border, color: T.text }}>
                     <div className="flex items-center gap-1.5">
                       {m.isCalculated
                         ? <Sigma size={10} strokeWidth={2.2} color={T.purple} />
@@ -241,7 +236,8 @@ export default function FieldPane() {
                     </div>
                   </div>
                 ))}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
