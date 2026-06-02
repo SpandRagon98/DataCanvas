@@ -199,6 +199,7 @@ function ActiveBadge({ filterValue, T }) {
 export default function FilterPanel() {
   const T = useTheme();
   const { rows, columns, dataTypes } = useEffectiveData();
+  const datasets             = useStore((s) => s.datasets);
   const filters              = useStore((s) => s.filters);
   const setGlobalFilter      = useStore((s) => s.setGlobalFilter);
   const clearGlobalFilters   = useStore((s) => s.clearGlobalFilters);
@@ -217,10 +218,21 @@ export default function FilterPanel() {
     (v) => v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && !v.length)
   ).length;
 
+  // Find the dataset/table that owns a column (for the card subtitle).
+  const tableNameFor = (field) => {
+    const ds = datasets.find((d) => (d.columns || []).includes(field));
+    return ds ? ds.name : "";
+  };
+
   const onDrop = (e) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOver(false);
-    const field = e.dataTransfer.getData("fieldName");
+    // Prefer the rich payload; fall back to the plain field name.
+    let field = "";
+    const rich = e.dataTransfer.getData("vizora/field");
+    if (rich) { try { field = JSON.parse(rich).field; } catch { /* ignore */ } }
+    if (!field) field = e.dataTransfer.getData("fieldName");
     if (field) addReportFilter(field);
   };
 
@@ -251,7 +263,8 @@ export default function FilterPanel() {
       {/* Scrollable list — drop zone */}
       <div
         className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 space-y-3"
-        onDragOver={(e) => { if (e.dataTransfer.types.includes("fieldName")) { e.preventDefault(); setDragOver(true); } }}
+        onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDragOver(true); }}
         onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
         onDrop={onDrop}
       >
@@ -278,7 +291,12 @@ export default function FilterPanel() {
           return (
             <div key={field} className="rounded-xl border p-2.5" style={{ background: T.s2, borderColor: T.border }}>
               <div className="mb-1.5 flex items-center gap-1">
-                <span className="flex-1 truncate text-[11.5px] font-semibold" style={{ color: T.text }}>{field}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[11.5px] font-semibold" style={{ color: T.text }}>{field}</div>
+                  {tableNameFor(field) && (
+                    <div className="truncate text-[9.5px]" style={{ color: T.muted }}>{tableNameFor(field)}</div>
+                  )}
+                </div>
                 <ActiveBadge filterValue={filterValue} T={T} />
                 <button onClick={() => removeReportFilter(field)} title="Remove filter"
                   className="rounded p-0.5 opacity-60 hover:opacity-100" style={{ color: T.muted }}>

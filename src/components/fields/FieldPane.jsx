@@ -16,10 +16,14 @@ function FieldTypeIcon({ type, T }) {
   return <Type size={10} strokeWidth={2.2} color={T.dim} />;
 }
 
-function FieldChip({ field, type, label, isCalculated = false, onDragStart, T }) {
+function FieldChip({ field, type, label, isCalculated = false, datasetId, tableName, onDragStart, T }) {
   const handleDragStart = (e) => {
     onDragStart?.();
     e.dataTransfer.setData("fieldName", field);
+    try {
+      e.dataTransfer.setData("vizora/field", JSON.stringify({ field, datasetId, tableName, dataType: type }));
+    } catch { /* ignore */ }
+    e.dataTransfer.effectAllowed = "copy";
   };
   return (
     <div
@@ -199,6 +203,7 @@ export default function FieldPane() {
                     <div className="space-y-1 pl-5 pr-2 pb-1">
                       {dims.length ? dims.map((f) => (
                         <FieldChip key={f} field={f} type={dts[f]} label={displayCol(f)}
+                          datasetId={ds.id} tableName={ds.name}
                           isCalculated={calcNames.has(f)} onDragStart={onChipDrag} T={T} />
                       )) : <p className="text-[10.5px] px-1" style={{ color: T.muted }}>No dimensions</p>}
                     </div>
@@ -212,6 +217,7 @@ export default function FieldPane() {
                     <div className="space-y-1 pl-5 pr-2 pb-1">
                       {meas.map((f) => (
                         <FieldChip key={f} field={f} type="number" label={displayCol(f)}
+                          datasetId={ds.id} tableName={ds.name}
                           isCalculated={calcNames.has(f)} onDragStart={onChipDrag} T={T} />
                       ))}
                       {isActive && daxMeasures

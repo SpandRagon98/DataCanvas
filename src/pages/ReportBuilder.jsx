@@ -16,6 +16,7 @@ const FIELDS_MIN = 200;   // current width = minimum
 const FIELDS_MAX = 380;
 const FIELDS_RAIL = 48;
 const ADV_MIN = 250, ADV_MAX = 440, ADV_DEFAULT = 290;
+const FILTER_MIN = 200, FILTER_MAX = 380, FILTER_DEFAULT = 220;
 
 // Chart-type icon labels for collapsed chips
 const CHART_LABELS = {
@@ -89,6 +90,34 @@ export default function ReportBuilder() {
   });
   const [advCollapsed, setAdvCollapsed] = useState(() => localStorage.getItem("dc.rbAdvCollapsed") !== "false");
   const [advDragging, setAdvDragging] = useState(false);
+
+  const [filterWidth, setFilterWidth] = useState(() => {
+    const v = parseInt(localStorage.getItem("dc.rbFilterWidth") || "", 10);
+    return isNaN(v) ? FILTER_DEFAULT : Math.max(FILTER_MIN, Math.min(FILTER_MAX, v));
+  });
+  const [filterDragging, setFilterDragging] = useState(false);
+  useEffect(() => { localStorage.setItem("dc.rbFilterWidth", String(filterWidth)); }, [filterWidth]);
+
+  const onFilterResizeStart = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.clientX, startW = filterWidth;
+    setFilterDragging(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const onMove = (mv) => {
+      // filter pane sits left of the advanced pane; dragging left widens it
+      const w = Math.max(FILTER_MIN, Math.min(FILTER_MAX, startW - (mv.clientX - startX)));
+      setFilterWidth(w);
+    };
+    const onUp = () => {
+      document.body.style.cursor = ""; document.body.style.userSelect = "";
+      setFilterDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [filterWidth]);
 
   useEffect(() => { localStorage.setItem("dc.rbFieldsWidth", String(fieldsWidth)); }, [fieldsWidth]);
   useEffect(() => { localStorage.setItem("dc.rbFieldsCollapsed", String(fieldsCollapsed)); }, [fieldsCollapsed]);
@@ -322,9 +351,18 @@ export default function ReportBuilder() {
           </div>
         ) : (
           <div
-            className="relative w-[210px] shrink-0 border-l overflow-hidden flex flex-col"
-            style={{ borderColor: T.border, background: T.surface }}
+            className="relative shrink-0 border-l overflow-hidden flex flex-col"
+            style={{ width: filterWidth, borderColor: T.border, background: T.surface, transition: filterDragging ? "none" : "width 160ms ease" }}
           >
+            {/* left-edge resize handle */}
+            <div
+              onMouseDown={onFilterResizeStart}
+              title="Drag to resize"
+              style={{ position: "absolute", left: -3, top: 0, bottom: 0, width: 7, cursor: "col-resize", zIndex: 20 }}
+            >
+              <div style={{ position: "absolute", left: 3, top: "50%", transform: "translateY(-50%)", width: 1, height: 48,
+                background: filterDragging ? T.accent : "transparent", borderRadius: 1 }} />
+            </div>
             <button onClick={() => setFilterCollapsed(true)} title="Collapse Filters"
               className="absolute right-1.5 top-3 z-10 rounded-lg p-1 transition hover:opacity-80"
               style={{ color: T.muted, background: T.surface }}>
