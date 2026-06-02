@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Plus, BarChart3, Zap, X, Maximize2, Trash2,
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Filter,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import FieldPane    from "../components/fields/FieldPane";
 import FilterPanel  from "../components/filters/FilterPanel";
 import VisualCard   from "../components/builder/VisualCard";
 import { useTheme } from "../styles/theme";
+
+// ── Fields pane sizing ──
+const FIELDS_MIN = 200;   // current width = minimum
+const FIELDS_MAX = 380;
+const FIELDS_RAIL = 48;
 
 // Chart-type icon labels for collapsed chips
 const CHART_LABELS = {
@@ -65,6 +71,39 @@ export default function ReportBuilder() {
   const collapse = (id)   => setCollapsedIds((prev) => new Set([...prev, id]));
   const expand   = (id)   => setCollapsedIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
 
+  // ── Resizable / collapsible panes (persisted UI prefs) ──
+  const [fieldsWidth, setFieldsWidth] = useState(() => {
+    const v = parseInt(localStorage.getItem("dc.rbFieldsWidth") || "", 10);
+    return isNaN(v) ? FIELDS_MIN : Math.max(FIELDS_MIN, Math.min(FIELDS_MAX, v));
+  });
+  const [fieldsCollapsed, setFieldsCollapsed] = useState(() => localStorage.getItem("dc.rbFieldsCollapsed") === "true");
+  const [filterCollapsed, setFilterCollapsed] = useState(() => localStorage.getItem("dc.rbFilterCollapsed") === "true");
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => { localStorage.setItem("dc.rbFieldsWidth", String(fieldsWidth)); }, [fieldsWidth]);
+  useEffect(() => { localStorage.setItem("dc.rbFieldsCollapsed", String(fieldsCollapsed)); }, [fieldsCollapsed]);
+  useEffect(() => { localStorage.setItem("dc.rbFilterCollapsed", String(filterCollapsed)); }, [filterCollapsed]);
+
+  const onFieldsResizeStart = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.clientX, startW = fieldsWidth;
+    setDragging(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const onMove = (mv) => {
+      const w = Math.max(FIELDS_MIN, Math.min(FIELDS_MAX, startW + mv.clientX - startX));
+      setFieldsWidth(w);
+    };
+    const onUp = () => {
+      document.body.style.cursor = ""; document.body.style.userSelect = "";
+      setDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [fieldsWidth]);
+
   const cfEntries = Object.entries(crossFilter);
   const hasCF     = cfEntries.length > 0;
 
@@ -122,13 +161,40 @@ export default function ReportBuilder() {
       {/* ── 3-column layout ── */}
       <div className="flex min-h-0 flex-1 gap-0 overflow-hidden">
 
-        {/* Field pane */}
-        <div
-          className="w-[200px] shrink-0 border-r overflow-hidden flex flex-col"
-          style={{ borderColor: T.border, background: T.surface }}
-        >
-          <FieldPane />
-        </div>
+        {/* Field pane (resizable + collapsible) */}
+        {fieldsCollapsed ? (
+          <div
+            className="shrink-0 flex flex-col items-center gap-2 border-r py-2"
+            style={{ width: FIELDS_RAIL, background: T.surface, borderColor: T.border }}
+          >
+            <button onClick={() => setFieldsCollapsed(false)} title="Expand Fields"
+              className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color: T.muted }}>
+              <PanelLeftOpen size={16} />
+            </button>
+            <BarChart3 size={15} style={{ color: T.accent }} />
+            <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 10, color: T.dim, letterSpacing: "0.06em", marginTop: 4 }}>
+              Fields
+            </span>
+          </div>
+        ) : (
+          <div
+            className="relative shrink-0 border-r overflow-hidden flex flex-col"
+            style={{ width: fieldsWidth, borderColor: T.border, background: T.surface, transition: dragging ? "none" : "width 160ms ease" }}
+          >
+            <button onClick={() => setFieldsCollapsed(true)} title="Collapse Fields"
+              className="absolute right-1.5 top-3 z-10 rounded-lg p-1 transition hover:opacity-80"
+              style={{ color: T.muted, background: T.surface }}>
+              <PanelLeftClose size={14} />
+            </button>
+            <FieldPane />
+            {/* Resize handle */}
+            <div
+              onMouseDown={onFieldsResizeStart}
+              title="Drag to resize"
+              className={`sidebar-resize-handle ${dragging ? "is-dragging" : ""}`}
+            />
+          </div>
+        )}
 
         {/* Visuals canvas */}
         <div
@@ -206,13 +272,34 @@ export default function ReportBuilder() {
           )}
         </div>
 
-        {/* Filter panel */}
-        <div
-          className="w-[210px] shrink-0 border-l overflow-hidden flex flex-col"
-          style={{ borderColor: T.border, background: T.surface }}
-        >
-          <FilterPanel />
-        </div>
+        {/* Filter panel (collapsible) */}
+        {filterCollapsed ? (
+          <div
+            className="shrink-0 flex flex-col items-center gap-2 border-l py-2"
+            style={{ width: FIELDS_RAIL, background: T.surface, borderColor: T.border }}
+          >
+            <button onClick={() => setFilterCollapsed(false)} title="Expand Filters"
+              className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color: T.muted }}>
+              <PanelRightOpen size={16} />
+            </button>
+            <Filter size={15} style={{ color: T.accent }} />
+            <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 10, color: T.dim, letterSpacing: "0.06em", marginTop: 4 }}>
+              Filters
+            </span>
+          </div>
+        ) : (
+          <div
+            className="relative w-[210px] shrink-0 border-l overflow-hidden flex flex-col"
+            style={{ borderColor: T.border, background: T.surface }}
+          >
+            <button onClick={() => setFilterCollapsed(true)} title="Collapse Filters"
+              className="absolute right-1.5 top-3 z-10 rounded-lg p-1 transition hover:opacity-80"
+              style={{ color: T.muted, background: T.surface }}>
+              <PanelRightClose size={14} />
+            </button>
+            <FilterPanel />
+          </div>
+        )}
       </div>
     </div>
   );
