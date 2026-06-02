@@ -27,14 +27,28 @@ export function richToBase(richId) {
   return BY_ID[richId]?.base ?? "string";
 }
 
-/** Reasonable default rich type when only a base type is known. */
+/**
+ * Default rich type when a column has no explicit type set.
+ * Numeric → Number (measure-friendly); everything else (text / date /
+ * datetime / boolean / categorical) → Dimension.
+ */
 export function baseToRich(base) {
-  switch (base) {
-    case "number":  return "number";
-    case "date":    return "date";
-    case "boolean": return "boolean";
-    default:        return "text";
-  }
+  if (base === "number") return "number";
+  return "dimension";
 }
 
-export const isDimension = (richId) => richId === "dimension";
+/**
+ * The effective rich type for a column:
+ *   1. explicit user choice (columnFormats), else
+ *   2. for system datasets (native Calendar) → always Dimension, else
+ *   3. the default derived from the engine base type.
+ */
+export function effectiveRichType(col, baseType, columnFormats, isSystem = false) {
+  const explicit = columnFormats?.[col];
+  if (explicit) return explicit;
+  if (isSystem) return "dimension";
+  return baseToRich(baseType);
+}
+
+export const isDimension     = (richId) => richId === "dimension";
+export const isDimensionType = (richId) => richId === "dimension";

@@ -12,7 +12,7 @@ import ApiConnectorPanel    from "../components/datasource/ApiConnectorPanel";
 import DataCleaningPanel    from "../components/ai/DataCleaningPanel";
 import { useEffectiveData } from "../hooks/useEffectiveData";
 import { useTheme }         from "../styles/theme";
-import { RICH_TYPES, baseToRich } from "../utils/columnTypes";
+import { RICH_TYPES, effectiveRichType } from "../utils/columnTypes";
 
 /** Compute profile stats for one column */
 function profileColumn(rows, col, dataType) {
@@ -342,7 +342,7 @@ export default function DataSource() {
                               style={{ background: T.surface, borderColor: T.border }}>
                               <span className="text-[11px] font-medium" style={{ color: T.muted }}>Data type</span>
                               <select
-                                value={columnFormats[col] || baseToRich(dataTypes[col])}
+                                value={effectiveRichType(col, dataTypes[col], columnFormats, activeIsSystem)}
                                 onChange={(e) => setColumnType(col, e.target.value)}
                                 className="ml-auto rounded-lg border px-2 py-1 text-[12px] outline-none"
                                 style={{ background: T.s2, borderColor: T.border, color: T.accent }}

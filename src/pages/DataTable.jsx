@@ -6,7 +6,7 @@ import { useStore }          from "../store/useStore";
 import { useEffectiveData }  from "../hooks/useEffectiveData";
 import { useTheme }          from "../styles/theme";
 import DatasetPane           from "../components/datasource/DatasetPane";
-import { RICH_TYPES, baseToRich } from "../utils/columnTypes";
+import { RICH_TYPES, effectiveRichType } from "../utils/columnTypes";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-quartz.css";
 
@@ -149,7 +149,7 @@ function DimensionPill(params) {
 }
 
 // ── Column Types panel ──────────────────────────────────────────────────────
-function ColumnTypesPanel({ columns, dataTypes, columnFormats, calcFieldNames, columnAliases, onChange, T }) {
+function ColumnTypesPanel({ columns, dataTypes, columnFormats, calcFieldNames, columnAliases, isSystem, onChange, T }) {
   return (
     <div className="shrink-0 rounded-xl border px-4 py-3 shadow-sm" style={{ background: T.surface, borderColor: T.border }}>
       <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest" style={{ color: T.muted }}>
@@ -157,7 +157,7 @@ function ColumnTypesPanel({ columns, dataTypes, columnFormats, calcFieldNames, c
       </div>
       <div className="flex flex-wrap gap-2">
         {columns.filter((c) => !calcFieldNames?.has(c)).map((col) => {
-          const current = columnFormats[col] || baseToRich(dataTypes[col]);
+          const current = effectiveRichType(col, dataTypes[col], columnFormats, isSystem);
           return (
             <div key={col} className="flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
               style={{ background: T.s2, borderColor: T.border }}>
@@ -192,6 +192,9 @@ export default function DataTable() {
   const columnAliases = useStore((s) => s.columnAliases);
   const columnFormats = useStore((s) => s.columnFormats);
   const setColumnType = useStore((s) => s.setColumnType);
+  const datasets      = useStore((s) => s.datasets);
+  const activeDatasetId = useStore((s) => s.activeDatasetId);
+  const activeIsSystem = !!datasets.find((d) => d.id === activeDatasetId)?.isSystemTable;
 
   const { rows, columns, dataTypes, calcFieldNames } = useEffectiveData({ applyScenario: false, joinCalendar: false });
   const [findReplaceOpen, setFindReplaceOpen] = useState(false);
@@ -245,7 +248,7 @@ export default function DataTable() {
     return columns.map((field) => {
       const isCalc   = calcFieldNames?.has(field);
       const type     = dataTypes[field];
-      const rich     = columnFormats[field] || baseToRich(type);
+      const rich     = effectiveRichType(field, type, columnFormats, activeIsSystem);
       const alias    = columnAliases[field] || field;
 
       // Pick the right operator-based filter for the column type
@@ -298,7 +301,7 @@ export default function DataTable() {
         },
       };
     });
-  }, [columns, dataTypes, calcFieldNames, columnAliases, columnFormats]);
+  }, [columns, dataTypes, calcFieldNames, columnAliases, columnFormats, activeIsSystem]);
 
   const defaultColDef = useMemo(() => ({
     filter: true,
@@ -386,6 +389,7 @@ export default function DataTable() {
             columnFormats={columnFormats}
             calcFieldNames={calcFieldNames}
             columnAliases={columnAliases}
+            isSystem={activeIsSystem}
             onChange={handleTypeChange}
             T={T}
           />

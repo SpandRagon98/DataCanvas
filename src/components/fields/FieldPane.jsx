@@ -7,15 +7,7 @@ import { useStore }          from "../../store/useStore";
 import { useEffectiveData }  from "../../hooks/useEffectiveData";
 import { useTheme }          from "../../styles/theme";
 import { validateFormula }   from "../../utils/dax";
-
-// ── A column is a Dimension if it is non-numeric and not explicitly "text". ──
-// (dimension / date / datetime / boolean / un-typed categorical → dimension)
-function isDimensionCol(col, dataTypes, columnFormats) {
-  const base = dataTypes[col];
-  if (base === "number") return false;
-  if (columnFormats[col] === "text") return false;
-  return true;
-}
+import { effectiveRichType, isDimensionType } from "../../utils/columnTypes";
 
 function FieldTypeIcon({ type, T }) {
   if (type === "number")  return <Hash       size={10} strokeWidth={2.2} color={T.blue}    />;
@@ -117,7 +109,10 @@ export default function FieldPane() {
   const displayCol = (col) => columnAliases[col] || col;
   const matchesSearch = (s) => !search || s.toLowerCase().includes(search.toLowerCase());
 
-  const userDatasets = datasets.filter((d) => !d.isSystemTable);
+  // Show every table; native Calendar (system) first.
+  const allDatasets = [...datasets].sort(
+    (a, b) => (b.isSystemTable ? 1 : 0) - (a.isSystemTable ? 1 : 0)
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -144,21 +139,35 @@ export default function FieldPane() {
           Datasets
         </div>
 
-        {userDatasets.map((ds) => {
+        {allDatasets.map((ds) => {
           const isActive = ds.id === activeDatasetId;
-          // Active dataset → effective columns (calc + calendar). Others → own columns.
-          const cols      = isActive ? eff.columns   : (ds.columns   || []);
-          const dts       = isActive ? eff.dataTypes : (ds.dataTypes || {});
-          const calcNames = isActive ? eff.calcFieldNames : new Set();
+          const isSystem = !!ds.isSystemTable;
 
-          const dims = cols.filter((c) => isDimensionCol(c, dts, columnFormats) && matchesSearch(displayCol(c)) && !c.startsWith("_sort_"));
-          const meas = cols.filter((c) => dts[c] === "number" && matchesSearch(displayCol(c)));
+          // Active fact dataset → effective columns (its own raw cols + calc
+          // fields), EXCLUDING calendar-joined columns (those live under the
+          // Calendar table section). Others → their own columns.
+          let cols, dts, calcNames;
+          if (isActive) {
+            dts = eff.dataTypes; calcNames = eff.calcFieldNames;
+            cols = eff.columns.filter(
+              (c) => !c.startsWith("_sort_") && (ds.columns?.includes(c) || calcNames.has(c))
+            );
+          } else {
+            dts = ds.dataTypes || {}; calcNames = new Set();
+            cols = (ds.columns || []).filter((c) => !c.startsWith("_sort_"));
+          }
 
-          const dsOpen   = isOpen(`ds_${ds.id}`, isActive);
+          const rich = (c) => effectiveRichType(c, dts[c], columnFormats, isSystem);
+          const dims = cols.filter((c) => isDimensionType(rich(c)) && matchesSearch(displayCol(c)));
+          const meas = cols.filter((c) => dts[c] === "number" && !isDimensionType(rich(c)) && matchesSearch(displayCol(c)));
+
+          const dsOpen   = isOpen(`ds_${ds.id}`, isActive || isSystem);
           const dimsOpen = isOpen(`dim_${ds.id}`, true);
           const measOpen = isOpen(`mea_${ds.id}`, true);
 
-          const onChipDrag = () => { if (!isActive) activateDataset(ds.id); };
+          // Calendar fields resolve via the active dataset's join — don't switch
+          // the active dataset when dragging them. Fact datasets activate on drag.
+          const onChipDrag = () => { if (!isSystem && !isActive) activateDataset(ds.id); };
 
           return (
             <div key={ds.id} className="rounded-xl border" style={{
@@ -167,13 +176,17 @@ export default function FieldPane() {
             }}>
               {/* Dataset header */}
               <button
-                onClick={() => { if (!isActive) activateDataset(ds.id); toggle(`ds_${ds.id}`, isActive); }}
+                onClick={() => { if (!isSystem && !isActive) activateDataset(ds.id); toggle(`ds_${ds.id}`, isActive || isSystem); }}
                 className="flex w-full items-center gap-1.5 px-2 py-1.5 text-left"
               >
                 <ChevronRight size={12} style={{ color: T.muted, transform: dsOpen ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
-                <Database size={12} style={{ color: isActive ? T.accent : T.dim, flexShrink: 0 }} />
+                {isSystem
+                  ? <Calendar size={12} style={{ color: isActive ? T.accent : T.dim, flexShrink: 0 }} />
+                  : <Database size={12} style={{ color: isActive ? T.accent : T.dim, flexShrink: 0 }} />}
                 <span className="truncate text-[12.5px] font-semibold" style={{ color: isActive ? T.accent : T.text }}>{ds.name}</span>
-                {isActive && <span className="ml-auto rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase"
+                {isSystem && <span className="ml-auto rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase"
+                  style={{ background: "rgba(var(--dc-accent-rgb),0.18)", color: T.accent }}>Native</span>}
+                {isActive && !isSystem && <span className="ml-auto rounded-full px-1.5 py-0.5 text-[8.5px] font-bold uppercase"
                   style={{ background: T.accent, color: "#000" }}>Active</span>}
               </button>
 
