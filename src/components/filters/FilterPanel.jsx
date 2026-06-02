@@ -195,24 +195,34 @@ function ActiveBadge({ filterValue, T }) {
   );
 }
 
-// ── Main panel ─────────────────────────────────────────────────────────────
+// ── Main panel — drag dimensions here to create slicers ─────────────────────
 export default function FilterPanel() {
   const T = useTheme();
   const { rows, columns, dataTypes } = useEffectiveData();
   const filters              = useStore((s) => s.filters);
   const setGlobalFilter      = useStore((s) => s.setGlobalFilter);
   const clearGlobalFilters   = useStore((s) => s.clearGlobalFilters);
+  const reportFilterFields   = useStore((s) => s.reportFilterFields);
+  const addReportFilter      = useStore((s) => s.addReportFilter);
+  const removeReportFilter   = useStore((s) => s.removeReportFilter);
   const filterBookmarks      = useStore((s) => s.filterBookmarks);
   const saveFilterBookmark   = useStore((s) => s.saveFilterBookmark);
   const applyFilterBookmark  = useStore((s) => s.applyFilterBookmark);
   const deleteFilterBookmark = useStore((s) => s.deleteFilterBookmark);
 
   const [bookmarkName, setBookmarkName] = useState("");
+  const [dragOver, setDragOver] = useState(false);
 
-  const filterableFields = columns.filter((c) => dataTypes[c] !== "number");
   const activeCount = Object.values(filters).filter(
     (v) => v !== "" && v !== null && v !== undefined && !(Array.isArray(v) && !v.length)
   ).length;
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const field = e.dataTransfer.getData("fieldName");
+    if (field) addReportFilter(field);
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -223,48 +233,68 @@ export default function FilterPanel() {
             <Filter size={11} style={{ color: T.accent }} />
             Filters
             {activeCount > 0 && (
-              <span
-                className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-                style={{ background: T.accent, color: "#000" }}
-              >
+              <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold" style={{ background: T.accent, color: "#000" }}>
                 {activeCount}
               </span>
             )}
           </h2>
-          <p className="mt-1 text-[11px]" style={{ color: T.muted }}>Global report filters</p>
+          <p className="mt-1 text-[11px]" style={{ color: T.muted }}>Drag dimensions here to filter</p>
         </div>
         {activeCount > 0 && (
-          <button
-            onClick={clearGlobalFilters}
-            className="rounded-xl border px-2.5 py-1.5 text-[11px]"
-            style={{ borderColor: T.border, background: T.s2, color: T.dim }}
-          >
+          <button onClick={clearGlobalFilters} className="rounded-xl border px-2.5 py-1.5 text-[11px]"
+            style={{ borderColor: T.border, background: T.s2, color: T.dim }}>
             Clear
           </button>
         )}
       </div>
 
-      {/* Scrollable list */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 space-y-3">
-        {filterableFields.map((field) => {
-          const values      = getUniqueValues(rows, field);
+      {/* Scrollable list — drop zone */}
+      <div
+        className="flex-1 min-h-0 overflow-y-auto px-3 pb-4 space-y-3"
+        onDragOver={(e) => { if (e.dataTransfer.types.includes("fieldName")) { e.preventDefault(); setDragOver(true); } }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
+        onDrop={onDrop}
+      >
+        {/* Drop hint / empty state */}
+        <div
+          className="rounded-xl border border-dashed px-3 py-3 text-center text-[11.5px] transition"
+          style={{
+            borderColor: dragOver ? T.accent : T.border,
+            background: dragOver ? T.accentDim : "transparent",
+            color: dragOver ? T.accent : T.muted,
+          }}
+        >
+          {reportFilterFields.length === 0
+            ? "Drag dimensions here to create filters."
+            : "Drop another dimension to add a filter."}
+        </div>
+
+        {reportFilterFields.map((field) => {
+          const valid       = columns.includes(field);
+          const values      = valid ? getUniqueValues(rows, field) : [];
           const isDate      = dataTypes[field] === "date";
           const filterValue = filters[field] ?? "";
 
           return (
-            <div key={field}>
-              <label className="mb-1 flex items-center text-[11.5px] font-medium" style={{ color: T.dim }}>
-                {field}
+            <div key={field} className="rounded-xl border p-2.5" style={{ background: T.s2, borderColor: T.border }}>
+              <div className="mb-1.5 flex items-center gap-1">
+                <span className="flex-1 truncate text-[11.5px] font-semibold" style={{ color: T.text }}>{field}</span>
                 <ActiveBadge filterValue={filterValue} T={T} />
-              </label>
+                <button onClick={() => removeReportFilter(field)} title="Remove filter"
+                  className="rounded p-0.5 opacity-60 hover:opacity-100" style={{ color: T.muted }}>
+                  <X size={12} />
+                </button>
+              </div>
 
-              {isDate ? (
+              {!valid ? (
+                <p className="text-[10.5px] leading-snug" style={{ color: T.muted }}>
+                  Not related to the active dataset — this filter has no effect here.
+                </p>
+              ) : isDate ? (
                 <DateFilter filterValue={filterValue} onSet={(v) => setGlobalFilter(field, v)} T={T} />
               ) : (
-                <StringFilter
-                  field={field} values={values} filterValue={filterValue}
-                  onSet={(v) => setGlobalFilter(field, v)} T={T}
-                />
+                <StringFilter field={field} values={values} filterValue={filterValue}
+                  onSet={(v) => setGlobalFilter(field, v)} T={T} />
               )}
             </div>
           );

@@ -7,12 +7,15 @@ import { useStore } from "../store/useStore";
 import FieldPane    from "../components/fields/FieldPane";
 import FilterPanel  from "../components/filters/FilterPanel";
 import VisualCard   from "../components/builder/VisualCard";
+import AdvancedSettingsPane from "../components/builder/AdvancedSettingsPane";
+import { Settings2 } from "lucide-react";
 import { useTheme } from "../styles/theme";
 
-// ── Fields pane sizing ──
+// ── Pane sizing ──
 const FIELDS_MIN = 200;   // current width = minimum
 const FIELDS_MAX = 380;
 const FIELDS_RAIL = 48;
+const ADV_MIN = 250, ADV_MAX = 440, ADV_DEFAULT = 290;
 
 // Chart-type icon labels for collapsed chips
 const CHART_LABELS = {
@@ -80,9 +83,39 @@ export default function ReportBuilder() {
   const [filterCollapsed, setFilterCollapsed] = useState(() => localStorage.getItem("dc.rbFilterCollapsed") === "true");
   const [dragging, setDragging] = useState(false);
 
+  const [advWidth, setAdvWidth] = useState(() => {
+    const v = parseInt(localStorage.getItem("dc.rbAdvWidth") || "", 10);
+    return isNaN(v) ? ADV_DEFAULT : Math.max(ADV_MIN, Math.min(ADV_MAX, v));
+  });
+  const [advCollapsed, setAdvCollapsed] = useState(() => localStorage.getItem("dc.rbAdvCollapsed") !== "false");
+  const [advDragging, setAdvDragging] = useState(false);
+
   useEffect(() => { localStorage.setItem("dc.rbFieldsWidth", String(fieldsWidth)); }, [fieldsWidth]);
   useEffect(() => { localStorage.setItem("dc.rbFieldsCollapsed", String(fieldsCollapsed)); }, [fieldsCollapsed]);
   useEffect(() => { localStorage.setItem("dc.rbFilterCollapsed", String(filterCollapsed)); }, [filterCollapsed]);
+  useEffect(() => { localStorage.setItem("dc.rbAdvWidth", String(advWidth)); }, [advWidth]);
+  useEffect(() => { localStorage.setItem("dc.rbAdvCollapsed", String(advCollapsed)); }, [advCollapsed]);
+
+  const onAdvResizeStart = useCallback((e) => {
+    e.preventDefault();
+    const startX = e.clientX, startW = advWidth;
+    setAdvDragging(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const onMove = (mv) => {
+      // far-right pane: dragging left widens it
+      const w = Math.max(ADV_MIN, Math.min(ADV_MAX, startW - (mv.clientX - startX)));
+      setAdvWidth(w);
+    };
+    const onUp = () => {
+      document.body.style.cursor = ""; document.body.style.userSelect = "";
+      setAdvDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [advWidth]);
 
   const onFieldsResizeStart = useCallback((e) => {
     e.preventDefault();
@@ -298,6 +331,44 @@ export default function ReportBuilder() {
               <PanelRightClose size={14} />
             </button>
             <FilterPanel />
+          </div>
+        )}
+
+        {/* Advanced Settings pane (far right, collapsible + resizable) */}
+        {advCollapsed ? (
+          <div
+            className="shrink-0 flex flex-col items-center gap-2 border-l py-2"
+            style={{ width: FIELDS_RAIL, background: T.surface, borderColor: T.border }}
+          >
+            <button onClick={() => setAdvCollapsed(false)} title="Expand Advanced Settings"
+              className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ color: T.muted }}>
+              <PanelLeftOpen size={16} />
+            </button>
+            <Settings2 size={15} style={{ color: T.accent }} />
+            <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", fontSize: 10, color: T.dim, letterSpacing: "0.06em", marginTop: 4 }}>
+              Settings
+            </span>
+          </div>
+        ) : (
+          <div
+            className="relative shrink-0 border-l overflow-hidden flex flex-col"
+            style={{ width: advWidth, borderColor: T.border, background: T.surface, transition: advDragging ? "none" : "width 160ms ease" }}
+          >
+            {/* left-edge resize handle */}
+            <div
+              onMouseDown={onAdvResizeStart}
+              title="Drag to resize"
+              style={{ position: "absolute", left: -3, top: 0, bottom: 0, width: 7, cursor: "col-resize", zIndex: 20 }}
+            >
+              <div style={{ position: "absolute", left: 3, top: "50%", transform: "translateY(-50%)", width: 1, height: 48,
+                background: advDragging ? T.accent : "transparent", borderRadius: 1 }} />
+            </div>
+            <button onClick={() => setAdvCollapsed(true)} title="Collapse Advanced Settings"
+              className="absolute right-1.5 top-3 z-10 rounded-lg p-1 transition hover:opacity-80"
+              style={{ color: T.muted, background: T.surface }}>
+              <PanelRightClose size={14} />
+            </button>
+            <AdvancedSettingsPane T={T} />
           </div>
         )}
       </div>

@@ -51,8 +51,14 @@ export const applyGlobalFilters = (rows, filters) => {
   if (!rows?.length) return [];
   if (!filters || Object.keys(filters).length === 0) return rows;
 
+  // Ignore filters whose field isn't present in the data (e.g. a dimension from
+  // an unrelated dataset with no relationship) so the report never breaks.
+  const sample = rows[0];
+  const activeEntries = Object.entries(filters).filter(([field]) => field in sample);
+  if (!activeEntries.length) return rows;
+
   return rows.filter((row) =>
-    Object.entries(filters).every(([field, filterValue]) => {
+    activeEntries.every(([field, filterValue]) => {
       // Empty / no filter
       if (
         filterValue === undefined ||

@@ -265,7 +265,8 @@ export default function VisualCard({ visual, onCollapse }) {
         </div>
       )}
 
-      {/* ── Advanced Settings ── */}
+      {/* ── Advanced Settings — moved to the far-right pane (AdvancedSettingsPane) ── */}
+      {false && (
       <div
         className="mb-3 rounded-xl border"
         style={{ background: T.s2, borderColor: T.border }}
@@ -712,6 +713,7 @@ export default function VisualCard({ visual, onCollapse }) {
           </div>
         )}
       </div>
+      )}
 
       {/* Add to Dashboard */}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2.5"

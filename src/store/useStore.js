@@ -169,6 +169,9 @@ export const useStore = create(
       // ── Filter bookmarks (Phase 1) ──
       filterBookmarks: [],
 
+      // ── Report filter slicers — ordered dimension fields dropped into the filter pane ──
+      reportFilterFields: [],
+
       // ── Cross-filter — transient, not persisted ──
       crossFilter: {},
 
@@ -285,6 +288,7 @@ export const useStore = create(
           scenarios: [],
           activeScenarioId: null,
           filterBookmarks: [],
+          reportFilterFields: [],
           relationships: autoRels,
           modelLayout: {},
           modelPages: [],
@@ -329,6 +333,7 @@ export const useStore = create(
           activeDatasetId: wb.activeDatasetId ?? fallbackId,
           apiConnectors: wb.apiConnectors ?? [],
           filters: wb.filters ?? {},
+          reportFilterFields: wb.reportFilterFields ?? [],
           visuals: wb.visuals ?? [],
           activeVisualId: wb.activeVisualId ?? null,
           hierarchies: wb.hierarchies ?? [],
@@ -658,6 +663,24 @@ export const useStore = create(
               workbook_id: useStore.getState().cloudWorkbookId });
         set({ filters: {} });
       },
+
+      // ── Report filter slicers (drag-dropped dimensions) ──
+      addReportFilter: (field) =>
+        set((state) =>
+          state.reportFilterFields.includes(field)
+            ? state
+            : { reportFilterFields: [...state.reportFilterFields, field] }
+        ),
+
+      removeReportFilter: (field) =>
+        set((state) => {
+          const next = { ...state.filters };
+          delete next[field];
+          return {
+            reportFilterFields: state.reportFilterFields.filter((f) => f !== field),
+            filters: next,
+          };
+        }),
 
       addHierarchy: (hierarchy) =>
         set((state) => ({ hierarchies: [...state.hierarchies, hierarchy] })),
@@ -1273,6 +1296,7 @@ export const useStore = create(
         activeDatasetId: state.activeDatasetId,
         apiConnectors: state.apiConnectors,
         filters: state.filters,
+        reportFilterFields: state.reportFilterFields,
         visuals: state.visuals,
         activeVisualId: state.activeVisualId,
         hierarchies: state.hierarchies,
