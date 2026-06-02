@@ -358,6 +358,29 @@ export const useStore = create(
         });
       },
 
+      // Full workbook snapshot — used for cloud/workspace file storage + file export.
+      exportWorkbook: () => {
+        const s = get();
+        return {
+          version: "1.0",
+          savedAt: new Date().toISOString(),
+          rawData: s.rawData, columns: s.columns, dataTypes: s.dataTypes,
+          datasets: s.datasets, activeDatasetId: s.activeDatasetId,
+          apiConnectors: s.apiConnectors,
+          filters: s.filters, reportFilterFields: s.reportFilterFields,
+          visuals: s.visuals, activeVisualId: s.activeVisualId,
+          hierarchies: s.hierarchies, dashboards: s.dashboards, activeDashboardId: s.activeDashboardId,
+          themeMode: s.themeMode, themeAccent: s.themeAccent,
+          calculatedFields: s.calculatedFields,
+          scenarios: s.scenarios, activeScenarioId: s.activeScenarioId,
+          filterBookmarks: s.filterBookmarks,
+          relationships: s.relationships, modelLayout: s.modelLayout,
+          modelPages: s.modelPages, activeModelPageId: s.activeModelPageId,
+          measures: s.measures, metrics: s.metrics,
+          columnAliases: s.columnAliases, columnFormats: s.columnFormats,
+        };
+      },
+
       // ── Dataset slot actions ──
 
       addDataset: ({ name, rows, columns, dataTypes, sourceType = "file", sourceConfig = {} }) =>

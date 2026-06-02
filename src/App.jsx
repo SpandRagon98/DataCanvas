@@ -326,6 +326,12 @@ function Sidebar({
           )}
         </button>
 
+        {/* Workspaces — always available (local-first; works with or without cloud) */}
+        <button onClick={onOpenWorkspace} data-label="Workspaces" className="nav-link w-full text-left">
+          <Building2 size={14} strokeWidth={1.8} style={{ flexShrink: 0 }} />
+          {!collapsed && <span className="nav-label truncate">Workspaces</span>}
+        </button>
+
         {/* ── Cloud section ── */}
         {CLOUD_ENABLED && (
           <>
@@ -366,7 +372,6 @@ function Sidebar({
               { icon: Share2,       label: "Share Dashboard",  onClick: onOpenShare },
               { icon: History,      label: "Version History",  onClick: onOpenHistory },
               { icon: MessageSquare,label: "Comments",         onClick: onOpenComments },
-              { icon: Building2,    label: "Workspaces",       onClick: onOpenWorkspace },
               { icon: CalendarClock,label: "Scheduled Reports",onClick: onOpenScheduled },
               { icon: ClipboardList,label: "Audit Log",        onClick: onOpenAuditLog },
             ].map(({ icon: Icon, label, onClick }) => (
